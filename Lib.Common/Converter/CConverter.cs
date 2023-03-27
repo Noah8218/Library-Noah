@@ -35,6 +35,8 @@ namespace Lib.Common
         public static OpenCvSharp.Rect RectToCVRect(System.Drawing.Rectangle rt) => new OpenCvSharp.Rect(rt.X, rt.Y, rt.Width, rt.Height);
         public static System.Drawing.Rectangle CVRectToRect(OpenCvSharp.Rect rt) => new System.Drawing.Rectangle(rt.X, rt.Y, rt.Width, rt.Height);
 
+        public static OpenCvSharp.Point CenterofRect(Rect rt) => new OpenCvSharp.Point(rt.X + rt.Width / 2, rt.Y + rt.Height / 2);
+    
         public static Rectangle StringToRectangle(string strROI)
         {
             Rectangle ROI = new Rectangle();

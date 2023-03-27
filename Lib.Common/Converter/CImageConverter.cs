@@ -8,7 +8,7 @@ using System.Text;
 
 namespace Lib.Common
 {
-    public static class CImage
+    public static class CImageConverter
     {
         public static Bitmap ToBitmap(OpenCvSharp.Mat image) => OpenCvSharp.Extensions.BitmapConverter.ToBitmap(image);
         public static Mat ToMat(Bitmap image) => OpenCvSharp.Extensions.BitmapConverter.ToMat(image);
