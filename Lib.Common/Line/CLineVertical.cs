@@ -199,9 +199,9 @@ namespace Lib.Line
                     End = Edge[(Cnt + 1)];
                 }
 
-                OpenCvSharp.Line2D Line = Cv2.FitLine(CLineVertical.GetRangePoint(Cnt, POINT_RANGE, Edge), DistanceTypes.L2, 0, 0.01, 0.01);
+                OpenCvSharp.Line2D Line = Cv2.FitLine(GetRangePoint(Cnt, POINT_RANGE, Edge), DistanceTypes.L2, 0, 0.01, 0.01);
                 double T = Math.Tan(Line.GetVectorRadian());
-                CLineVertical.GetLineCoef(Start, End, new OpenCvSharp.Rect(0, 0, ImageW, ImageH), VER_PRJ_DIR, T, out VerLine);
+                GetLineCoef(Start, End, new OpenCvSharp.Rect(0, 0, ImageW, ImageH), VER_PRJ_DIR, T, out VerLine);
 
                 System.Drawing.Point ptStart = new System.Drawing.Point(VerLine[0].X, VerLine[0].Y);
                 System.Drawing.Point ptEnd = new System.Drawing.Point(VerLine[VerLine.Count - 1].X, VerLine[VerLine.Count - 1].Y);
