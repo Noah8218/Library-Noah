@@ -13,6 +13,7 @@
 
   <ItemGroup>
     <PackageReference Include="OpenCvSharp4" Version="4.4.0.20200915" />
+    <PackageReference Include="System.IO.Ports" Version="7.0.0" />
   </ItemGroup>
 
   <ItemGroup>

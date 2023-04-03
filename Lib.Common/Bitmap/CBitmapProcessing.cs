@@ -36,7 +36,7 @@ namespace Lib.Common
         /// <param name="cutoff">컷오프</param>
         public static void ApplyBinaryContrast(Bitmap targetBitmap, int cutoff)
         {
-            BitmapHelper helper = new BitmapHelper(targetBitmap);
+            CBitmapHelper helper = new CBitmapHelper(targetBitmap);
 
             helper.LockBitmap();
 

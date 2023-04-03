@@ -13,6 +13,7 @@ namespace Lib.Common
     {
         public enum PROJECTION_POLARITY : uint { BTOW = 0, WTOB = 1, ALL = 2, WTOBTOW };
         public enum PROJECTION_DIR : uint { X_LTOR = 0, X_RTOL, Y_TTOB, Y_BTOT, DIAG };
+        public enum Direction { LeftToRight, RightToLeft, ToptoBottom, BottomToTop }
 
         public static bool FindIntersection(CLine BaseLine/*수직선*/, CLine BaseTarget/*상판이나 하판*/, out OpenCvSharp.Point ptIntersection)
         {

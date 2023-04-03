@@ -7,7 +7,7 @@ namespace Lib.Common
     /// <summary>
     /// 비트맵 헬퍼
     /// </summary>
-    public class BitmapHelper
+    public class CBitmapHelper
     {
         //////////////////////////////////////////////////////////////////////////////////////////////////// Field
         ////////////////////////////////////////////////////////////////////////////////////////// Public
@@ -88,7 +88,7 @@ namespace Lib.Common
         /// 생성자
         /// </summary>
         /// <param name="bitmap">비트맵</param>
-        public BitmapHelper(Bitmap bitmap)
+        public CBitmapHelper(Bitmap bitmap)
         {
             this.bitmap = bitmap;
         }
