@@ -21,8 +21,14 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Reference Include="System.Windows.Controls.WpfPropertyGrid">
+      <HintPath>DLL\System.Windows.Controls.WpfPropertyGrid.dll</HintPath>
+    </Reference>
     <Reference Include="System.Windows.Forms">
       <HintPath>DLL\System.Windows.Forms.dll</HintPath>
+    </Reference>
+    <Reference Include="WindowsBase">
+      <HintPath>DLL\WindowsBase.dll</HintPath>
     </Reference>
   </ItemGroup>
 

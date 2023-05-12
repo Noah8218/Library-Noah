@@ -4,9 +4,9 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text;
 
-namespace Lib.Opencv
+namespace Lib.OpenCV
 {
-    public class COpencvHelper
+    public class COpenCVHelper
     {
         public static bool IsMatEmpty(Mat MatSource)
         {
@@ -31,7 +31,7 @@ namespace Lib.Opencv
 
             catch (Exception Desc)
             {
-                CLOG.ABNORMAL($"[FAILED] {MethodBase.GetCurrentMethod().ReflectedType.Name}==>{MethodBase.GetCurrentMethod().Name}   Execption ==> {Desc.Message}");
+                //CLOG.ABNORMAL($"[FAILED] {MethodBase.GetCurrentMethod().ReflectedType.Name}==>{MethodBase.GetCurrentMethod().Name}   Execption ==> {Desc.Message}");
                 return false;
             }
         }

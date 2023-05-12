@@ -7,7 +7,7 @@ using System.Drawing;
 
 namespace Lib.Common
 {
-    public class CUtil_UIcs
+    public class CUtil_UI
     {
         public static void txtInterval_KeyPress(object sender, KeyPressEventArgs e)
         {
