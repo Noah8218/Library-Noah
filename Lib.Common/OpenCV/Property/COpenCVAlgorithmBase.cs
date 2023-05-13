@@ -9,6 +9,8 @@ namespace Lib.OpenCV.Property
     {
         public COpenCVAlgorithmBase() { }
         public Mat imageSource { get; set; } = new Mat();
+        public Mat imageResult { get; set; } = new Mat();
+        public Mat imageTemplate { get; set; } = new Mat();
 
         public Stopwatch swTaktTimems = new Stopwatch();
 

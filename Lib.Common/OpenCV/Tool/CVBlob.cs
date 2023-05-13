@@ -2,10 +2,8 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Drawing;
 using System.Linq;
 using System.Threading.Tasks;
-using Lib.OpenCV;
 using Lib.OpenCV.Property;
 using Lib.OpenCV.Result;
 using OpenCvSharp;

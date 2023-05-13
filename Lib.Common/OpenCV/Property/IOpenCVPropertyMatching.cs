@@ -1,11 +1,4 @@
 ﻿using OpenCvSharp;
-using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Text;
-using System.Windows.Controls.WpfPropertyGrid;
-using System.Xml.Serialization;
-
 namespace Lib.OpenCV.Property
 {
     public interface IOpenCVPropertyMatching : IOpenCVPropertyBase

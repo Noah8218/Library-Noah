@@ -25,6 +25,8 @@ namespace Lib.Common
         public static OpenCvSharp.Point RectOfCenter(Rect rt) => new OpenCvSharp.Point(rt.X + rt.Width / 2, rt.Y + rt.Height / 2);
         public static OpenCvSharp.Point RectangleOfCenter(OpenCvSharp.Rect rt) => new OpenCvSharp.Point(rt.X + rt.Width / 2, rt.Y + rt.Height / 2);
         public static System.Drawing.Point RectangleOfCenter(Rectangle rt) => new System.Drawing.Point(rt.X + rt.Width / 2, rt.Y + rt.Height / 2);
+        public static PointF Center(this Rectangle rect) => new PointF((float)rect.Left + (float)rect.Width / 2f, (float)rect.Top + (float)rect.Height / 2f);    
+        public static PointF Center(this RectangleF rect) => new PointF(rect.Left + rect.Width / 2f, rect.Top + rect.Height / 2f);  
         public static string ColorToString(Color cr) => string.Format("{0},{1},{2}", cr.R, cr.G, cr.B);
         public static Rectangle RectToRectangle(Rect rect) => new Rectangle() { X = rect.X, Y = rect.Y, Width = rect.Width, Height = rect.Height };    
         public static Rect RectangleToRect(Rectangle rectangle) => new Rect() { X = rectangle.X, Y = rectangle.Y, Width = rectangle.Width, Height = rectangle.Height };    

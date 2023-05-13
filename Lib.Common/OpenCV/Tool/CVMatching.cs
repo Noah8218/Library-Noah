@@ -14,9 +14,7 @@ namespace Lib.OpenCV.Tool
     public partial class CVMatching : COpenCVAlgorithmBase
     {
         public IOpenCVPropertyMatching property;
-        public List<CResultMatching> results = new List<CResultMatching>();
-        public Mat imageTemplate { get; set; } = null;
-
+        public List<CResultMatching> results = new List<CResultMatching>();        
         public CVMatching() { }
         
         public void SetTemplateImage(Mat Image) => imageTemplate = Image;

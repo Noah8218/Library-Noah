@@ -1,11 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Data;
-using System.Diagnostics;
-using System.Drawing;
 using System.Linq;
-using System.Reflection;
 using System.Threading.Tasks;
 using Lib.Common;
 using Lib.OpenCV.Property;
@@ -19,8 +15,7 @@ namespace Lib.OpenCV.Tool
         public IOpenCVPropertyContour property;
 
         public List<CResultContour> results = new List<CResultContour>();
-        public Mat imageResult { get; set; } = null;
-
+        
         public CVContour() { }
 
         public void SetProperty(IOpenCVPropertyContour propertyBase) => property = propertyBase;
