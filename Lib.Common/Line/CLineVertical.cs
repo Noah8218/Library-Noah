@@ -254,6 +254,7 @@ namespace Lib.Line
             List<CLine> intersectionLines = new List<CLine>();
             if (Edges.Count == 0)
             {
+                CLOG.ABNORMAL($"Not Exists Edge, Check Parameter");
                 Debug.WriteLine($"Not Exists Edge, Check Parameter");
                 return intersectionLines;
             }

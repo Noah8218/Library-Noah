@@ -12,6 +12,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="log4net" Version="2.0.15" />
     <PackageReference Include="OpenCvSharp4" Version="4.4.0.20200915" />
     <PackageReference Include="System.IO.Ports" Version="7.0.0" />
   </ItemGroup>
@@ -21,6 +22,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Reference Include="OpenCvSharp.Blob">
+      <HintPath>DLL\OpenCvSharp.Blob.dll</HintPath>
+    </Reference>
     <Reference Include="System.Windows.Controls.WpfPropertyGrid">
       <HintPath>DLL\System.Windows.Controls.WpfPropertyGrid.dll</HintPath>
     </Reference>

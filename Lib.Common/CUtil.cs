@@ -57,12 +57,12 @@ namespace Lib.Common
                     }
                 }
 
-                Debug.WriteLine($"[OK] {MethodBase.GetCurrentMethod().ReflectedType.Name}==>{MethodBase.GetCurrentMethod().Name}");                
+                CLOG.NORMAL($"[OK] {MethodBase.GetCurrentMethod().ReflectedType.Name}==>{MethodBase.GetCurrentMethod().Name}");                
                 return true;
             }
             catch (Exception Desc)
             {
-                Debug.WriteLine($"[FAILED] {MethodBase.GetCurrentMethod().ReflectedType.Name}==>{MethodBase.GetCurrentMethod().Name}   Execption ==> {Desc.Message}");                
+                CLOG.ABNORMAL($"[FAILED] {MethodBase.GetCurrentMethod().ReflectedType.Name}==>{MethodBase.GetCurrentMethod().Name}   Execption ==> {Desc.Message}");                
                 return false;
             }
         }
@@ -78,13 +78,13 @@ namespace Lib.Common
                 if (ofd.ShowDialog() == DialogResult.OK)
                 {
                     string strFilePath = ofd.FileName;
-                    Debug.WriteLine($"[OK] {MethodBase.GetCurrentMethod().ReflectedType.Name}==>{MethodBase.GetCurrentMethod().Name}");
+                    CLOG.NORMAL($"[OK] {MethodBase.GetCurrentMethod().ReflectedType.Name}==>{MethodBase.GetCurrentMethod().Name}");
                     return strFilePath;
                 }
             }
             catch (Exception Desc)
             {
-                Debug.WriteLine($"[FAILED] {MethodBase.GetCurrentMethod().ReflectedType.Name}==>{MethodBase.GetCurrentMethod().Name}   Execption ==> {Desc.Message}");
+                CLOG.ABNORMAL($"[FAILED] {MethodBase.GetCurrentMethod().ReflectedType.Name}==>{MethodBase.GetCurrentMethod().Name}   Execption ==> {Desc.Message}");
                 return "";
             }
 
@@ -104,13 +104,13 @@ namespace Lib.Common
                 if (ofd.ShowDialog() == DialogResult.OK)
                 {
                     Images = ofd.FileNames;
-                    Debug.WriteLine($"[OK] {MethodBase.GetCurrentMethod().ReflectedType.Name}==>{MethodBase.GetCurrentMethod().Name}");
+                    CLOG.NORMAL($"[OK] {MethodBase.GetCurrentMethod().ReflectedType.Name}==>{MethodBase.GetCurrentMethod().Name}");
                     return Images;
                 }
             }
             catch (Exception Desc)
             {
-                Debug.WriteLine($"[FAILED] {MethodBase.GetCurrentMethod().ReflectedType.Name}==>{MethodBase.GetCurrentMethod().Name}   Execption ==> {Desc.Message}");
+                CLOG.ABNORMAL($"[FAILED] {MethodBase.GetCurrentMethod().ReflectedType.Name}==>{MethodBase.GetCurrentMethod().Name}   Execption ==> {Desc.Message}");
                 return Images;
             }
 
@@ -127,13 +127,13 @@ namespace Lib.Common
                 if (ofd.ShowDialog() == DialogResult.OK)
                 {
                     string strFilePath = ofd.FileName;
-                    Debug.WriteLine($"[OK] {MethodBase.GetCurrentMethod().ReflectedType.Name}==>{MethodBase.GetCurrentMethod().Name}");
+                    CLOG.NORMAL($"[OK] {MethodBase.GetCurrentMethod().ReflectedType.Name}==>{MethodBase.GetCurrentMethod().Name}");
                     return strFilePath;
                 }
             }
             catch (Exception Desc)
             {
-                Debug.WriteLine($"[FAILED] {MethodBase.GetCurrentMethod().ReflectedType.Name}==>{MethodBase.GetCurrentMethod().Name}   Execption ==> {Desc.Message}");
+                CLOG.ABNORMAL($"[FAILED] {MethodBase.GetCurrentMethod().ReflectedType.Name}==>{MethodBase.GetCurrentMethod().Name}   Execption ==> {Desc.Message}");
                 return "";
             }
 
@@ -151,13 +151,13 @@ namespace Lib.Common
                 if (sfd.ShowDialog() == DialogResult.OK)
                 {
                     string strFilePath = sfd.FileName;
-                    Debug.WriteLine($"[OK] {MethodBase.GetCurrentMethod().ReflectedType.Name}==>{MethodBase.GetCurrentMethod().Name}");
+                    CLOG.NORMAL($"[OK] {MethodBase.GetCurrentMethod().ReflectedType.Name}==>{MethodBase.GetCurrentMethod().Name}");
                     return strFilePath;
                 }
             }
             catch (Exception Desc)
             {
-                Debug.WriteLine($"[FAILED] {MethodBase.GetCurrentMethod().ReflectedType.Name}==>{MethodBase.GetCurrentMethod().Name}   Execption ==> {Desc.Message}");
+                CLOG.ABNORMAL($"[FAILED] {MethodBase.GetCurrentMethod().ReflectedType.Name}==>{MethodBase.GetCurrentMethod().Name}   Execption ==> {Desc.Message}");
                 return "";
             }
 
@@ -290,7 +290,7 @@ namespace Lib.Common
             #endregion
             catch (Exception Desc)
             {
-                Debug.WriteLine($"[FAILED] {MethodBase.GetCurrentMethod().ReflectedType.Name}==>{MethodBase.GetCurrentMethod().Name}   Execption ==> {Desc.Message}");
+                CLOG.ABNORMAL($"[FAILED] {MethodBase.GetCurrentMethod().ReflectedType.Name}==>{MethodBase.GetCurrentMethod().Name}   Execption ==> {Desc.Message}");
             }
         }
 
@@ -369,7 +369,7 @@ namespace Lib.Common
             }
             catch (Exception Desc)
             {
-                 Debug.WriteLine($"[FAILED] {MethodBase.GetCurrentMethod().ReflectedType.Name}==>{MethodBase.GetCurrentMethod().Name}   Execption ==> {Desc.Message}");
+                 CLOG.ABNORMAL($"[FAILED] {MethodBase.GetCurrentMethod().ReflectedType.Name}==>{MethodBase.GetCurrentMethod().Name}   Execption ==> {Desc.Message}");
             }
         }
 
@@ -385,7 +385,7 @@ namespace Lib.Common
             }
             catch (Exception Desc)
             {
-                Debug.WriteLine($"[FAILED] {MethodBase.GetCurrentMethod().ReflectedType.Name}==>{MethodBase.GetCurrentMethod().Name}   Execption ==> {Desc.Message}");
+                CLOG.ABNORMAL($"[FAILED] {MethodBase.GetCurrentMethod().ReflectedType.Name}==>{MethodBase.GetCurrentMethod().Name}   Execption ==> {Desc.Message}");
                 return false;
             }
         }

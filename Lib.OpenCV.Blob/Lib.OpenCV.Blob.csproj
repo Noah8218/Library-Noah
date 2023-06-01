@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="OpenCvSharp4" Version="4.4.0.20200915" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="Lib.Common">
+      <HintPath>..\Lib.Common\bin\Debug\netstandard2.0\Lib.Common.dll</HintPath>
+    </Reference>
+    <Reference Include="Lib.OpenCV">
+      <HintPath>..\Lib.OpenCV\bin\Debug\netstandard2.0\Lib.OpenCV.dll</HintPath>
+    </Reference>
+    <Reference Include="OpenCvSharp.Blob">
+      <HintPath>..\Lib.Common\DLL\OpenCvSharp.Blob.dll</HintPath>
+    </Reference>
+    <Reference Include="OpenCvSharp.Extensions">
+      <HintPath>..\Lib.Common\DLL\OpenCvSharp.Extensions.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Windows.Forms">
+      <HintPath>..\Lib.Common\DLL\System.Windows.Forms.dll</HintPath>
+    </Reference>
+    <Reference Include="WindowsBase">
+      <HintPath>..\Lib.Common\DLL\WindowsBase.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+</Project>

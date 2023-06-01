@@ -1,0 +1,25 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="OpenCvSharp4" Version="4.5.1.20210210" />
+    <PackageReference Include="System.Drawing.Common" Version="6.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="Lib.Common">
+      <HintPath>bin\Debug\netstandard2.0\Lib.Common.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Windows.Forms">
+      <HintPath>..\Lib.Common\DLL\System.Windows.Forms.dll</HintPath>
+    </Reference>
+    <Reference Include="WindowsBase">
+      <HintPath>..\Lib.Common\DLL\WindowsBase.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+</Project>
