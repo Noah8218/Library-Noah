@@ -18,7 +18,7 @@ namespace Lib.OpenCV.Tool
         public List<CResultMatching> results = new List<CResultMatching>();        
         public CVMatching() { }
         
-        public void SetTemplateImage(Mat Image) => imageTemplate = Image;
+        public void SetTemplateImage(Mat Image) => imageTemplate = Image.Clone();
        
         public void SetProperty(IOpenCVPropertyMatching property) => this.property = property;
      
@@ -38,7 +38,10 @@ namespace Lib.OpenCV.Tool
                 OpenCvSharp.Point ptEnd = new OpenCvSharp.Point(ptMaxLocation.X + (ImageTplW), ptMaxLocation.Y + (ImageTplH));
                 double dScore = dMaxScore * 100.0D;
 
-                Rect2f rtBounding = new Rect2f(ptStart.X + CvROI.X, ptStart.Y + CvROI.Y, ptEnd.X - ptStart.X, ptEnd.Y - ptStart.Y);
+                Rect2f rtBounding = new Rect2f();
+                if (property.USE_ROI) { rtBounding = new Rect2f(ptStart.X + CvROI.X, ptStart.Y + CvROI.Y, ptEnd.X - ptStart.X, ptEnd.Y - ptStart.Y); }
+                else { rtBounding = new Rect2f(ptStart.X, ptStart.Y, ptEnd.X - ptStart.X, ptEnd.Y - ptStart.Y); }
+                
                 OpenCvSharp.Point2f ptCenter = new OpenCvSharp.Point2f((rtBounding.X + (rtBounding.X + rtBounding.Width)) / 2, (rtBounding.Y + (rtBounding.Y + rtBounding.Height)) / 2);
                 Results_T.Add(new CResultMatching(0, dScore, ptCenter, rtBounding, angle));
             }
@@ -81,7 +84,7 @@ namespace Lib.OpenCV.Tool
 
                 for(int i = 0; i < property.CvROIS.Count; i++)
                 {
-                    if (property.CvROIS[i].Width == 0 || property.CvROIS[i].Height == 0)
+                    if (property.CvROIS[i].Width == 0 || property.CvROIS[i].Height == 0 || !property.USE_ROI)
                     {
                         property.CvROIS[i] = new Rect(0, 0, imageSource.Width, imageSource.Height);
                     }
@@ -115,8 +118,8 @@ namespace Lib.OpenCV.Tool
                         Cv2.Canny(imageTemplate, imageTemplate, property.CANNY_LOW, property.CANNY_HIGH, 3, true);
                         Cv2.Canny(imageSource, imageSource, property.CANNY_LOW, property.CANNY_HIGH, 3, true);
                     }
-
-                    using (Mat ImageSrc = imageSource.SubMat(property.CvROIS[i]))
+                    
+                    using (Mat ImageSrc = property.USE_ROI ? imageSource.SubMat(property.CvROIS[i]) : imageSource.Clone())
                     using (Mat ImageSubMat = ImageSrc.Resize(new OpenCvSharp.Size((int)(ImageSrc.Width / property.MAGNIFIATION), (int)(ImageSrc.Height / property.MAGNIFIATION))))
                     using (Mat ImageTpl = imageTemplate.Resize(new OpenCvSharp.Size((int)(imageTemplate.Width / property.MAGNIFIATION), (int)(imageTemplate.Height / property.MAGNIFIATION))))
                     {
@@ -247,7 +250,7 @@ namespace Lib.OpenCV.Tool
 
                 Mat ImageMatching = new Mat();
 
-                if (property.CvROI.Width == 0 || property.CvROI.Height == 0)
+                if (property.CvROI.Width == 0 || property.CvROI.Height == 0 || !property.USE_ROI)
                 {
                     property.CvROI = new Rect(0, 0, imageSource.Width, imageSource.Height);
                 }
@@ -282,7 +285,7 @@ namespace Lib.OpenCV.Tool
                     Cv2.Canny(imageSource, imageSource, property.CANNY_LOW, property.CANNY_HIGH, 3, true);
                 }
 
-                using (Mat ImageSrc = imageSource.SubMat(property.CvROI))
+                using (Mat ImageSrc = property.USE_ROI ? imageSource.SubMat(property.CvROI) : imageSource.Clone())
                 using (Mat ImageSubMat = ImageSrc.Resize(new OpenCvSharp.Size((int)(ImageSrc.Width / property.MAGNIFIATION), (int)(ImageSrc.Height / property.MAGNIFIATION))))
                 using (Mat ImageTpl = imageTemplate.Resize(new OpenCvSharp.Size((int)(imageTemplate.Width / property.MAGNIFIATION), (int)(imageTemplate.Height / property.MAGNIFIATION))))
                 {
