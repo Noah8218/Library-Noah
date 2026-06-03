@@ -88,33 +88,51 @@ namespace Lib.OpenCV.Tool
 
                 Parallel.ForEach(Contours, (item, state, index) =>
                 {
-                    RotatedRect rrect = new RotatedRect();
-                    Rect rt = new Rect();
+                    RotatedRect rrect;
+                    Rect rt;
+
                     double dContourArea = Cv2.ContourArea(item, false);
 
-                    if ((dContourArea >= MinArea) && (dContourArea <= MaxArea))
+                    if (dContourArea < MinArea || dContourArea > MaxArea)
+                        return;
+
+                    OpenCvSharp.Point[] contourForDraw;
+                    OpenCvSharp.Point[] contourForCalc;
+
+                    if (property.USE_APPROXPOLYDP)
                     {
-                        if (property.USE_APPROXPOLYDP)
-                        {
-                            double peri = Cv2.ArcLength(item, true);
-                            pp = Cv2.ApproxPolyDP(item, property.EPSILON * peri, true);
+                        double peri = Cv2.ArcLength(item, true);
 
-                            rt = Cv2.BoundingRect(pp);
-                            rrect = Cv2.MinAreaRect(pp);
+                        // 핵심: pp를 지역 변수로 선언
+                        OpenCvSharp.Point[] approxPoints =
+                            Cv2.ApproxPolyDP(item, property.EPSILON * peri, true);
 
-                            drawContours.Add(pp);
-                        }
-                        else
-                        {
-                            rrect = Cv2.MinAreaRect(item);
-                            rt = Cv2.BoundingRect(item);
-                            drawContours.Add(item);
-                        }
-                        double areaRatio = Math.Abs(Cv2.ContourArea(item, false)) / (rrect.Size.Width * rrect.Size.Height);
-                        OpenCvSharp.Point ptCenter = new OpenCvSharp.Point(rt.X + rt.Width / 2, rt.Y + rt.Height / 2);
-
-                        filteredContours.Add(new CResultContour((int)index, dContourArea, ptCenter, rt, item, Math.Round(rrect.Angle, 1)));
+                        contourForCalc = approxPoints;
+                        contourForDraw = approxPoints;
                     }
+                    else
+                    {
+                        contourForCalc = item;
+                        contourForDraw = item;
+                    }
+
+                    rt = Cv2.BoundingRect(contourForCalc);
+                    rrect = Cv2.MinAreaRect(contourForCalc);
+
+                    drawContours.Add(contourForDraw);
+
+                    OpenCvSharp.Point ptCenter = new OpenCvSharp.Point(
+                        rt.X + rt.Width / 2,
+                        rt.Y + rt.Height / 2);
+
+                    filteredContours.Add(
+                        new CResultContour(
+                            (int)index,
+                            dContourArea,
+                            ptCenter,
+                            rt,
+                            contourForDraw,
+                            Math.Round(rrect.Angle, 1)));
                 });
 
                 if (property.USE_DRAW_IMAGE) { Cv2.DrawContours(imageResult, drawContours.ToArray(), -1, new Scalar(property.DrawColor.B, property.DrawColor.G, property.DrawColor.R, property.DrawColor.A), property.DrawThickness, LineTypes.Link4); }
