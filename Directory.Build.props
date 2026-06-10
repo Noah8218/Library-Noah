@@ -1,0 +1,11 @@
+﻿<Project>
+  <PropertyGroup>
+    <Authors>OpenVisionLab</Authors>
+    <Company>OpenVisionLab</Company>
+    <Version>2.1.0</Version>
+    <PackageVersion>2.1.0</PackageVersion>
+    <RepositoryType>git</RepositoryType>
+    <PackageOutputPath>$(MSBuildThisFileDirectory)artifacts\packages</PackageOutputPath>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+  </PropertyGroup>
+</Project>

@@ -1,10 +1,11 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <Platforms>AnyCPU;x64</Platforms>
     <PlatformTarget>AnyCPU</PlatformTarget>
     <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
+    <PackageDescription>Common utilities and OpenCV runtime assets for OpenVisionLab.</PackageDescription>
   </PropertyGroup>
 
   <ItemGroup>
@@ -12,8 +13,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="log4net" Version="2.0.15" />
-    <PackageReference Include="OpenCvSharp4" Version="4.4.0.20200915" />
+    <PackageReference Include="log4net" Version="3.3.1" />
+    <PackageReference Include="System.Drawing.Common" Version="8.0.27" />
     <PackageReference Include="System.IO.Ports" Version="7.0.0" />
   </ItemGroup>
 
@@ -22,11 +23,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Reference Include="OpenCvSharp.Blob">
-      <HintPath>DLL\OpenCvSharp.Blob.dll</HintPath>
-    </Reference>
-    <Reference Include="System.Windows.Controls.WpfPropertyGrid">
-      <HintPath>DLL\System.Windows.Controls.WpfPropertyGrid.dll</HintPath>
+    <Reference Include="OpenCvSharp">
+      <HintPath>DLL\OpenCvSharp.dll</HintPath>
+      <Private>True</Private>
     </Reference>
     <Reference Include="System.Windows.Forms">
       <HintPath>DLL\System.Windows.Forms.dll</HintPath>
@@ -36,4 +35,13 @@
     </Reference>
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="DLL\OpenCvSharp.dll" Pack="true" PackagePath="lib\netstandard2.0\" />
+    <None Include="DLL\OpenCvSharp.Blob.dll" Pack="true" PackagePath="lib\netstandard2.0\" />
+    <None Include="DLL\OpenCvSharp.Extensions.dll" Pack="true" PackagePath="lib\netstandard2.0\" />
+    <None Include="DLL\OpenCvSharpExtern.dll" Pack="true" PackagePath="runtimes\win-x64\native\" />
+    <None Include="build\Lib.Common.targets" Pack="true" PackagePath="buildTransitive\" />
+  </ItemGroup>
+
 </Project>
+

@@ -1,0 +1,9 @@
+﻿<Project>
+  <ItemGroup>
+    <LibCommonNativeDlls Include="$(MSBuildThisFileDirectory)..\runtimes\win-x64\native\OpenCvSharpExtern.dll" />
+  </ItemGroup>
+
+  <Target Name="CopyLibCommonNativeDlls" AfterTargets="CopyFilesToOutputDirectory" Condition="'$(TargetDir)' != ''">
+    <Copy SourceFiles="@(LibCommonNativeDlls)" DestinationFolder="$(TargetDir)" SkipUnchangedFiles="true" Condition="Exists('%(LibCommonNativeDlls.FullPath)')" />
+  </Target>
+</Project>

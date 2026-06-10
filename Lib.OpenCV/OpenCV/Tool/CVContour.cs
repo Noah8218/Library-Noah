@@ -37,8 +37,6 @@ namespace Lib.OpenCV.Tool
         {
             try
             {
-                OpenCvSharp.Point[] pp = null;
-                OpenCvSharp.Point Points = new OpenCvSharp.Point();
                 OpenCvSharp.Point[][] Contours;
                 HierarchyIndex[] hierarchy;
 
@@ -151,8 +149,6 @@ namespace Lib.OpenCV.Tool
         {
             try
             {
-                OpenCvSharp.Point[] pp = null;
-                OpenCvSharp.Point Points = new OpenCvSharp.Point();
                 OpenCvSharp.Point[][] Contours;
                 HierarchyIndex[] hierarchy;
 
@@ -219,12 +215,12 @@ namespace Lib.OpenCV.Tool
                             if (property.USE_APPROXPOLYDP)
                             {
                                 double peri = Cv2.ArcLength(item, true);
-                                pp = Cv2.ApproxPolyDP(item, property.EPSILON * peri, true);
+                                OpenCvSharp.Point[] approxPoints = Cv2.ApproxPolyDP(item, property.EPSILON * peri, true);
 
-                                rt = Cv2.BoundingRect(pp);
-                                rrect = Cv2.MinAreaRect(pp);
+                                rt = Cv2.BoundingRect(approxPoints);
+                                rrect = Cv2.MinAreaRect(approxPoints);
 
-                                drawContours.Add(pp);
+                                drawContours.Add(approxPoints);
                             }
                             else
                             {
@@ -314,8 +310,6 @@ namespace Lib.OpenCV.Tool
                     // 검출하려고 하는 물체가 검은색이면 반전으로 검출해야함
                     if (property.USE_BITWISENOT) Cv2.BitwiseNot(ImageContour, ImageContour);
 
-                    OpenCvSharp.Point[] pp = null;
-                    OpenCvSharp.Point Points = new OpenCvSharp.Point();
                     OpenCvSharp.Point[][] Contours;
                     HierarchyIndex[] hierarchy;
 
@@ -346,24 +340,24 @@ namespace Lib.OpenCV.Tool
                         if ((dContourArea >= MinArea) && (dContourArea <= MaxArea))
                         {
                             double peri = Cv2.ArcLength(Contours[i], true);
-                            pp = Cv2.ApproxPolyDP(Contours[i], property.EPSILON * peri, true);
+                            OpenCvSharp.Point[] approxPoints = Cv2.ApproxPolyDP(Contours[i], property.EPSILON * peri, true);
 
-                            bool convex = Cv2.IsContourConvex(pp);
+                            bool convex = Cv2.IsContourConvex(approxPoints);
 
                             // 사각형은 4개의 꼭지점과 4개의 각도가 합쳤을 떄 360도가 나와야 함
-                            if (pp.Length == 4 && convex)
+                            if (approxPoints.Length == 4 && convex)
                             {
                                 double cos = 0;
                                 OpenCvSharp.Point[][] pts = new OpenCvSharp.Point[1][];
                                 pts[0] = new OpenCvSharp.Point[0];
-                                pts[0] = pp;
+                                pts[0] = approxPoints;
                                 for (int k = 1; k < 5; k++)
                                 {
 
-                                    //double Angle = CVision.RadianToDegree(Math.Abs(CVision.Angle(pp[k % 4], pp[(k - 1) % 4], pp[(k + 1) % 4])));
-                                    double Angle2 = CFormula.threePointAngle(pp[k % 4], pp[(k - 1) % 4], pp[(k + 1) % 4]);
+                                    //double Angle = CVision.RadianToDegree(Math.Abs(CVision.Angle(approxPoints[k % 4], approxPoints[(k - 1) % 4], approxPoints[(k + 1) % 4])));
+                                    double Angle2 = CFormula.threePointAngle(approxPoints[k % 4], approxPoints[(k - 1) % 4], approxPoints[(k + 1) % 4]);
                                     cos = cos > Angle2 ? cos : Angle2;
-                                    Cv2.Circle(imageResult, pp[k - 1], 5, Scalar.Yellow, Cv2.FILLED);
+                                    Cv2.Circle(imageResult, approxPoints[k - 1], 5, Scalar.Yellow, Cv2.FILLED);
 
                                 }
                                 // 각도가 90도 이상이어야 함
@@ -372,7 +366,7 @@ namespace Lib.OpenCV.Tool
                                     Cv2.Polylines(imageResult, pts, true, Scalar.Yellow, 1, LineTypes.AntiAlias, 0);
                                     //Cv2.FillPoly(ImageResult, pts, Scalar.Yellow); 
                                     // 중심점 기준 원근 변환 실행
-                                    Mat dst = CFormula.PerspectiveTransform(imageSource.Clone(), pp);
+                                    Mat dst = CFormula.PerspectiveTransform(imageSource.Clone(), approxPoints);
 
                                     //Cv2.ImShow("dst", dst);
                                     //Cv2.WaitKey(0);
@@ -382,13 +376,13 @@ namespace Lib.OpenCV.Tool
 
 
                             //Cv2.Polylines(ImageResult, pts, true, Scalar.Yellow, 1, LineTypes.AntiAlias, 0);
-                            //Cv2.Polylines(ImageResult, pp, true, Scalar.Yellow, 3, LineTypes.AntiAlias, 0);
+                            //Cv2.Polylines(ImageResult, approxPoints, true, Scalar.Yellow, 3, LineTypes.AntiAlias, 0);
 
 
 
-                            Rect rt = Cv2.BoundingRect(pp);
+                            Rect rt = Cv2.BoundingRect(approxPoints);
 
-                            RotatedRect rrect = Cv2.MinAreaRect(pp);
+                            RotatedRect rrect = Cv2.MinAreaRect(approxPoints);
                             double areaRatio = Math.Abs(Cv2.ContourArea(Contours[i], false)) / (rrect.Size.Width * rrect.Size.Height);
 
 
