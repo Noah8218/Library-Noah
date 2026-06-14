@@ -11,6 +11,7 @@ namespace Lib.OpenCV.Property
         public ThresholdTypes ThresholdType { get; set; } = ThresholdTypes.Binary;
         public int RangeMin { get; set; } = 1;
         public int RangeMax { get; set; } = 255;
+        public bool Invert { get; set; }
         public AdaptiveThresholdTypes AdaptiveType { get; set; } = AdaptiveThresholdTypes.MeanC;
         public ThresholdTypes AdaptiveThresholdType { get; set; } = ThresholdTypes.Binary;
         public int BlockSize { get; set; } = 25;

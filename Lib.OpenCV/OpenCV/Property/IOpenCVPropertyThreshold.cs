@@ -11,6 +11,7 @@ namespace Lib.OpenCV.Property
         ThresholdTypes ThresholdType { get; set; }
         int RangeMin { get; set; }
         int RangeMax { get; set; }
+        bool Invert { get; set; }
         AdaptiveThresholdTypes AdaptiveType { get; set; }
         ThresholdTypes AdaptiveThresholdType { get; set; }
         int BlockSize { get; set; }

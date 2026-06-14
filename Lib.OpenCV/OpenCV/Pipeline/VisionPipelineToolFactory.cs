@@ -44,6 +44,7 @@ namespace Lib.OpenCV.Pipeline
                 ThresholdType = GetEnum(parameters, nameof(ThresholdToolProperty.ThresholdType), ThresholdTypes.Binary),
                 RangeMin = GetInt(parameters, nameof(ThresholdToolProperty.RangeMin), 1),
                 RangeMax = GetInt(parameters, nameof(ThresholdToolProperty.RangeMax), 255),
+                Invert = GetBool(parameters, nameof(ThresholdToolProperty.Invert), false),
                 AdaptiveType = GetEnum(parameters, nameof(ThresholdToolProperty.AdaptiveType), AdaptiveThresholdTypes.MeanC),
                 AdaptiveThresholdType = GetEnum(parameters, nameof(ThresholdToolProperty.AdaptiveThresholdType), ThresholdTypes.Binary),
                 BlockSize = GetInt(parameters, nameof(ThresholdToolProperty.BlockSize), 25),

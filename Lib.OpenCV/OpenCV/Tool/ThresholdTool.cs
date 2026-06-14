@@ -49,6 +49,10 @@ namespace Lib.OpenCV.Tool
             Scalar min = new Scalar(property.RangeMin, property.RangeMin, property.RangeMin);
             Scalar max = new Scalar(property.RangeMax, property.RangeMax, property.RangeMax);
             Cv2.InRange(imageSource, min, max, imageResult);
+            if (property.Invert)
+            {
+                Cv2.BitwiseNot(imageResult, imageResult);
+            }
         }
 
         private void RunAdaptive()
