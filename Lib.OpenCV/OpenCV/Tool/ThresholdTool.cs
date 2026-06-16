@@ -11,6 +11,46 @@ namespace Lib.OpenCV.Tool
 
         public void SetProperty(IOpenCVPropertyThreshold property) => this.property = property;
 
+        protected override bool TryValidateBeforeRun(out VisionToolErrorCode errorCode, out string message)
+        {
+            if (!base.TryValidateBeforeRun(out errorCode, out message))
+            {
+                return false;
+            }
+
+            if (property.MaxValue <= 0)
+            {
+                errorCode = VisionToolErrorCode.ThresholdInvalidMaxValue;
+                message = $"Threshold MaxValue must be greater than 0. MaxValue={property.MaxValue}.";
+                return false;
+            }
+
+            if (property.Mode == ThresholdToolMode.Range && property.RangeMin > property.RangeMax)
+            {
+                errorCode = VisionToolErrorCode.ThresholdInvalidRange;
+                message = $"Threshold range is invalid. Min={property.RangeMin}, Max={property.RangeMax}.";
+                return false;
+            }
+
+            if (property.Mode == ThresholdToolMode.Adaptive && !IsValidAdaptiveBlockSize(property.BlockSize))
+            {
+                errorCode = VisionToolErrorCode.ThresholdInvalidAdaptiveBlockSize;
+                message = $"Adaptive threshold BlockSize must be an odd number greater than 1. BlockSize={property.BlockSize}.";
+                return false;
+            }
+
+            if (!Enum.IsDefined(typeof(ThresholdToolMode), property.Mode))
+            {
+                errorCode = VisionToolErrorCode.InvalidParameter;
+                message = $"Unsupported threshold mode: {property.Mode}.";
+                return false;
+            }
+
+            errorCode = VisionToolErrorCode.None;
+            message = string.Empty;
+            return true;
+        }
+
         public override void Run()
         {
             if (property == null)
@@ -21,6 +61,11 @@ namespace Lib.OpenCV.Tool
             if (OpenCvHelper.IsImageEmpty(imageSource))
             {
                 throw new InvalidOperationException("Source image is not loaded.");
+            }
+
+            if (!TryValidateBeforeRun(out _, out string validationMessage))
+            {
+                throw new InvalidOperationException(validationMessage);
             }
             
             switch (property.Mode)
@@ -39,44 +84,43 @@ namespace Lib.OpenCV.Tool
 
         private void RunThreshold()
         {
-            imageResult = new Mat();
-            Cv2.Threshold(imageSource, imageResult, property.Threshold, property.MaxValue, property.ThresholdType);
+            using (Mat graySource = imageSource.Clone())
+            {
+                OpenCvHelper.SetImageChannel1(graySource);
+                ReplaceResultImage(new Mat());
+                Cv2.Threshold(graySource, imageResult, property.Threshold, property.MaxValue, property.ThresholdType);
+            }
         }
 
         private void RunRange()
         {
-            imageResult = new Mat();
-            Scalar min = new Scalar(property.RangeMin, property.RangeMin, property.RangeMin);
-            Scalar max = new Scalar(property.RangeMax, property.RangeMax, property.RangeMax);
-            Cv2.InRange(imageSource, min, max, imageResult);
-            if (property.Invert)
+            using (Mat graySource = imageSource.Clone())
             {
-                Cv2.BitwiseNot(imageResult, imageResult);
+                OpenCvHelper.SetImageChannel1(graySource);
+                ReplaceResultImage(new Mat());
+                Cv2.InRange(graySource, new Scalar(property.RangeMin), new Scalar(property.RangeMax), imageResult);
+                if (property.Invert)
+                {
+                    Cv2.BitwiseNot(imageResult, imageResult);
+                }
             }
         }
 
         private void RunAdaptive()
         {
-            int blockSize = NormalizeAdaptiveBlockSize(property.BlockSize);
             using (Mat graySource = imageSource.Clone())
             {
                 OpenCvHelper.SetImageChannel1(graySource);
-                imageResult = new Mat();
+                ReplaceResultImage(new Mat());
                 Cv2.AdaptiveThreshold(
                     graySource,
                     imageResult,
                     property.MaxValue,
                     property.AdaptiveType,
                     property.AdaptiveThresholdType,
-                    blockSize,
+                    property.BlockSize,
                     property.Weight);
             }
-        }
-
-        private static int NormalizeAdaptiveBlockSize(int blockSize)
-        {
-            int normalized = Math.Max(3, blockSize);
-            return normalized % 2 == 0 ? normalized + 1 : normalized;
         }
     }
 }

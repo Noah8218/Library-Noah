@@ -6,6 +6,7 @@ using System.Text;
 
 namespace Lib.OpenCV.Result
 {
+    [Obsolete("Legacy compatibility result. Use MatchingResult for new OpenVisionLab code.", false)]
     public class CResultMatching
     {
         public int Index { get; set; } = 0;

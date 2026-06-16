@@ -1,13 +1,9 @@
-﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
-using System.Reflection;
 using System.Threading.Tasks;
-using Lib.Common;
 using Lib.OpenCV.Property;
-using Lib.OpenCV.Result;
+using Lib.OpenCV.Tool;
 using OpenCvSharp;
 using OpenCvSharp.Blob;
 
@@ -21,6 +17,72 @@ namespace Lib.OpenCV.Blob
         public BlobTool() { }
 
         public void SetProperty(IOpenCVPropertyBlob propertyBase) => property = propertyBase;
+
+        protected override bool TryValidateBeforeRun(out VisionToolErrorCode errorCode, out string message)
+        {
+            if (!base.TryValidateBeforeRun(out errorCode, out message))
+            {
+                return false;
+            }
+
+            if (!TryValidateAreaRange(
+                property.MIN_AREA,
+                property.MAX_AREA,
+                VisionToolErrorCode.BlobInvalidAreaRange,
+                "Blob",
+                out errorCode,
+                out message))
+            {
+                return false;
+            }
+
+            if (!TryValidateAdaptiveThreshold(
+                property,
+                VisionToolErrorCode.BlobInvalidAdaptiveBlockSize,
+                out errorCode,
+                out message))
+            {
+                return false;
+            }
+
+            if (!TryValidateRoiSet(
+                property,
+                property.USE_ROI,
+                true,
+                VisionToolErrorCode.BlobRoiInvalid,
+                "Blob",
+                out errorCode,
+                out message))
+            {
+                return false;
+            }
+
+            errorCode = VisionToolErrorCode.None;
+            message = string.Empty;
+            return true;
+        }
+
+        protected override bool TryValidateAfterRun(out VisionToolErrorCode errorCode, out string message)
+        {
+            if (results == null || results.Count == 0)
+            {
+                errorCode = VisionToolErrorCode.BlobNoResult;
+                message = $"Blob found no result. Area={property.MIN_AREA}..{property.MAX_AREA}, ROI={FormatBlobRoi()}";
+                return false;
+            }
+
+            errorCode = VisionToolErrorCode.None;
+            message = string.Empty;
+            return true;
+        }
+
+        protected override VisionToolErrorCode ResolveExecutionErrorCode(System.Exception exception)
+        {
+            VisionToolErrorCode baseCode = base.ResolveExecutionErrorCode(exception);
+            return baseCode == VisionToolErrorCode.OpenCvExecutionFailed
+                ? VisionToolErrorCode.BlobLabelingFailed
+                : baseCode;
+        }
 
         public override void Run()
         {
@@ -36,177 +98,138 @@ namespace Lib.OpenCV.Blob
 
         protected bool SingleRun()
         {
-                        swTaktTimems.Restart();
+            swTaktTimems.Restart();
             results.Clear();
 
-            if (OpenCvHelper.IsImageEmpty(imageSource))
+            if (!PrepareSourceImage())
             {
-
                 return false;
             }
 
-            if (property.CvROI.Width == 0 || property.CvROI.Height == 0)
-            {
-                property.CvROI = new Rect(0, 0, imageSource.Width, imageSource.Height);
-            }
-
-            if (OpenCvHelper.IsImageEmpty(imageSource)) return false;
-            OpenCvHelper.SetImageChannel1(imageSource);
-
-            Mat ImageBlob = property.USE_ROI ? imageSource.SubMat(property.CvROI) : imageSource.Clone();
-
-            using (Mat ImageSrc = ImageBlob)
-            {
-                if (property.USE_THRESHOLD) { Cv2.Threshold(ImageBlob, ImageBlob, property.THRESHOLD, 255, property.THRESHOLD_TYPES); }
-                else if (property.USE_ADAPTIVE_THRESHOLD) { Cv2.AdaptiveThreshold(ImageBlob, ImageBlob, property.ADAPTIVE_THRESHOLD, property.ADAPTIVE_THRESHOLD_ALGORITHM, property.ADAPTIVE_THRESHOLD_TYPES, property.BlockSize, property.Weight); }
-
-                // 검은색 영역에서 흰 물체를 라벨링하여 검출하기 때문
-                // 검출하려고 하는 물체가 검은색이면 반전으로 검출해야함
-                if (property.USE_BITWISENOT) Cv2.BitwiseNot(ImageBlob, ImageBlob);
-
-                CvBlobs Blobs = new CvBlobs();
-                Blobs.Label(ImageBlob);
-                Blobs.FilterByArea(property.MIN_AREA, property.MAX_AREA);
-
-                ConcurrentBag<BlobResult> defectsS = new ConcurrentBag<BlobResult>();
-                Parallel.ForEach(Blobs, (item, state, index) =>
-                {
-                    CvBlob b = item.Value;
-
-                    Rect rect = new Rect();
-                    Point2d Center = new Point2d();
-
-                    if (property.USE_ROI)
-                    {
-                        rect.X = b.Rect.X + property.CvROI.X;
-                        rect.Y = b.Rect.Y + property.CvROI.Y;
-                        rect.Width = b.Rect.Width;
-                        rect.Height = b.Rect.Height;
-
-                        Center.X = b.Centroid.X + property.CvROI.X;
-                        Center.Y = b.Centroid.Y + property.CvROI.Y;
-                    }
-                    else
-                    {
-                        rect = b.Rect;
-                        Center = b.Centroid;
-                    }
-
-                    bool Masking = false;
-                    for (int i = 0; i < property.CvMASKS.Count; i++)
-                    {
-                        // ==> IntersectsWith 사용 이물이 걸치기만해도 필터 나옴                        
-                        if (property.CvMASKS[i].Contains(rect))
-                        {
-                            Masking = true;
-                            break;
-                        }
-                    }
-
-                    if (!Masking)
-                    {
-                        defectsS.Add(new BlobResult((int)index, b.Area, Center, rect, b.Angle()));
-                    }
-                });
-                results = defectsS.OrderBy(c => c.Index).ToList();
-            }
+            Rect roi = NormalizeSingleRoi();
+            results = ReindexBlobs(RunBlobLabeling(roi, property.USE_ROI)
+                .OrderBy(result => result.Index))
+                .ToList();
 
             swTaktTimems.Stop();
-        
             return true;
         }
 
         protected bool MultiRun()
         {
-                        swTaktTimems.Restart();
+            swTaktTimems.Restart();
             results.Clear();
 
-            if (OpenCvHelper.IsImageEmpty(imageSource))
+            if (!PrepareSourceImage())
             {
-
                 return false;
             }
 
-            if (OpenCvHelper.IsImageEmpty(imageSource)) return false;
-            OpenCvHelper.SetImageChannel1(imageSource);
-
             for (int i = 0; i < property.CvROIS.Count; i++)
             {
-                if (property.CvROIS[i].Width == 0 || property.CvROIS[i].Height == 0)
-                {
-                    property.CvROIS[i] = new Rect(0, 0, imageSource.Width, imageSource.Height);
-                }
-
-                Mat ImageBlob = null;
-
-                if (property.USE_ROI) { ImageBlob = imageSource.SubMat(property.CvROIS[i]); }
-                else { ImageBlob = imageSource.Clone(); }
-
-                using (Mat ImageSrc = ImageBlob)
-                {
-                    if (property.USE_THRESHOLD) { Cv2.Threshold(ImageBlob, ImageBlob, property.THRESHOLD, 255, property.THRESHOLD_TYPES); }
-                    else if (property.USE_ADAPTIVE_THRESHOLD) { Cv2.AdaptiveThreshold(ImageBlob, ImageBlob, property.ADAPTIVE_THRESHOLD, property.ADAPTIVE_THRESHOLD_ALGORITHM, property.ADAPTIVE_THRESHOLD_TYPES, property.BlockSize, property.Weight); }
-
-                    // 검은색 영역에서 흰 물체를 라벨링하여 검출하기 때문
-                    // 검출하려고 하는 물체가 검은색이면 반전으로 검출해야함
-                    if (property.USE_BITWISENOT) Cv2.BitwiseNot(ImageBlob, ImageBlob);
-
-                    Stopwatch sw_TaktTimems2 = Stopwatch.StartNew();
-
-                    CvBlobs Blobs = new CvBlobs();
-                    Blobs.Label(ImageBlob);
-                    Blobs.FilterByArea(property.MIN_AREA, property.MAX_AREA);
-
-                    ConcurrentBag<BlobResult> defectsS = new ConcurrentBag<BlobResult>();
-                    Parallel.ForEach(Blobs, (item, state, index) =>
-                    {
-                        CvBlob b = item.Value;
-
-                        Rect rect = new Rect();
-                        Point2d Center = new Point2d();
-
-                        if (property.USE_ROI)
-                        {
-                            rect.X = b.Rect.X + property.CvROIS[i].X;
-                            rect.Y = b.Rect.Y + property.CvROIS[i].Y;
-                            rect.Width = b.Rect.Width;
-                            rect.Height = b.Rect.Height;
-
-                            Center.X = b.Centroid.X + property.CvROIS[i].X;
-                            Center.Y = b.Centroid.Y + property.CvROIS[i].Y;
-                        }
-                        else
-                        {
-                            rect = b.Rect;
-                            Center = b.Centroid;
-                        }
-
-                        bool Masking = false;
-                        for (int j = 0; j < property.CvMASKS.Count; j++)
-                        {
-                            // ==> IntersectsWith 사용 이물이 걸치기만해도 필터 나옴                        
-                            if (property.CvMASKS[j].Contains(rect))
-                            {
-                                Masking = true;
-                                break;
-                            }
-                        }
-
-                        if (!Masking)
-                        {
-                            defectsS.Add(new BlobResult((int)index, b.Area, Center, rect, b.Angle()));
-                        }
-                    });
-                    results.AddRange(defectsS.OrderBy(c => c.Index).ToList());
-                    sw_TaktTimems2.Stop();
-                }
+                Rect roi = NormalizeMultiRoi(i);
+                results.AddRange(RunBlobLabeling(roi, true)
+                    .OrderBy(result => result.Index));
             }
 
+            results = ReindexBlobs(results).ToList();
             swTaktTimems.Stop();
-        
+            return true;
+        }
+
+        private bool PrepareSourceImage()
+        {
+            if (OpenCvHelper.IsImageEmpty(imageSource))
+            {
+                return false;
+            }
 
             return true;
         }
+
+        private Rect NormalizeSingleRoi()
+        {
+            return NormalizeBlobRoi(property.CvROI);
+        }
+
+        private Rect NormalizeMultiRoi(int index)
+        {
+            return NormalizeBlobRoi(property.CvROIS[index]);
+        }
+
+        private Rect NormalizeBlobRoi(Rect roi)
+        {
+            return roi.Width == 0 || roi.Height == 0
+                ? new Rect(0, 0, imageSource.Width, imageSource.Height)
+                : roi;
+        }
+
+        private string FormatBlobRoi()
+        {
+            if (property.USE_MULTI_ROI)
+            {
+                return $"Multi({property.CvROIS?.Count ?? 0})";
+            }
+
+            Rect roi = NormalizeBlobRoi(property.CvROI);
+            return $"{roi.X},{roi.Y},{roi.Width},{roi.Height}";
+        }
+
+        private static IEnumerable<BlobResult> ReindexBlobs(IEnumerable<BlobResult> source)
+        {
+            int index = 1;
+            foreach (BlobResult result in source)
+            {
+                result.Index = index++;
+                yield return result;
+            }
+        }
+
+        private List<BlobResult> RunBlobLabeling(Rect roi, bool useRoi)
+        {
+            using (Mat imageBlob = CreatePreprocessedImage(roi, useRoi, property))
+            {
+                CvBlobs blobs = new CvBlobs();
+                blobs.Label(imageBlob);
+                blobs.FilterByArea(property.MIN_AREA, property.MAX_AREA);
+
+                ConcurrentBag<BlobResult> detectedBlobs = new ConcurrentBag<BlobResult>();
+                Parallel.ForEach(blobs, (item, state, index) =>
+                {
+                    CvBlob blob = item.Value;
+                    Rect bounds = useRoi
+                        ? new Rect(blob.Rect.X + roi.X, blob.Rect.Y + roi.Y, blob.Rect.Width, blob.Rect.Height)
+                        : blob.Rect;
+                    Point2d center = useRoi
+                        ? new Point2d(blob.Centroid.X + roi.X, blob.Centroid.Y + roi.Y)
+                        : blob.Centroid;
+
+                    if (!IsMasked(bounds))
+                    {
+                        detectedBlobs.Add(new BlobResult((int)index, blob.Area, center, bounds, blob.Angle()));
+                    }
+                });
+
+                return detectedBlobs.ToList();
+            }
+        }
+
+        private bool IsMasked(Rect bounds)
+        {
+            if (property.CvMASKS == null || property.CvMASKS.Count == 0)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < property.CvMASKS.Count; i++)
+            {
+                if (property.CvMASKS[i].Contains(bounds))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
     }
 }
-

@@ -46,32 +46,324 @@ namespace Lib.OpenCV.Property
             {
                 if (OpenCvHelper.IsImageEmpty(source))
                 {
-                    throw new InvalidOperationException("Source image is not loaded.");
+                    stopwatch.Stop();
+                    return VisionToolResult.Failed(
+                        VisionToolErrorCode.InputImageInvalid,
+                        "Source image is not loaded.",
+                        stopwatch.Elapsed);
                 }
 
                 SetSourceImage(source);
+                if (!TryValidateBeforeRun(out VisionToolErrorCode validationErrorCode, out string validationMessage))
+                {
+                    stopwatch.Stop();
+                    return VisionToolResult.Failed(
+                        validationErrorCode,
+                        validationMessage,
+                        stopwatch.Elapsed);
+                }
+
                 Run();
                 stopwatch.Stop();
 
-                Mat resultImage = OpenCvHelper.IsImageEmpty(imageResult)
-                    ? imageSource?.Clone()
-                    : imageResult.Clone();
+                if (!TryValidateAfterRun(out VisionToolErrorCode runErrorCode, out string runMessage))
+                {
+                    VisionToolResult failedResult = VisionToolResult.Failed(
+                        runErrorCode,
+                        runMessage,
+                        stopwatch.Elapsed);
+                    AttachExecutionDetails(failedResult);
+                    return failedResult;
+                }
 
-                return VisionToolResult.Passed(resultImage, stopwatch.Elapsed, CollectMetrics(), CollectOverlays());
+                return VisionToolResult.Passed(CreateResultImageSnapshot(), stopwatch.Elapsed, CollectMetrics(), CollectOverlays());
             }
             catch (Exception ex)
             {
                 stopwatch.Stop();
-                return VisionToolResult.Failed(ex.Message, stopwatch.Elapsed, ex);
+                return VisionToolResult.Failed(
+                    ResolveExecutionErrorCode(ex),
+                    ex.GetBaseException().Message,
+                    stopwatch.Elapsed,
+                    ex);
             }
+        }
+
+        protected virtual bool TryValidateBeforeRun(out VisionToolErrorCode errorCode, out string message)
+        {
+            object toolProperty = GetToolProperty();
+            if (toolProperty == null)
+            {
+                errorCode = VisionToolErrorCode.ToolPropertyMissing;
+                message = $"{Name} property is not configured.";
+                return false;
+            }
+
+            errorCode = VisionToolErrorCode.None;
+            message = string.Empty;
+            return true;
+        }
+
+        protected virtual bool TryValidateAfterRun(out VisionToolErrorCode errorCode, out string message)
+        {
+            errorCode = VisionToolErrorCode.None;
+            message = string.Empty;
+            return true;
+        }
+
+        private void AttachExecutionDetails(VisionToolResult result)
+        {
+            if (result == null)
+            {
+                return;
+            }
+
+            result.ResultImage = CreateResultImageSnapshot();
+            foreach (KeyValuePair<string, double> metric in CollectMetrics())
+            {
+                result.Metrics[metric.Key] = metric.Value;
+            }
+
+            result.Overlays.AddRange(CollectOverlays().Where(overlay => overlay != null));
+        }
+
+        private Mat CreateResultImageSnapshot()
+        {
+            return OpenCvHelper.IsImageEmpty(imageResult)
+                ? imageSource?.Clone()
+                : imageResult.Clone();
+        }
+
+        protected virtual VisionToolErrorCode ResolveExecutionErrorCode(Exception exception)
+        {
+            Exception baseException = exception?.GetBaseException() ?? exception;
+            string message = baseException?.Message ?? string.Empty;
+
+            if (baseException is NullReferenceException && GetToolProperty() == null)
+            {
+                return VisionToolErrorCode.ToolPropertyMissing;
+            }
+
+            if (message.IndexOf("property", StringComparison.OrdinalIgnoreCase) >= 0
+                && (message.IndexOf("not configured", StringComparison.OrdinalIgnoreCase) >= 0
+                    || message.IndexOf("not set", StringComparison.OrdinalIgnoreCase) >= 0))
+            {
+                return VisionToolErrorCode.ToolPropertyMissing;
+            }
+
+            if (message.IndexOf("Source image", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return VisionToolErrorCode.InputImageInvalid;
+            }
+
+            if (message.IndexOf("ROI", StringComparison.OrdinalIgnoreCase) >= 0
+                || message.IndexOf("SubMat", StringComparison.OrdinalIgnoreCase) >= 0
+                || message.IndexOf("Rect", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return VisionToolErrorCode.InvalidRoi;
+            }
+
+            if (message.IndexOf("OpenCV", StringComparison.OrdinalIgnoreCase) >= 0
+                || message.IndexOf("Bad argument", StringComparison.OrdinalIgnoreCase) >= 0
+                || message.IndexOf("Assertion failed", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return VisionToolErrorCode.OpenCvExecutionFailed;
+            }
+
+            return VisionToolErrorCode.ToolExecutionException;
+        }
+
+        protected bool TryValidateRoi(Rect roi, bool allowWholeImageFallback, VisionToolErrorCode invalidCode, out VisionToolErrorCode errorCode, out string message)
+        {
+            if (roi.Width == 0 || roi.Height == 0)
+            {
+                if (allowWholeImageFallback)
+                {
+                    errorCode = VisionToolErrorCode.None;
+                    message = string.Empty;
+                    return true;
+                }
+
+                errorCode = invalidCode;
+                message = "ROI is required for this tool.";
+                return false;
+            }
+
+            if (roi.X < 0 || roi.Y < 0 || roi.Width < 0 || roi.Height < 0
+                || roi.X + roi.Width > imageSource.Width
+                || roi.Y + roi.Height > imageSource.Height)
+            {
+                errorCode = invalidCode;
+                message = $"ROI is outside the source image. ROI=({roi.X},{roi.Y},{roi.Width},{roi.Height}), Image=({imageSource.Width},{imageSource.Height}).";
+                return false;
+            }
+
+            errorCode = VisionToolErrorCode.None;
+            message = string.Empty;
+            return true;
+        }
+
+        protected static bool TryValidateAreaRange(
+            int minArea,
+            int maxArea,
+            VisionToolErrorCode invalidCode,
+            string toolName,
+            out VisionToolErrorCode errorCode,
+            out string message)
+        {
+            if (minArea > maxArea)
+            {
+                errorCode = invalidCode;
+                message = $"{toolName} area range is invalid. Min={minArea}, Max={maxArea}.";
+                return false;
+            }
+
+            errorCode = VisionToolErrorCode.None;
+            message = string.Empty;
+            return true;
+        }
+
+        protected bool TryValidateRoiSet(
+            IOpenCVPropertyBase property,
+            bool validateSingleRoi,
+            bool allowWholeImageFallback,
+            VisionToolErrorCode invalidCode,
+            string toolName,
+            out VisionToolErrorCode errorCode,
+            out string message)
+        {
+            if (property == null)
+            {
+                errorCode = VisionToolErrorCode.ToolPropertyMissing;
+                message = $"{toolName} property is not configured.";
+                return false;
+            }
+
+            if (property.USE_MULTI_ROI)
+            {
+                if (property.CvROIS == null || property.CvROIS.Count == 0)
+                {
+                    errorCode = invalidCode;
+                    message = $"{toolName} multi ROI is enabled, but ROI list is empty.";
+                    return false;
+                }
+
+                for (int i = 0; i < property.CvROIS.Count; i++)
+                {
+                    if (!TryValidateRoi(property.CvROIS[i], allowWholeImageFallback, invalidCode, out errorCode, out message))
+                    {
+                        message = $"{toolName} ROI #{i + 1}: {message}";
+                        return false;
+                    }
+                }
+            }
+            else if (validateSingleRoi
+                && !TryValidateRoi(property.CvROI, allowWholeImageFallback, invalidCode, out errorCode, out message))
+            {
+                message = $"{toolName} ROI: {message}";
+                return false;
+            }
+
+            errorCode = VisionToolErrorCode.None;
+            message = string.Empty;
+            return true;
+        }
+
+        protected static bool IsValidAdaptiveBlockSize(int blockSize)
+        {
+            return blockSize > 1 && blockSize % 2 == 1;
+        }
+
+        protected static bool TryValidateAdaptiveThreshold(
+            IOpenCVPropertyBase property,
+            VisionToolErrorCode invalidCode,
+            out VisionToolErrorCode errorCode,
+            out string message)
+        {
+            if (property != null
+                && property.USE_ADAPTIVE_THRESHOLD
+                && !IsValidAdaptiveBlockSize(property.BlockSize))
+            {
+                errorCode = invalidCode;
+                message = $"Adaptive threshold BlockSize must be an odd number greater than 1. BlockSize={property.BlockSize}.";
+                return false;
+            }
+
+            errorCode = VisionToolErrorCode.None;
+            message = string.Empty;
+            return true;
+        }
+
+        protected void ReplaceResultImage(Mat result)
+        {
+            imageResult?.Dispose();
+            imageResult = result ?? new Mat();
+        }
+
+        protected Mat CreatePreprocessedImage(Rect roi, bool useRoi, IOpenCVPropertyBase property)
+        {
+            Mat image = useRoi ? imageSource.SubMat(roi).Clone() : imageSource.Clone();
+            ApplyCommonPreprocessing(image, property);
+            return image;
+        }
+
+        protected static void ApplyCommonPreprocessing(Mat image, IOpenCVPropertyBase property)
+        {
+            if (image == null || image.Empty() || property == null)
+            {
+                return;
+            }
+
+            OpenCvHelper.SetImageChannel1(image);
+
+            if (property.USE_THRESHOLD)
+            {
+                Cv2.Threshold(image, image, property.THRESHOLD, 255, property.THRESHOLD_TYPES);
+            }
+            else if (property.USE_ADAPTIVE_THRESHOLD)
+            {
+                Cv2.AdaptiveThreshold(
+                    image,
+                    image,
+                    property.ADAPTIVE_THRESHOLD,
+                    property.ADAPTIVE_THRESHOLD_ALGORITHM,
+                    property.ADAPTIVE_THRESHOLD_TYPES,
+                    property.BlockSize,
+                    property.Weight);
+            }
+
+            if (property.USE_BITWISENOT)
+            {
+                Cv2.BitwiseNot(image, image);
+            }
+        }
+
+        private object GetToolProperty()
+        {
+            return GetType().GetField("property", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)?.GetValue(this)
+                ?? GetType().GetProperty("property", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)?.GetValue(this);
         }
 
         protected virtual IDictionary<string, double> CollectMetrics()
         {
             Dictionary<string, double> metrics = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+            AddImageMetrics(metrics, "SourceImage", imageSource);
+            AddImageMetrics(metrics, "ResultImage", OpenCvHelper.IsImageEmpty(imageResult) ? imageSource : imageResult);
             AddResultListMetrics(metrics, "results");
             AddResultListMetrics(metrics, "resultList");
             return metrics;
+        }
+
+        private static void AddImageMetrics(Dictionary<string, double> metrics, string prefix, Mat image)
+        {
+            if (metrics == null || OpenCvHelper.IsImageEmpty(image))
+            {
+                return;
+            }
+
+            metrics[$"{prefix}Width"] = image.Width;
+            metrics[$"{prefix}Height"] = image.Height;
+            metrics[$"{prefix}Channels"] = image.Channels();
         }
 
         protected virtual IEnumerable<VisionToolOverlay> CollectOverlays()
@@ -98,6 +390,8 @@ namespace Lib.OpenCV.Property
             AddNumericAggregate(metrics, items, "Score", "Score");
             AddNumericAggregate(metrics, items, "Angle", "Angle");
             AddNumericAggregate(metrics, items, "meanValue", "MeanValue");
+            AddNumericAggregate(metrics, items, "EdgeCount", "EdgeCount");
+            AddNumericAggregate(metrics, items, "EdgePointCount", "EdgePointCount");
             AddNestedCount(metrics, items, "Results_List", "EdgeCount");
             AddNestedCount(metrics, items, "edgeList", "EdgePointCount");
         }

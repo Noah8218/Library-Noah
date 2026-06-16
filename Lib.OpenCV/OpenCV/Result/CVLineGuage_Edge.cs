@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 
 namespace Lib.OpenCV.Result
 {
+    [Obsolete("Legacy compatibility result. Use LineGaugeEdge for new OpenVisionLab code.", false)]
     public class CVLineGuage_Edge
     {
         public int NO { get; set; } = 0;

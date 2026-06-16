@@ -10,6 +10,7 @@ using OpenCvSharp.Features2D;
 
 namespace Lib.OpenCV.Tool
 {
+    [Obsolete("Legacy compatibility API. Use SiftTool and MatchingResult for new OpenVisionLab code.", false)]
     public partial class CVSIFT : COpenCVAlgorithmBase
     {
         public IOpenCVPropertyFeatureSIFT property;

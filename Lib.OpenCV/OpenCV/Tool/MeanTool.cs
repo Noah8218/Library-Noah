@@ -17,6 +17,39 @@ namespace Lib.OpenCV.Tool
         
         public void SetProperty(IOpenCVPropertyMean property) => this.property = property;
 
+        protected override bool TryValidateBeforeRun(out VisionToolErrorCode errorCode, out string message)
+        {
+            if (!base.TryValidateBeforeRun(out errorCode, out message))
+            {
+                return false;
+            }
+
+            if (!TryValidateAdaptiveThreshold(
+                property,
+                VisionToolErrorCode.MeanInvalidAdaptiveBlockSize,
+                out errorCode,
+                out message))
+            {
+                return false;
+            }
+
+            if (!TryValidateRoiSet(
+                property,
+                property.USE_ROI,
+                true,
+                VisionToolErrorCode.MeanRoiInvalid,
+                "Mean",
+                out errorCode,
+                out message))
+            {
+                return false;
+            }
+
+            errorCode = VisionToolErrorCode.None;
+            message = string.Empty;
+            return true;
+        }
+
         public override void Run()
         {
             if(property.USE_MULTI_ROI)
@@ -31,105 +64,60 @@ namespace Lib.OpenCV.Tool
 
         public void MultiRun()
         {
-                        results.Clear();
-
-            if (OpenCvHelper.IsImageEmpty(imageSource))
-            {
-
-                return;
-            }
-            using (Mat ImageSrc = imageSource.Clone())
-            {
-                if (OpenCvHelper.IsImageEmpty(imageSource)) return;
-
-                Lib.OpenCV.OpenCvHelper.SetImageChannel1(ImageSrc);
-
-                for (int i = 0; i < property.CvROIS.Count; i++)
-                {
-                    if (property.CvROIS[i].Width == 0 || property.CvROIS[i].Height == 0)
-                    {
-                        property.CvROIS[i] = new OpenCvSharp.Rect(0, 0, imageSource.Width, imageSource.Height);
-                    }
-
-                    Mat ImageMean = property.USE_ROI ? ImageSrc.SubMat(property.CvROIS[i]) : ImageSrc.Clone();
-
-                    if (property.USE_THRESHOLD) { Cv2.Threshold(ImageMean, ImageMean, property.THRESHOLD, 255, property.THRESHOLD_TYPES); }
-                    else if (property.USE_ADAPTIVE_THRESHOLD) { Cv2.AdaptiveThreshold(ImageMean, ImageMean, property.ADAPTIVE_THRESHOLD, property.ADAPTIVE_THRESHOLD_ALGORITHM, property.ADAPTIVE_THRESHOLD_TYPES, property.BlockSize, property.Weight); }
-
-                    if (property.USE_BITWISENOT) Cv2.BitwiseNot(ImageMean, ImageMean);
-
-                    double Mean = 0;
-                    double MeanStdDev = 0;
-
-                    switch (property.MEAN_TYPES)
-                    {
-                        case MeanType.Mean:
-                            Mean = Cv2.Mean(ImageMean).Val0;
-                            Mean = Math.Round(Mean, 1);
-                            results.Add(new MeanResult(0, Mean, Lib.Common.CommonConverter.RectToRectangle(property.CvROIS[i])));
-                            break;
-                        case MeanType.MeanStdDev:
-                            Cv2.MeanStdDev(ImageMean, out Scalar mean, out Scalar stddev);
-                            MeanStdDev = double.Parse(stddev[0].ToString("F1"));
-                            results.Add(new MeanResult(0, MeanStdDev, Lib.Common.CommonConverter.RectToRectangle(property.CvROIS[i])));
-                            break;
-                    }
-                }
-            }
-        
-
-            return;
-        }
-
-        public void SingleRun()
-        {
-                        
             results.Clear();
 
             if (OpenCvHelper.IsImageEmpty(imageSource))
             {
-
                 return;
             }
 
-            if (property.CvROI.Width == 0 || property.CvROI.Height == 0)
+            for (int i = 0; i < property.CvROIS.Count; i++)
             {
-                property.CvROI = new OpenCvSharp.Rect(0, 0, imageSource.Width, imageSource.Height);
-            }
-
-            using (Mat ImageSrc = imageSource.Clone())
-            {
-                if (OpenCvHelper.IsImageEmpty(imageSource)) return;
-                
-                Lib.OpenCV.OpenCvHelper.SetImageChannel1(ImageSrc);
-
-                Mat ImageMean = property.USE_ROI ? ImageSrc.SubMat(property.CvROI) : ImageSrc.Clone();
-
-                if (property.USE_THRESHOLD) { Cv2.Threshold(ImageMean, ImageMean, property.THRESHOLD, 255, property.THRESHOLD_TYPES); }
-                else if (property.USE_ADAPTIVE_THRESHOLD) { Cv2.AdaptiveThreshold(ImageMean, ImageMean, property.ADAPTIVE_THRESHOLD, property.ADAPTIVE_THRESHOLD_ALGORITHM, property.ADAPTIVE_THRESHOLD_TYPES, property.BlockSize, property.Weight); }
-
-                if (property.USE_BITWISENOT) Cv2.BitwiseNot(ImageMean, ImageMean);
-
-                double Mean = 0;
-                double MeanStdDev = 0;
-
-                switch (property.MEAN_TYPES)
+                Rect roi = NormalizeMeanRoi(property.CvROIS[i]);
+                using (Mat imageMean = CreatePreprocessedImage(roi, property.USE_ROI, property))
                 {
-                    case MeanType.Mean:
-                        Mean = Cv2.Mean(ImageMean).Val0;
-                        Mean = Math.Round(Mean, 1);
-                        results.Add(new MeanResult(0, Mean, Lib.Common.CommonConverter.RectToRectangle(property.CvROI)));          
-                        break;
-                    case MeanType.MeanStdDev:
-                        Cv2.MeanStdDev(ImageMean, out Scalar mean, out Scalar stddev);
-                        MeanStdDev = double.Parse(stddev[0].ToString("F1"));
-                        results.Add(new MeanResult(0, MeanStdDev, Lib.Common.CommonConverter.RectToRectangle(property.CvROI)));                  
-                        break;
+                    AddMeanResult(imageMean, roi);
                 }
             }
-        
+        }
 
-            return;
+        public void SingleRun()
+        {
+            results.Clear();
+
+            if (OpenCvHelper.IsImageEmpty(imageSource))
+            {
+                return;
+            }
+
+            Rect roi = NormalizeMeanRoi(property.CvROI);
+            using (Mat imageMean = CreatePreprocessedImage(roi, property.USE_ROI, property))
+            {
+                AddMeanResult(imageMean, roi);
+            }
+        }
+
+        private Rect NormalizeMeanRoi(Rect roi)
+        {
+            return roi.Width == 0 || roi.Height == 0
+                ? new Rect(0, 0, imageSource.Width, imageSource.Height)
+                : roi;
+        }
+
+        private void AddMeanResult(Mat imageMean, OpenCvSharp.Rect resultBounds)
+        {
+            switch (property.MEAN_TYPES)
+            {
+                case MeanType.Mean:
+                    double meanValue = Math.Round(Cv2.Mean(imageMean).Val0, 1);
+                    results.Add(new MeanResult(0, meanValue, Lib.Common.CommonConverter.RectToRectangle(resultBounds)));
+                    break;
+                case MeanType.MeanStdDev:
+                    Cv2.MeanStdDev(imageMean, out Scalar mean, out Scalar stddev);
+                    double meanStdDev = double.Parse(stddev[0].ToString("F1"));
+                    results.Add(new MeanResult(0, meanStdDev, Lib.Common.CommonConverter.RectToRectangle(resultBounds)));
+                    break;
+            }
         }
     }
 }

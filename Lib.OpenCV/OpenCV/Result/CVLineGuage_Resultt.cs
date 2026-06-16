@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 
 namespace Lib.OpenCV.Result
 {
+    [Obsolete("Legacy compatibility result. Use LineGaugeResult for new OpenVisionLab code.", false)]
     public class CVLineGuage_Result
     {
         public List<CVLineGuage_Edge> Results_List { get; set; } = new List<CVLineGuage_Edge>();
@@ -20,6 +21,7 @@ namespace Lib.OpenCV.Result
         }
     }
 
+    [Obsolete("Legacy compatibility result. Use LineGaugeResult and LineGaugeEdge for new OpenVisionLab code.", false)]
     public class CVLineGuage_VerticalLines
     {
         public int index { get; set; } = 0;

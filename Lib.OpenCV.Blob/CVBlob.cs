@@ -13,6 +13,7 @@ using OpenCvSharp.Blob;
 
 namespace Lib.OpenCV.Blob
 {
+    [Obsolete("Legacy compatibility API. Use BlobTool and BlobResult for new OpenVisionLab code.", false)]
     public partial class CVBlob : COpenCVAlgorithmBase
     {
         public IOpenCVPropertyBlob property;

@@ -8,6 +8,7 @@ using System.Reflection;
 
 namespace Lib.OpenCV.Tool
 {
+    [Obsolete("Legacy compatibility API. Use MeanTool and MeanResult for new OpenVisionLab code.", false)]
     public class CVMean : COpenCVAlgorithmBase
     {
         public IOpenCVPropertyMean property;

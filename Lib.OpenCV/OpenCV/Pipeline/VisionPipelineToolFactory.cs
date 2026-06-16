@@ -29,6 +29,9 @@ namespace Lib.OpenCV.Pipeline
                 case "edgedetection":
                 case "edge":
                     return CreateEdgeDetectionTool(step.Parameters);
+                case "rotatescale":
+                case "rotateandscale":
+                    return CreateRotateScaleTool(step.Parameters);
                 default:
                     throw new NotSupportedException($"Unsupported vision tool type '{step.ToolType}'.");
             }
@@ -109,6 +112,22 @@ namespace Lib.OpenCV.Pipeline
             };
 
             EdgeDetectionTool tool = new EdgeDetectionTool();
+            tool.SetProperty(property);
+            return tool;
+        }
+
+        private static IVisionTool CreateRotateScaleTool(IDictionary<string, string> parameters)
+        {
+            RotateScaleToolProperty property = new RotateScaleToolProperty
+            {
+                Angle = GetDouble(parameters, nameof(RotateScaleToolProperty.Angle), 0d),
+                ScaleXPercent = GetDouble(parameters, nameof(RotateScaleToolProperty.ScaleXPercent), 100d),
+                ScaleYPercent = GetDouble(parameters, nameof(RotateScaleToolProperty.ScaleYPercent), 100d),
+                Interpolation = GetEnum(parameters, nameof(RotateScaleToolProperty.Interpolation), InterpolationFlags.Linear),
+                BorderType = GetEnum(parameters, nameof(RotateScaleToolProperty.BorderType), BorderTypes.Constant)
+            };
+
+            RotateScaleTool tool = new RotateScaleTool();
             tool.SetProperty(property);
             return tool;
         }

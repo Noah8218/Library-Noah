@@ -12,6 +12,7 @@ using OpenCvSharp;
 
 namespace Lib.OpenCV.Tool
 {
+    [Obsolete("Legacy compatibility API. Use MatchingTool and MatchingResult for new OpenVisionLab code.", false)]
     public partial class CVMatching : COpenCVAlgorithmBase
     {
         public IOpenCVPropertyMatching property;

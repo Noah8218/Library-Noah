@@ -8,6 +8,7 @@ using OpenCvSharp;
 
 namespace Lib.OpenCV.Tool
 {
+    [Obsolete("Legacy compatibility API. Use CornerTool and CornerResult for new OpenVisionLab code.", false)]
     public partial class CVCorner : COpenCVAlgorithmBase
     {
         public IOpenCVPropertyContour property;

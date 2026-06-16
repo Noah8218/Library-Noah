@@ -9,11 +9,16 @@ namespace Lib.OpenCV.Result
 {
     public class LineGaugeResult
     {
+        public int Index { get; set; } = 0;
         public List<LineGaugeEdge> Results_List { get; set; } = new List<LineGaugeEdge>();
         public LineSegment2D FitLine { get; set; } = new LineSegment2D(); // 라인 핏팅 
         public List<OpenCvSharp.Point> edgeList { get; set; } = new List<OpenCvSharp.Point>(); // 엣지 리스트
-        public LineGaugeResult(List<LineGaugeEdge> Results_List, LineSegment2D fitLine)
+        public int EdgeCount => Results_List?.Count ?? 0;
+        public int EdgePointCount => edgeList?.Count ?? 0;
+
+        public LineGaugeResult(List<LineGaugeEdge> Results_List, LineSegment2D fitLine, int index = 0)
         {
+            Index = index;
             this.Results_List = Results_List.ConvertAll(s => new LineGaugeEdge(s.NO, s.MeasPos, s.UseEdge));
             this.FitLine = fitLine;
             edgeList = this.Results_List.Select(item => item.MeasPos).ToList();

@@ -3,6 +3,7 @@ using System.Drawing;
 
 namespace Lib.OpenCV.Result
 {
+    [System.Obsolete("Legacy compatibility result. Use CornerResult for new OpenVisionLab code.", false)]
     public class CResultCorner
     {
         public double Area { get; set; } = 0.0D;

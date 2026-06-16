@@ -13,6 +13,7 @@ using OpenCvSharp;
 using static Lib.Common.CFormula;
 namespace Lib.OpenCV.Tool
 {  
+    [Obsolete("Legacy compatibility API. Use LineGaugeTool and LineGaugeResult for new OpenVisionLab code.", false)]
     public partial class CVLineGuage : COpenCVAlgorithmBase
     {
         public IOpenCVPropertyLineGuage property { get; set; }

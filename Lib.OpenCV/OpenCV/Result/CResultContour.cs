@@ -6,6 +6,7 @@ using System.Text;
 
 namespace Lib.OpenCV.Result
 {
+    [Obsolete("Legacy compatibility result. Use ContourResult for new OpenVisionLab code.", false)]
     public class CResultContour
     {
         public double Area { get; set; } = 0.0D;

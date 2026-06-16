@@ -6,6 +6,7 @@ using System.Text;
 
 namespace Lib.OpenCV.Blob
 {
+    [Obsolete("Legacy compatibility result. Use BlobResult for new OpenVisionLab code.", false)]
     public class CResultBlob
     {
         public int Index { get; set; } = 0;

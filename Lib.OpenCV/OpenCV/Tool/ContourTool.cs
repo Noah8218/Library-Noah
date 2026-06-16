@@ -2,7 +2,6 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using System.Threading.Tasks;
 using Lib.Common;
 using Lib.OpenCV.Property;
@@ -21,6 +20,64 @@ namespace Lib.OpenCV.Tool
 
         public void SetProperty(IOpenCVPropertyContour propertyBase) => property = propertyBase;
 
+        protected override bool TryValidateBeforeRun(out VisionToolErrorCode errorCode, out string message)
+        {
+            if (!base.TryValidateBeforeRun(out errorCode, out message))
+            {
+                return false;
+            }
+
+            if (!TryValidateAreaRange(
+                property.MIN_AREA,
+                property.MAX_AREA,
+                VisionToolErrorCode.ContourInvalidAreaRange,
+                "Contour",
+                out errorCode,
+                out message))
+            {
+                return false;
+            }
+
+            if (!TryValidateAdaptiveThreshold(
+                property,
+                VisionToolErrorCode.ContourInvalidAdaptiveBlockSize,
+                out errorCode,
+                out message))
+            {
+                return false;
+            }
+
+            if (!TryValidateRoiSet(
+                property,
+                property.USE_ROI,
+                true,
+                VisionToolErrorCode.ContourRoiInvalid,
+                "Contour",
+                out errorCode,
+                out message))
+            {
+                return false;
+            }
+
+            errorCode = VisionToolErrorCode.None;
+            message = string.Empty;
+            return true;
+        }
+
+        protected override bool TryValidateAfterRun(out VisionToolErrorCode errorCode, out string message)
+        {
+            if (results == null || results.Count == 0)
+            {
+                errorCode = VisionToolErrorCode.ContourNoResult;
+                message = $"Contour found no result. Area={property.MIN_AREA}..{property.MAX_AREA}, ROI={FormatContourRoi()}";
+                return false;
+            }
+
+            errorCode = VisionToolErrorCode.None;
+            message = string.Empty;
+            return true;
+        }
+
         public override void Run()
         {
             if (property.USE_MULTI_ROI)
@@ -38,7 +95,6 @@ namespace Lib.OpenCV.Tool
             OpenCvSharp.Point[][] Contours;
             HierarchyIndex[] hierarchy;
 
-            int Threshold = (int)property.THRESHOLD;
             int MinArea = property.MIN_AREA;
             int MaxArea = property.MAX_AREA;
 
@@ -50,89 +106,35 @@ namespace Lib.OpenCV.Tool
                 return false;
             }
 
-            if (property.CvROI.Width == 0 || property.CvROI.Height == 0)
-            {
-                property.CvROI = new OpenCvSharp.Rect(0, 0, imageSource.Width, imageSource.Height);
-            }
-
-            Mat ImageSrc = property.USE_ROI ? imageSource.SubMat(property.CvROI) : imageSource.Clone();
+            Rect roi = NormalizeContourRoi(property.CvROI);
 
             if (property.USE_DRAW_IMAGE)
             {
-                imageResult = imageSource.Clone();
+                ReplaceResultImage(imageSource.Clone());
                 OpenCvHelper.SetImageChannel3(imageResult);
             }
 
-            OpenCvHelper.SetImageChannel1(ImageSrc);
+            using (Mat imageSrc = CreateWorkingContourImage(roi, property.USE_ROI))
+            {
+                Cv2.FindContours(imageSrc, out Contours, out hierarchy, property.DetectMode, property.ApproximationModes, null);
+            }
 
-            #region THRESHOLD
-            if (property.USE_THRESHOLD) { Cv2.Threshold(ImageSrc, ImageSrc, property.THRESHOLD, 255, property.THRESHOLD_TYPES); }
-            else if (property.USE_ADAPTIVE_THRESHOLD) { Cv2.AdaptiveThreshold(ImageSrc, ImageSrc, property.ADAPTIVE_THRESHOLD, property.ADAPTIVE_THRESHOLD_ALGORITHM, property.ADAPTIVE_THRESHOLD_TYPES, property.BlockSize, property.Weight); }
-
-            #endregion
-
-            // 컨투어 자체가 검은색 영역에서 흰색영역을 검출하는 알고리즘 
-            // 검출하려고 하는 물체가 검은색이면 반전으로 검출해야함
-            if (property.USE_BITWISENOT) Cv2.BitwiseNot(ImageSrc, ImageSrc);
-
-            Cv2.FindContours(ImageSrc, out Contours, out hierarchy, property.DetectMode, property.ApproximationModes, null);
-
-            AddRoiToContourPoints(Contours, property.CvROI);
+            AddRoiToContourPoints(Contours, roi, property.USE_ROI);
 
             ConcurrentBag<ContourResult> filteredContours = new ConcurrentBag<ContourResult>();
             ConcurrentBag<OpenCvSharp.Point[]> drawContours = new ConcurrentBag<OpenCvSharp.Point[]>();
 
             Parallel.ForEach(Contours, (item, state, index) =>
             {
-                RotatedRect rrect;
-                Rect rt;
-
-                double dContourArea = Cv2.ContourArea(item, false);
-
-                if (dContourArea < MinArea || dContourArea > MaxArea)
-                    return;
-
-                OpenCvSharp.Point[] contourForDraw;
-                OpenCvSharp.Point[] contourForCalc;
-
-                if (property.USE_APPROXPOLYDP)
+                if (TryCreateContourResult(item, index, MinArea, MaxArea, true, out ContourResult result, out OpenCvSharp.Point[] drawContour))
                 {
-                    double peri = Cv2.ArcLength(item, true);
-
-                    // 핵심: pp를 지역 변수로 선언
-                    OpenCvSharp.Point[] approxPoints =
-                        Cv2.ApproxPolyDP(item, property.EPSILON * peri, true);
-
-                    contourForCalc = approxPoints;
-                    contourForDraw = approxPoints;
+                    filteredContours.Add(result);
+                    drawContours.Add(drawContour);
                 }
-                else
-                {
-                    contourForCalc = item;
-                    contourForDraw = item;
-                }
-
-                rt = Cv2.BoundingRect(contourForCalc);
-                rrect = Cv2.MinAreaRect(contourForCalc);
-
-                drawContours.Add(contourForDraw);
-
-                OpenCvSharp.Point ptCenter = new OpenCvSharp.Point(
-                    rt.X + rt.Width / 2,
-                    rt.Y + rt.Height / 2);
-
-                filteredContours.Add(
-                    new ContourResult(
-                        (int)index,
-                        dContourArea,
-                        ptCenter,
-                        rt,
-                        contourForDraw,
-                        Math.Round(rrect.Angle, 1)));
             });
 
             if (property.USE_DRAW_IMAGE) { Cv2.DrawContours(imageResult, drawContours.ToArray(), -1, new Scalar(property.DrawColor.B, property.DrawColor.G, property.DrawColor.R, property.DrawColor.A), property.DrawThickness, LineTypes.Link4); }
-            results = filteredContours.OrderBy(c => c.Index).ToList();
+            results = ReindexContours(filteredContours.OrderBy(c => c.Index)).ToList();
 
         
             return true;
@@ -143,7 +145,6 @@ namespace Lib.OpenCV.Tool
             OpenCvSharp.Point[][] Contours;
             HierarchyIndex[] hierarchy;
 
-            int Threshold = (int)property.THRESHOLD;
             int MinArea = property.MIN_AREA;
             int MaxArea = property.MAX_AREA;
 
@@ -158,88 +159,130 @@ namespace Lib.OpenCV.Tool
 
             if (property.USE_DRAW_IMAGE)
             {
-                imageResult = imageSource.Clone();
+                ReplaceResultImage(imageSource.Clone());
                 OpenCvHelper.SetImageChannel3(imageResult);
             }
 
             for (int i = 0; i < property.CvROIS.Count; i++)
             {
-                if (property.CvROIS[i].Width == 0 || property.CvROIS[i].Height == 0)
+                Rect roi = NormalizeContourRoi(property.CvROIS[i]);
+
+                using (Mat imageSrc = CreateWorkingContourImage(roi, true))
                 {
-                    property.CvROIS[i] = new OpenCvSharp.Rect(0, 0, imageSource.Width, imageSource.Height);
+                    Cv2.FindContours(imageSrc, out Contours, out hierarchy, property.DetectMode, property.ApproximationModes, null);
                 }
 
-                Mat ImageSrc = new Mat();
-
-                #region ROI
-                if (property.USE_ROI) { ImageSrc = imageSource.SubMat(property.CvROIS[i]); }
-                else { ImageSrc = imageSource.Clone(); }
-                #endregion
-
-                OpenCvHelper.SetImageChannel1(ImageSrc);
-
-                #region THRESHOLD
-                if (property.USE_THRESHOLD) { Cv2.Threshold(ImageSrc, ImageSrc, property.THRESHOLD, 255, property.THRESHOLD_TYPES); }
-                else if (property.USE_ADAPTIVE_THRESHOLD) { Cv2.AdaptiveThreshold(ImageSrc, ImageSrc, property.ADAPTIVE_THRESHOLD, property.ADAPTIVE_THRESHOLD_ALGORITHM, property.ADAPTIVE_THRESHOLD_TYPES, property.BlockSize, property.Weight); }
-
-                #endregion
-
-                // 컨투어 자체가 검은색 영역에서 흰색영역을 검출하는 알고리즘 
-                // 검출하려고 하는 물체가 검은색이면 반전으로 검출해야함
-                if (property.USE_BITWISENOT) Cv2.BitwiseNot(ImageSrc, ImageSrc);
-
-                Cv2.FindContours(ImageSrc, out Contours, out hierarchy, property.DetectMode, property.ApproximationModes, null);
-
-                AddRoiToContourPoints(Contours, property.CvROIS[i]);
+                AddRoiToContourPoints(Contours, roi, true);
 
                 ConcurrentBag<ContourResult> filteredContours = new ConcurrentBag<ContourResult>();
                 ConcurrentBag<OpenCvSharp.Point[]> drawContours = new ConcurrentBag<OpenCvSharp.Point[]>();
 
                 Parallel.ForEach(Contours, (item, state, index) =>
                 {
-                    RotatedRect rrect = new RotatedRect();
-                    Rect rt = new Rect();
-                    double dContourArea = Cv2.ContourArea(item, false);
-
-                    if ((dContourArea >= MinArea) && (dContourArea <= MaxArea))
+                    if (TryCreateContourResult(item, index, MinArea, MaxArea, false, out ContourResult result, out OpenCvSharp.Point[] drawContour))
                     {
-                        if (property.USE_APPROXPOLYDP)
-                        {
-                            double peri = Cv2.ArcLength(item, true);
-                            OpenCvSharp.Point[] approxPoints = Cv2.ApproxPolyDP(item, property.EPSILON * peri, true);
-
-                            rt = Cv2.BoundingRect(approxPoints);
-                            rrect = Cv2.MinAreaRect(approxPoints);
-
-                            drawContours.Add(approxPoints);
-                        }
-                        else
-                        {
-                            rrect = Cv2.MinAreaRect(item);
-                            rt = Cv2.BoundingRect(item);
-                            drawContours.Add(item);
-                        }
-                        double areaRatio = Math.Abs(Cv2.ContourArea(item, false)) / (rrect.Size.Width * rrect.Size.Height);
-                        OpenCvSharp.Point ptCenter = new OpenCvSharp.Point(rt.X + rt.Width / 2, rt.Y + rt.Height / 2);
-
-                        filteredContours.Add(new ContourResult((int)index, dContourArea, ptCenter, rt, item, Math.Round(rrect.Angle, 1)));
+                        filteredContours.Add(result);
+                        drawContours.Add(drawContour);
                     }
                 });
 
-                results.AddRange(filteredContours.OrderBy(c => c.Index).ToList());
+                results.AddRange(filteredContours.OrderBy(c => c.Index));
                 drawContoursList.AddRange(drawContours);
             }
 
             if (property.USE_DRAW_IMAGE) { Cv2.DrawContours(imageResult, drawContoursList.ToArray(), -1, new Scalar(property.DrawColor.B, property.DrawColor.G, property.DrawColor.R, property.DrawColor.A), property.DrawThickness, LineTypes.Link4); }
+            results = ReindexContours(results).ToList();
             
         
 
             return true;
         }
 
-        private void AddRoiToContourPoints(OpenCvSharp.Point[][] Contours, OpenCvSharp.Rect CvROI)
+        private Mat CreateWorkingContourImage(OpenCvSharp.Rect roi, bool useRoi)
         {
-            if (property.USE_ROI)
+            return CreatePreprocessedImage(roi, useRoi, property);
+        }
+
+        private bool TryCreateContourResult(
+            OpenCvSharp.Point[] contour,
+            long sourceIndex,
+            int minArea,
+            int maxArea,
+            bool useDrawContourAsResult,
+            out ContourResult result,
+            out OpenCvSharp.Point[] drawContour)
+        {
+            result = null;
+            drawContour = null;
+
+            double contourArea = Cv2.ContourArea(contour, false);
+            if (contourArea < minArea || contourArea > maxArea)
+            {
+                return false;
+            }
+
+            OpenCvSharp.Point[] contourForCalc;
+            if (property.USE_APPROXPOLYDP)
+            {
+                double peri = Cv2.ArcLength(contour, true);
+                OpenCvSharp.Point[] approxPoints = Cv2.ApproxPolyDP(contour, property.EPSILON * peri, true);
+                contourForCalc = approxPoints;
+                drawContour = approxPoints;
+            }
+            else
+            {
+                contourForCalc = contour;
+                drawContour = contour;
+            }
+
+            Rect bounds = Cv2.BoundingRect(contourForCalc);
+            RotatedRect rotatedRect = Cv2.MinAreaRect(contourForCalc);
+            OpenCvSharp.Point center = new OpenCvSharp.Point(
+                bounds.X + bounds.Width / 2,
+                bounds.Y + bounds.Height / 2);
+            OpenCvSharp.Point[] resultContour = useDrawContourAsResult ? drawContour : contour;
+
+            result = new ContourResult(
+                (int)sourceIndex,
+                contourArea,
+                center,
+                bounds,
+                resultContour,
+                Math.Round(rotatedRect.Angle, 1));
+            return true;
+        }
+
+        private Rect NormalizeContourRoi(Rect roi)
+        {
+            return roi.Width == 0 || roi.Height == 0
+                ? new Rect(0, 0, imageSource.Width, imageSource.Height)
+                : roi;
+        }
+
+        private string FormatContourRoi()
+        {
+            if (property.USE_MULTI_ROI)
+            {
+                return $"Multi({property.CvROIS?.Count ?? 0})";
+            }
+
+            Rect roi = NormalizeContourRoi(property.CvROI);
+            return $"{roi.X},{roi.Y},{roi.Width},{roi.Height}";
+        }
+
+        private static IEnumerable<ContourResult> ReindexContours(IEnumerable<ContourResult> source)
+        {
+            int index = 1;
+            foreach (ContourResult result in source)
+            {
+                result.Index = index++;
+                yield return result;
+            }
+        }
+
+        private void AddRoiToContourPoints(OpenCvSharp.Point[][] Contours, OpenCvSharp.Rect CvROI, bool applyOffset)
+        {
+            if (applyOffset)
             {
                 for (int i = 0; i < Contours.Length; i++)
                 {
@@ -254,138 +297,114 @@ namespace Lib.OpenCV.Tool
 
         public bool SquareRun()
         {
-                        results.Clear();
+            results.Clear();
 
             if (OpenCvHelper.IsImageEmpty(imageSource))
             {
-
                 return false;
             }
 
-            if (property.CvROI.Width == 0 || property.CvROI.Height == 0)
-            {
-                property.CvROI = new OpenCvSharp.Rect(0, 0, imageSource.Width, imageSource.Height);
-            }
+            Rect roi = NormalizeContourRoi(property.CvROI);
 
-            using (Mat ImageSrc = imageSource.Clone())
+            using (Mat imageSrc = imageSource.Clone())
             {
                 if (OpenCvHelper.IsImageEmpty(imageSource)) return false;
-                imageResult = ImageSrc.Clone();
+                ReplaceResultImage(imageSrc.Clone());
 
-                if (ImageSrc.Channels() == 4) Cv2.CvtColor(ImageSrc, ImageSrc, ColorConversionCodes.RGBA2GRAY);
-                if (ImageSrc.Channels() == 3) Cv2.CvtColor(ImageSrc, ImageSrc, ColorConversionCodes.RGB2GRAY);
+                if (imageSrc.Channels() == 4) Cv2.CvtColor(imageSrc, imageSrc, ColorConversionCodes.RGBA2GRAY);
+                if (imageSrc.Channels() == 3) Cv2.CvtColor(imageSrc, imageSrc, ColorConversionCodes.RGB2GRAY);
                 if (imageResult.Channels() == 1) Cv2.CvtColor(imageResult, imageResult, ColorConversionCodes.GRAY2RGB);
 
-                Mat ImageContour = null;
-
-                #region ROI
-                if (property.USE_ROI) { ImageContour = ImageSrc.SubMat(property.CvROI).Clone(); }
-                else { ImageContour = ImageSrc.Clone(); }
-                #endregion
-
-                #region THRESHOLD
-                if (property.USE_THRESHOLD)
+                using (Mat imageContour = CreateWorkingContourImage(roi, property.USE_ROI))
                 {
-                    Cv2.Threshold(ImageContour, ImageContour, property.THRESHOLD, 255, property.THRESHOLD_TYPES);
-                }
-                #endregion
+                    OpenCvSharp.Point[][] contours;
+                    HierarchyIndex[] hierarchy;
 
-                // 컨투어 자체가 검은색 영역에서 흰색영역을 검출하는 알고리즘 
-                // 검출하려고 하는 물체가 검은색이면 반전으로 검출해야함
-                if (property.USE_BITWISENOT) Cv2.BitwiseNot(ImageContour, ImageContour);
+                    Cv2.FindContours(imageContour, out contours, out hierarchy, property.DetectMode, property.ApproximationModes, null);
+                    AddRoiToContourPoints(contours, roi, property.USE_ROI);
 
-                OpenCvSharp.Point[][] Contours;
-                HierarchyIndex[] hierarchy;
-
-                int Threshold = (int)property.THRESHOLD;
-                int MinArea = property.MIN_AREA;
-                int MaxArea = property.MAX_AREA;
-
-
-                Cv2.FindContours(ImageContour, out Contours, out hierarchy, property.DetectMode, property.ApproximationModes, null);
-
-                if (property.USE_ROI)
-                {
-                    for (int i = 0; i < Contours.Length; i++)
+                    List<ContourResult> squareResults = new List<ContourResult>();
+                    for (int i = 0; i < contours.Length; i++)
                     {
-                        for (int j = 0; j < Contours[i].Length; j++)
+                        if (TryCreateSquareContourResult(
+                            contours[i],
+                            i,
+                            property.MIN_AREA,
+                            property.MAX_AREA,
+                            out ContourResult result,
+                            out OpenCvSharp.Point[] squarePoints))
                         {
-                            Contours[i][j].X = Contours[i][j].X + property.CvROI.X;
-                            Contours[i][j].Y = Contours[i][j].Y + property.CvROI.Y;
+                            squareResults.Add(result);
+                            for (int j = 0; j < squarePoints.Length; j++)
+                            {
+                                Cv2.Circle(imageResult, squarePoints[j], 5, Scalar.Yellow, Cv2.FILLED);
+                            }
+
+                            Cv2.Polylines(imageResult, new[] { squarePoints }, true, Scalar.Yellow, 1, LineTypes.AntiAlias, 0);
                         }
                     }
-                }
 
-                for (int i = 0; i < Contours.Length; i++)
-                {
-                    double dContourArea = Cv2.ContourArea(Contours[i], false);
-
-                    if ((dContourArea >= MinArea) && (dContourArea <= MaxArea))
-                    {
-                        double peri = Cv2.ArcLength(Contours[i], true);
-                        OpenCvSharp.Point[] approxPoints = Cv2.ApproxPolyDP(Contours[i], property.EPSILON * peri, true);
-
-                        bool convex = Cv2.IsContourConvex(approxPoints);
-
-                        // 사각형은 4개의 꼭지점과 4개의 각도가 합쳤을 떄 360도가 나와야 함
-                        if (approxPoints.Length == 4 && convex)
-                        {
-                            double cos = 0;
-                            OpenCvSharp.Point[][] pts = new OpenCvSharp.Point[1][];
-                            pts[0] = new OpenCvSharp.Point[0];
-                            pts[0] = approxPoints;
-                            for (int k = 1; k < 5; k++)
-                            {
-
-                                //double Angle = CVision.RadianToDegree(Math.Abs(CVision.Angle(approxPoints[k % 4], approxPoints[(k - 1) % 4], approxPoints[(k + 1) % 4])));
-                                double Angle2 = FormulaUtil.threePointAngle(approxPoints[k % 4], approxPoints[(k - 1) % 4], approxPoints[(k + 1) % 4]);
-                                cos = cos > Angle2 ? cos : Angle2;
-                                Cv2.Circle(imageResult, approxPoints[k - 1], 5, Scalar.Yellow, Cv2.FILLED);
-
-                            }
-                            // 각도가 90도 이상이어야 함
-                            if (cos > 90 && cos < 95)
-                            {
-                                Cv2.Polylines(imageResult, pts, true, Scalar.Yellow, 1, LineTypes.AntiAlias, 0);
-                                //Cv2.FillPoly(ImageResult, pts, Scalar.Yellow); 
-                                // 중심점 기준 원근 변환 실행
-                                Mat dst = FormulaUtil.PerspectiveTransform(imageSource.Clone(), approxPoints);
-
-                                //Cv2.ImShow("dst", dst);
-                                //Cv2.WaitKey(0);
-                                //Cv2.DestroyAllWindows();
-                            }
-                        }
-
-
-                        //Cv2.Polylines(ImageResult, pts, true, Scalar.Yellow, 1, LineTypes.AntiAlias, 0);
-                        //Cv2.Polylines(ImageResult, approxPoints, true, Scalar.Yellow, 3, LineTypes.AntiAlias, 0);
-
-
-
-                        Rect rt = Cv2.BoundingRect(approxPoints);
-
-                        RotatedRect rrect = Cv2.MinAreaRect(approxPoints);
-                        double areaRatio = Math.Abs(Cv2.ContourArea(Contours[i], false)) / (rrect.Size.Width * rrect.Size.Height);
-
-
-
-                        //OpenCvSharp.Scalar Color = new Scalar(Property.DrawColor.B, Property.DrawColor.G, Property.DrawColor.R, Property.DrawColor.A);
-
-                        // Cv2.DrawContours(ImageResult, Contours, i, Color, Property.DrawThickness, LineTypes.Link4, hierarchy, 100, Points);
-                        //OpenCvSharp.Point ptCenter = new OpenCvSharp.Point(rt.X + rt.Width / 2, rt.Y + rt.Height / 2);
-                        //Cv2.PutText(ImageResult, dContourArea.ToString("F0"), ptCenter, HersheyFonts.HersheyTriplex, 2, Scalar.Aquamarine, 3, LineTypes.AntiAlias);
-
-                        //Cv2.DrawContours(imageMasking, Contours, i, Scalar.White, -1, LineTypes.AntiAlias, hierarchy, 100, Points);
-
-
-                        //Results.Add(new ContourResult(dContourArea, ptCenter, rt));
-
-                        // ImageResult가 Draw 이미지
-                    }
+                    results = ReindexContours(squareResults.OrderBy(result => result.Index)).ToList();
                 }
             }
-        
+
+            return true;
+        }
+
+        private bool TryCreateSquareContourResult(
+            OpenCvSharp.Point[] contour,
+            long sourceIndex,
+            int minArea,
+            int maxArea,
+            out ContourResult result,
+            out OpenCvSharp.Point[] squarePoints)
+        {
+            result = null;
+            squarePoints = null;
+
+            double contourArea = Cv2.ContourArea(contour, false);
+            if (contourArea < minArea || contourArea > maxArea)
+            {
+                return false;
+            }
+
+            double peri = Cv2.ArcLength(contour, true);
+            OpenCvSharp.Point[] approxPoints = Cv2.ApproxPolyDP(contour, property.EPSILON * peri, true);
+            if (approxPoints.Length != 4 || !Cv2.IsContourConvex(approxPoints) || !HasNearRightAngle(approxPoints))
+            {
+                return false;
+            }
+
+            Rect bounds = Cv2.BoundingRect(approxPoints);
+            RotatedRect rotatedRect = Cv2.MinAreaRect(approxPoints);
+            OpenCvSharp.Point center = new OpenCvSharp.Point(
+                bounds.X + bounds.Width / 2,
+                bounds.Y + bounds.Height / 2);
+
+            squarePoints = approxPoints;
+            result = new ContourResult(
+                (int)sourceIndex,
+                contourArea,
+                center,
+                bounds,
+                squarePoints,
+                Math.Round(rotatedRect.Angle, 1));
+            return true;
+        }
+
+        private static bool HasNearRightAngle(OpenCvSharp.Point[] points)
+        {
+            for (int i = 0; i < points.Length; i++)
+            {
+                double angle = FormulaUtil.threePointAngle(
+                    points[i],
+                    points[(i + points.Length - 1) % points.Length],
+                    points[(i + 1) % points.Length]);
+                if (Math.Abs(angle - 90d) > 5d)
+                {
+                    return false;
+                }
+            }
 
             return true;
         }

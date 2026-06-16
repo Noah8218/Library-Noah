@@ -3,6 +3,7 @@ using System.Drawing;
 
 namespace Lib.OpenCV.Result
 {
+    [System.Obsolete("Legacy compatibility result. Use MeanResult for new OpenVisionLab code.", false)]
     public class CResultMean
     {
         public int index { get; set; } = 0;

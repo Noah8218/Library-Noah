@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using Lib.Common;
 using Lib.OpenCV.Property;
 using Lib.OpenCV.Result;
@@ -14,12 +13,78 @@ namespace Lib.OpenCV.Tool
     {
         public IOpenCVPropertyFeatureSIFT property;
         public List<MatchingResult> results = new List<MatchingResult>();
+        private VisionToolErrorCode lastFeatureErrorCode = VisionToolErrorCode.FeatureNoResult;
+        private string lastFeatureMessage = "Feature matching found no result.";
 
         public SiftTool() { }
 
         public void SetProperty(IOpenCVPropertyFeatureSIFT propertyBase) => property = propertyBase;
 
-        public void SetTemplateImage(Mat Image) => imageTemplate = Image;
+        public void SetTemplateImage(Mat Image)
+        {
+            imageTemplate?.Dispose();
+            imageTemplate = OpenCvHelper.IsImageEmpty(Image) ? new Mat() : Image.Clone();
+        }
+
+        protected override bool TryValidateBeforeRun(out VisionToolErrorCode errorCode, out string message)
+        {
+            if (!base.TryValidateBeforeRun(out errorCode, out message))
+            {
+                return false;
+            }
+
+            if (OpenCvHelper.IsImageEmpty(imageTemplate))
+            {
+                errorCode = VisionToolErrorCode.FeatureTemplateMissing;
+                message = string.IsNullOrWhiteSpace(property.PATTERN_PATH)
+                    ? "Feature matching template image is not loaded."
+                    : $"Feature matching template image is not loaded. Path={property.PATTERN_PATH}.";
+                return false;
+            }
+
+            if (!TryValidateAdaptiveThreshold(
+                property,
+                VisionToolErrorCode.FeatureInvalidAdaptiveBlockSize,
+                out errorCode,
+                out message))
+            {
+                return false;
+            }
+
+            if (!TryValidateRoiSet(
+                property,
+                property.USE_ROI,
+                true,
+                VisionToolErrorCode.FeatureRoiInvalid,
+                "Feature matching",
+                out errorCode,
+                out message))
+            {
+                return false;
+            }
+
+            errorCode = VisionToolErrorCode.None;
+            message = string.Empty;
+            return true;
+        }
+
+        protected override bool TryValidateAfterRun(out VisionToolErrorCode errorCode, out string message)
+        {
+            if (results == null || results.Count == 0)
+            {
+                errorCode = lastFeatureErrorCode == VisionToolErrorCode.None
+                    ? VisionToolErrorCode.FeatureNoResult
+                    : lastFeatureErrorCode;
+                message = string.IsNullOrWhiteSpace(lastFeatureMessage)
+                    ? "Feature matching found no result."
+                    : lastFeatureMessage;
+                return false;
+            }
+
+            errorCode = VisionToolErrorCode.None;
+            message = string.Empty;
+            return true;
+        }
 
         public override void Run()
         {
@@ -35,120 +100,152 @@ namespace Lib.OpenCV.Tool
 
         protected bool MultiRun()
         {
-                        swTaktTimems.Restart();
+            swTaktTimems.Restart();
             results.Clear();
+            ResetFeatureFailure();
 
-            if (OpenCvHelper.IsImageEmpty(imageSource))
+            if (OpenCvHelper.IsImageEmpty(imageSource)) { return false; }
+
+            using (Mat imageTemplate = CreatePreparedFeatureTemplate())
             {
-
-                return false;
-            }
-            //imageResult = imageSource.Clone();
-            //OpenCvHelper.SetImageChannel3(imageResult);
-
-
-            if (OpenCvHelper.IsImageEmpty(imageSource)) return false;
-            OpenCvHelper.SetImageChannel1(imageSource);
-            OpenCvHelper.SetImageChannel1(imageTemplate);
-
-            using (Mat ImageTemplate = imageTemplate.Clone())
-            {
-                for(int i =0; i < property.CvROIS.Count; i++)
+                for (int i = 0; i < property.CvROIS.Count; i++)
                 {
-                    if (property.CvROIS[i].Width == 0 || property.CvROIS[i].Height == 0)
+                    Rect roi = NormalizeFeatureRoi(property.CvROIS[i]);
+                    RunFeatureMatchingForRoi(imageTemplate, roi, true);
+                }
+            }
+
+            swTaktTimems.Stop();
+            return true;
+        }
+
+        protected bool SingleRun()
+        {
+            swTaktTimems.Restart();
+            results.Clear();
+            ResetFeatureFailure();
+
+            if (OpenCvHelper.IsImageEmpty(imageSource)) { return false; }
+
+            Rect roi = NormalizeFeatureRoi(property.CvROI);
+            using (Mat imageTemplate = CreatePreparedFeatureTemplate())
+            {
+                RunFeatureMatchingForRoi(imageTemplate, roi, property.USE_ROI);
+            }
+
+            swTaktTimems.Stop();
+            return true;
+        }
+
+        private Mat CreatePreparedFeatureTemplate()
+        {
+            Mat preparedTemplate = imageTemplate.Clone();
+            ApplyCommonPreprocessing(preparedTemplate, property);
+            return preparedTemplate;
+        }
+
+        private Rect NormalizeFeatureRoi(Rect roi)
+        {
+            return roi.Width == 0 || roi.Height == 0
+                ? new Rect(0, 0, imageSource.Width, imageSource.Height)
+                : roi;
+        }
+
+        private void RunFeatureMatchingForRoi(Mat imageTemplate, Rect roi, bool useRoi)
+        {
+            using (Mat imageSift = CreatePreprocessedImage(roi, useRoi, property))
+            {
+                AddFeatureMatchResult(imageSift, imageTemplate, useRoi, roi);
+            }
+        }
+
+        private void AddFeatureMatchResult(Mat imageSift, Mat imageTemplate, bool useRoi, Rect roi)
+        {
+            if (OpenCvHelper.IsImageEmpty(imageSift) || OpenCvHelper.IsImageEmpty(imageTemplate))
+            {
+                SetFeatureFailure(VisionToolErrorCode.FeatureNoResult, $"Feature matching source or template image is empty after preprocessing. {FormatFeatureOptions(roi)}");
+                return;
+            }
+
+            using (FeatureDetectorRuntime detector = CreateFeatureDetectorRuntime())
+            using (Mat descriptorsTemplate = new Mat())
+            using (Mat descriptorsSource = new Mat())
+            {
+                detector.Detector.DetectAndCompute(imageTemplate, null, out KeyPoint[] keypointsTemplate, descriptorsTemplate);
+                detector.Detector.DetectAndCompute(imageSift, null, out KeyPoint[] keypointsSource, descriptorsSource);
+
+                if (descriptorsTemplate.Empty() || descriptorsSource.Empty()
+                    || keypointsTemplate.Length == 0 || keypointsSource.Length == 0)
+                {
+                    SetFeatureFailure(
+                        VisionToolErrorCode.FeatureNoKeypoints,
+                        $"Feature matching could not find keypoints. Template={keypointsTemplate.Length}, Source={keypointsSource.Length}, {FormatFeatureOptions(roi)}");
+                    return;
+                }
+
+                using (BFMatcher matcher = new BFMatcher(detector.NormType))
+                {
+                    DMatch[][] knnMatches = matcher.KnnMatch(descriptorsTemplate, descriptorsSource, 2);
+                    float ratioThreshold = (float)property.SCORE_MIN;
+                    List<DMatch> goodMatches = new List<DMatch>();
+
+                    foreach (DMatch[] match in knnMatches)
                     {
-                        property.CvROIS[i] = new Rect(0, 0, imageSource.Width, imageSource.Height);
+                        if (match.Length >= 2 && match[0].Distance < ratioThreshold * match[1].Distance)
+                        {
+                            goodMatches.Add(match[0]);
+                        }
                     }
 
-                    using (Mat ImageSIFT = property.USE_ROI ? imageSource.SubMat(property.CvROIS[i]) : imageSource.Clone())
+                    if (goodMatches.Count < 4)
                     {
-                        /*
-                    * 속도와 효율성: ORB는 SIFT에 비해 훨씬 빠르며 효율적입니다. ORB는 특징점 검출을 위해 FAST(Features from Accelerated Segment Test) 알고리즘을 사용하고, 특징점 설명을 위해 BRIEF(Binary Robust Independent Elementary Features) 알고리즘을 사용합니다. 이 두 알고리즘 모두 계산적으로 매우 효율적입니다. 반면에, SIFT는 키포인트 검출과 설명을 위해 복잡한 계산을 수행하므로 처리 시간이 더 길어질 수 있습니다.
-                       특징점의 수: 일반적으로, ORB는 SIFT에 비해 더 많은 특징점을 검출합니다. 이는 ORB의 FAST 알고리즘이 코너 특징점을 검출하는 데 특화되어 있기 때문입니다.
-                       회전과 크기 불변성: SIFT는 이미지의 회전과 크기 변화에 대해 불변입니다. 이는 SIFT가 각 특징점의 방향과 스케일 정보를 계산하기 때문입니다. 반면에, ORB는 회전에 대해 불변이지만 크기 변화에 대해서는 불변이 아닙니다.
-                       특징점 설명자: SIFT는 128차원의 실수 벡터를 사용하여 특징점을 설명합니다. 이 설명자는 각 특징점 주변의 그래디언트 정보를 기반으로 합니다. 반면에, ORB는 256차원의 이진 벡터를 사용하여 특징점을 설명합니다. 이 설명자는 특징점 주변의 간단한 이진 테스트를 기반으로 합니다.
-                    */
+                        SetFeatureFailure(
+                            VisionToolErrorCode.FeatureNotEnoughMatches,
+                            $"Feature matching found too few good matches. GoodMatches={goodMatches.Count}, Required=4, TemplateKeypoints={keypointsTemplate.Length}, SourceKeypoints={keypointsSource.Length}, {FormatFeatureOptions(roi)}");
+                        return;
+                    }
 
-                        if (property.USE_THRESHOLD)
-                        {
-                            Cv2.Threshold(ImageSIFT, ImageSIFT, property.THRESHOLD, 255, property.THRESHOLD_TYPES);
-                            Cv2.Threshold(ImageTemplate, ImageTemplate, property.THRESHOLD, 255, property.THRESHOLD_TYPES);
-                        }
-                        else if (property.USE_ADAPTIVE_THRESHOLD)
-                        {
-                            Cv2.AdaptiveThreshold(ImageSIFT, ImageSIFT, property.ADAPTIVE_THRESHOLD, property.ADAPTIVE_THRESHOLD_ALGORITHM, property.ADAPTIVE_THRESHOLD_TYPES, property.BlockSize, property.Weight);
-                            Cv2.AdaptiveThreshold(ImageTemplate, ImageTemplate, property.ADAPTIVE_THRESHOLD, property.ADAPTIVE_THRESHOLD_ALGORITHM, property.ADAPTIVE_THRESHOLD_TYPES, property.BlockSize, property.Weight);
-                        }
+                    Point2f[] srcPts = goodMatches.Select(m => keypointsTemplate[m.QueryIdx].Pt).ToArray();
+                    Point2f[] dstPts = goodMatches.Select(m => keypointsSource[m.TrainIdx].Pt).ToArray();
+                    Point2d[] srcPtsD = ConvertPoint2fToPoint2d(srcPts);
+                    Point2d[] dstPtsD = ConvertPoint2fToPoint2d(dstPts);
 
-                        if (property.USE_BITWISENOT)
+                    using (Mat inlierMask = new Mat())
+                    using (Mat homography = Cv2.FindHomography(srcPtsD, dstPtsD, HomographyMethods.Ransac, property.RANSAC_REPROJ_THRESHOLD, inlierMask))
+                    {
+                        if (homography == null || homography.Empty())
                         {
-                            Cv2.BitwiseNot(ImageSIFT, ImageSIFT);
-                            Cv2.BitwiseNot(ImageTemplate, ImageTemplate);
+                            SetFeatureFailure(
+                                VisionToolErrorCode.FeatureHomographyFailed,
+                                $"Feature matching homography failed. GoodMatches={goodMatches.Count}, {FormatFeatureOptions(roi)}");
+                            return;
                         }
 
-                        var sift = SIFT.Create();
-
-                        // 각 이미지에서 키포인트 및 디스크립터 계산
-                        KeyPoint[] keypoints1, keypoints2;
-                        Mat descriptors1 = new Mat(), descriptors2 = new Mat();
-
-                        sift.DetectAndCompute(ImageTemplate, null, out keypoints1, descriptors1);
-                        sift.DetectAndCompute(ImageSIFT, null, out keypoints2, descriptors2);
-
-                        // BFMatcher를 사용하여 특징점 매칭
-                        BFMatcher matcher = new BFMatcher(NormTypes.L2);
-                        // k값은 2개, 예를 들어서 5개면  첫 번째 이미지의 각 특징점에 대해 두 번째 이미지에서 가장 가까운 다섯 개의 특징점이 반환됩니다.                     
-                        DMatch[][] knnMatches = matcher.KnnMatch(descriptors1, descriptors2, 2);
-
-                        // Lowe's ratio test를 사용하여 좋은 매치 선택
-                        float ratioThreshold = (float)property.SCORE_MIN; // Can be tuned
-                        List<DMatch> goodMatches = new List<DMatch>();
-                        foreach (DMatch[] match in knnMatches)
+                        Size size = imageTemplate.Size();
+                        Point2f[] pts =
                         {
-                            if (match[0].Distance < ratioThreshold * match[1].Distance)
-                            {
-                                goodMatches.Add(match[0]);
-                            }
-                        }
-
-                        // Extract location of good matches
-                        Point2f[] srcPts = goodMatches.Select(m => keypoints1[m.QueryIdx].Pt).ToArray();
-                        Point2f[] dstPts = goodMatches.Select(m => keypoints2[m.TrainIdx].Pt).ToArray();
-                        Point2d[] srcPtsD = ConvertPoint2fToPoint2d(srcPts);
-                        Point2d[] dstPtsD = ConvertPoint2fToPoint2d(dstPts);
-                        // Calculate homography
-                        double ransacReprojThreshold = property.RANSAC_REPROJ_THRESHOLD;
-                        Mat homography = Cv2.FindHomography(srcPtsD, dstPtsD, HomographyMethods.Ransac, ransacReprojThreshold, new Mat());
-
-                        // Define source image region of interest
-                        Size size = ImageTemplate.Size();
-                        Point2f[] pts = new Point2f[]
-                        {
-                        new Point2f(0, 0),
-                        new Point2f(0, size.Height - 1),
-                        new Point2f(size.Width - 1, size.Height - 1),
-                        new Point2f(size.Width - 1, 0)
+                            new Point2f(0, 0),
+                            new Point2f(0, size.Height - 1),
+                            new Point2f(size.Width - 1, size.Height - 1),
+                            new Point2f(size.Width - 1, 0)
                         };
 
-                        // Apply homography to source ROI
                         Point2f[] dst = Cv2.PerspectiveTransform(pts, homography);
-
-                        if (property.USE_ROI)
+                        if (dst.Length != 4)
                         {
-                            for (int j = 0; j < dst.Length; j++)
+                            SetFeatureFailure(VisionToolErrorCode.FeatureHomographyFailed, $"Feature matching homography returned invalid corner count. Count={dst.Length}, {FormatFeatureOptions(roi)}");
+                            return;
+                        }
+
+                        if (useRoi)
+                        {
+                            for (int i = 0; i < dst.Length; i++)
                             {
-                                dst[j].X = dst[j].X + property.CvROIS[i].X;
-                                dst[j].Y = dst[j].Y + property.CvROIS[i].Y;
+                                dst[i].X += roi.X;
+                                dst[i].Y += roi.Y;
                             }
                         }
 
-                        // Ensure dst has exactly 4 points
-                        if (dst.Length != 4)
-                        {
-                            throw new ArgumentException("dst must have exactly 4 points");
-                        }
-
-                        // Create a RotatedRect
                         Point2f center = new Point2f(
                             (dst[0].X + dst[2].X) / 2,
                             (dst[0].Y + dst[2].Y) / 2);
@@ -156,180 +253,126 @@ namespace Lib.OpenCV.Tool
                             (float)Math.Sqrt(Math.Pow(dst[1].X - dst[0].X, 2) + Math.Pow(dst[1].Y - dst[0].Y, 2)),
                             (float)Math.Sqrt(Math.Pow(dst[3].X - dst[0].X, 2) + Math.Pow(dst[3].Y - dst[0].Y, 2)));
                         float angle = (float)(Math.Atan2(dst[1].Y - dst[0].Y, dst[1].X - dst[0].X) * 180 / Math.PI);
-
                         RotatedRect rect = new RotatedRect(center, size2f, angle);
+                        Rect2f bounding = CreateBoundingRect(dst);
+                        double score = CalculateFeatureScore(inlierMask, goodMatches.Count);
 
-                        // Extract the angle
-                        float rotationAngle = rect.Angle;
-
-                        // Assuming you have a RotatedRect named 'rotatedRect'
-                        //Point2f[] vertices = Cv2.BoxPoints(rect);
-                        Point[] points = dst.Select(p => new Point((int)Math.Round(p.X), (int)Math.Round(p.Y))).ToArray();
-
-                        OpenCvSharp.Rect rectangle = new OpenCvSharp.Rect(Math.Abs((int)((size2f.Width / 2) - center.X)), Math.Abs((int)((size2f.Height / 2) - center.Y)), (int)Math.Round(size2f.Width), (int)Math.Round(size2f.Height));
-
-                        results.Add(new MatchingResult(results.Count, 0, center, ConvertRectToRect2f(rectangle), rotationAngle));
-
-                        // Draw the rectangle 
-                        //Cv2.Polylines(imageResult, new Point[][] { points }, true, new Scalar(0, 255, 0), thickness: 2);
-                        //Cv2.DrawMatches(ImageTemplate, keypoints1, ImageORB, keypoints2, goodMatches, imageResult, Scalar.All(-1), Scalar.All(-1), null, DrawMatchesFlags.NotDrawSinglePoints);                                        
+                        results.Add(new MatchingResult(results.Count + 1, score, center, bounding, rect.Angle));
+                        ResetFeatureFailure();
                     }
-                } 
-            }
-
-            swTaktTimems.Stop();
-        
-            return true;
-        }
-
-        protected bool SingleRun()
-        {
-                        swTaktTimems.Restart();
-            results.Clear();
-
-            if (OpenCvHelper.IsImageEmpty(imageSource))
-            {
-
-                return false;
-            }
-            //imageResult = imageSource.Clone();
-            //OpenCvHelper.SetImageChannel3(imageResult);
-
-
-            if (OpenCvHelper.IsImageEmpty(imageSource)) return false;
-            OpenCvHelper.SetImageChannel1(imageSource);
-            OpenCvHelper.SetImageChannel1(imageTemplate);
-            
-            using (Mat ImageTemplate = imageTemplate.Clone())
-            {
-                if (property.CvROI.Width == 0 || property.CvROI.Height == 0)
-                {
-                    property.CvROI = new Rect(0, 0, imageSource.Width, imageSource.Height);
-                }
-                using (Mat ImageSIFT = property.USE_ROI ? imageSource.SubMat(property.CvROI) : imageSource.Clone())
-                {
-                    /*
-                * 속도와 효율성: ORB는 SIFT에 비해 훨씬 빠르며 효율적입니다. ORB는 특징점 검출을 위해 FAST(Features from Accelerated Segment Test) 알고리즘을 사용하고, 특징점 설명을 위해 BRIEF(Binary Robust Independent Elementary Features) 알고리즘을 사용합니다. 이 두 알고리즘 모두 계산적으로 매우 효율적입니다. 반면에, SIFT는 키포인트 검출과 설명을 위해 복잡한 계산을 수행하므로 처리 시간이 더 길어질 수 있습니다.
-                   특징점의 수: 일반적으로, ORB는 SIFT에 비해 더 많은 특징점을 검출합니다. 이는 ORB의 FAST 알고리즘이 코너 특징점을 검출하는 데 특화되어 있기 때문입니다.
-                   회전과 크기 불변성: SIFT는 이미지의 회전과 크기 변화에 대해 불변입니다. 이는 SIFT가 각 특징점의 방향과 스케일 정보를 계산하기 때문입니다. 반면에, ORB는 회전에 대해 불변이지만 크기 변화에 대해서는 불변이 아닙니다.
-                   특징점 설명자: SIFT는 128차원의 실수 벡터를 사용하여 특징점을 설명합니다. 이 설명자는 각 특징점 주변의 그래디언트 정보를 기반으로 합니다. 반면에, ORB는 256차원의 이진 벡터를 사용하여 특징점을 설명합니다. 이 설명자는 특징점 주변의 간단한 이진 테스트를 기반으로 합니다.
-                */
-
-                    if (property.USE_THRESHOLD)
-                    {
-                        Cv2.Threshold(ImageSIFT, ImageSIFT, property.THRESHOLD, 255, property.THRESHOLD_TYPES);
-                        Cv2.Threshold(ImageTemplate, ImageTemplate, property.THRESHOLD, 255, property.THRESHOLD_TYPES);
-                    }
-                    else if (property.USE_ADAPTIVE_THRESHOLD) 
-                    {
-                        Cv2.AdaptiveThreshold(ImageSIFT, ImageSIFT, property.ADAPTIVE_THRESHOLD, property.ADAPTIVE_THRESHOLD_ALGORITHM, property.ADAPTIVE_THRESHOLD_TYPES, property.BlockSize, property.Weight);
-                        Cv2.AdaptiveThreshold(ImageTemplate, ImageTemplate, property.ADAPTIVE_THRESHOLD, property.ADAPTIVE_THRESHOLD_ALGORITHM, property.ADAPTIVE_THRESHOLD_TYPES, property.BlockSize, property.Weight);
-                    }
-
-                    if (property.USE_BITWISENOT)
-                    {
-                        Cv2.BitwiseNot(ImageSIFT, ImageSIFT);
-                        Cv2.BitwiseNot(ImageTemplate, ImageTemplate);
-                    }
-
-                    var sift = SIFT.Create();
-
-                    // 각 이미지에서 키포인트 및 디스크립터 계산
-                    KeyPoint[] keypoints1, keypoints2;
-                    Mat descriptors1 = new Mat(), descriptors2 = new Mat();
-
-                    sift.DetectAndCompute(ImageTemplate, null, out keypoints1, descriptors1);
-                    sift.DetectAndCompute(ImageSIFT, null, out keypoints2, descriptors2);
-
-                    // BFMatcher를 사용하여 특징점 매칭
-                    BFMatcher matcher = new BFMatcher(NormTypes.L2);
-                    // k값은 2개, 예를 들어서 5개면  첫 번째 이미지의 각 특징점에 대해 두 번째 이미지에서 가장 가까운 다섯 개의 특징점이 반환됩니다.                     
-                    DMatch[][] knnMatches = matcher.KnnMatch(descriptors1, descriptors2, 2);
-
-                    // Lowe's ratio test를 사용하여 좋은 매치 선택
-                    float ratioThreshold = (float)property.SCORE_MIN; // Can be tuned
-                    List<DMatch> goodMatches = new List<DMatch>();
-                    foreach (DMatch[] match in knnMatches)
-                    {
-                        if (match[0].Distance < ratioThreshold * match[1].Distance)
-                        {
-                            goodMatches.Add(match[0]);
-                        }
-                    }
-
-                    // Extract location of good matches
-                    Point2f[] srcPts = goodMatches.Select(m => keypoints1[m.QueryIdx].Pt).ToArray();
-                    Point2f[] dstPts = goodMatches.Select(m => keypoints2[m.TrainIdx].Pt).ToArray();
-                    Point2d[] srcPtsD = ConvertPoint2fToPoint2d(srcPts);
-                    Point2d[] dstPtsD = ConvertPoint2fToPoint2d(dstPts);
-                    // Calculate homography
-                    double ransacReprojThreshold = property.RANSAC_REPROJ_THRESHOLD;
-                    Mat homography = Cv2.FindHomography(srcPtsD, dstPtsD, HomographyMethods.Ransac, ransacReprojThreshold, new Mat());
-
-                    // Define source image region of interest
-                    Size size = ImageTemplate.Size();
-                    Point2f[] pts = new Point2f[]
-                    {
-                        new Point2f(0, 0),
-                        new Point2f(0, size.Height - 1),
-                        new Point2f(size.Width - 1, size.Height - 1),
-                        new Point2f(size.Width - 1, 0)
-                    };
-
-                    // Apply homography to source ROI
-                    Point2f[] dst = Cv2.PerspectiveTransform(pts, homography);
-
-                    if (property.USE_ROI)
-                    {
-                        for (int i = 0; i < dst.Length; i++)
-                        {
-                            dst[i].X = dst[i].X + property.CvROI.X;
-                            dst[i].Y = dst[i].Y + property.CvROI.Y;
-                        }
-                    }
-
-                    // Ensure dst has exactly 4 points
-                    if (dst.Length != 4)
-                    {
-                        throw new ArgumentException("dst must have exactly 4 points");
-                    }
-
-                    // Create a RotatedRect
-                    Point2f center = new Point2f(
-                        (dst[0].X + dst[2].X) / 2,
-                        (dst[0].Y + dst[2].Y) / 2);
-                    Size2f size2f = new Size2f(
-                        (float)Math.Sqrt(Math.Pow(dst[1].X - dst[0].X, 2) + Math.Pow(dst[1].Y - dst[0].Y, 2)),
-                        (float)Math.Sqrt(Math.Pow(dst[3].X - dst[0].X, 2) + Math.Pow(dst[3].Y - dst[0].Y, 2)));
-                    float angle = (float)(Math.Atan2(dst[1].Y - dst[0].Y, dst[1].X - dst[0].X) * 180 / Math.PI);
-
-                    RotatedRect rect = new RotatedRect(center, size2f, angle);
-
-                    // Extract the angle
-                    float rotationAngle = rect.Angle;
-
-                    // Assuming you have a RotatedRect named 'rotatedRect'
-                    //Point2f[] vertices = Cv2.BoxPoints(rect);
-                    Point[] points = dst.Select(p => new Point((int)Math.Round(p.X), (int)Math.Round(p.Y))).ToArray();
-
-                    OpenCvSharp.Rect rectangle = new OpenCvSharp.Rect(Math.Abs((int)((size2f.Width / 2) - center.X)), Math.Abs((int)((size2f.Height / 2) - center.Y)), (int)Math.Round(size2f.Width), (int)Math.Round(size2f.Height));
-
-                    results.Add(new MatchingResult(results.Count, 0, center, ConvertRectToRect2f(rectangle), rotationAngle));
-
-                    // Draw the rectangle 
-                    //Cv2.Polylines(imageResult, new Point[][] { points }, true, new Scalar(0, 255, 0), thickness: 2);
-                    //Cv2.DrawMatches(ImageTemplate, keypoints1, ImageORB, keypoints2, goodMatches, imageResult, Scalar.All(-1), Scalar.All(-1), null, DrawMatchesFlags.NotDrawSinglePoints);                                        
                 }
             }
-
-            swTaktTimems.Stop();
-        
-            return true;
         }
 
-        public Rect2f ConvertRectToRect2f(Rect rect)
+        private void ResetFeatureFailure()
         {
-            return new Rect2f(rect.X, rect.Y, rect.Width, rect.Height);
+            lastFeatureErrorCode = VisionToolErrorCode.FeatureNoResult;
+            lastFeatureMessage = "Feature matching found no result.";
+        }
+
+        private void SetFeatureFailure(VisionToolErrorCode errorCode, string message)
+        {
+            if (results.Count > 0)
+            {
+                return;
+            }
+
+            if (GetFeatureFailurePriority(errorCode) < GetFeatureFailurePriority(lastFeatureErrorCode))
+            {
+                return;
+            }
+
+            lastFeatureErrorCode = errorCode;
+            lastFeatureMessage = message;
+        }
+
+        private static int GetFeatureFailurePriority(VisionToolErrorCode errorCode)
+        {
+            switch (errorCode)
+            {
+                case VisionToolErrorCode.FeatureHomographyFailed:
+                    return 4;
+                case VisionToolErrorCode.FeatureNotEnoughMatches:
+                    return 3;
+                case VisionToolErrorCode.FeatureNoKeypoints:
+                    return 2;
+                case VisionToolErrorCode.FeatureNoResult:
+                    return 1;
+                default:
+                    return 0;
+            }
+        }
+
+        private string FormatFeatureOptions(Rect roi)
+        {
+            return $"ScoreMin={property.SCORE_MIN}, RansacThreshold={property.RANSAC_REPROJ_THRESHOLD}, Threshold={property.USE_THRESHOLD}, Adaptive={property.USE_ADAPTIVE_THRESHOLD}, ROI={FormatFeatureRoi(roi)}";
+        }
+
+        private string FormatFeatureRoi(Rect roi)
+        {
+            if (property.USE_MULTI_ROI)
+            {
+                return $"Multi({property.CvROIS?.Count ?? 0}) current={roi.X},{roi.Y},{roi.Width},{roi.Height}";
+            }
+
+            Rect actualRoi = property.USE_ROI ? roi : new Rect(0, 0, imageSource.Width, imageSource.Height);
+            return $"{actualRoi.X},{actualRoi.Y},{actualRoi.Width},{actualRoi.Height}";
+        }
+
+        private static Rect2f CreateBoundingRect(Point2f[] points)
+        {
+            float minX = points.Min(point => point.X);
+            float minY = points.Min(point => point.Y);
+            float maxX = points.Max(point => point.X);
+            float maxY = points.Max(point => point.Y);
+
+            return new Rect2f(minX, minY, maxX - minX, maxY - minY);
+        }
+
+        private static FeatureDetectorRuntime CreateFeatureDetectorRuntime()
+        {
+            try
+            {
+                return new FeatureDetectorRuntime(SIFT.Create(), NormTypes.L2);
+            }
+            catch (Exception ex) when (IsSiftUnavailable(ex))
+            {
+                return new FeatureDetectorRuntime(ORB.Create(1000), NormTypes.Hamming);
+            }
+        }
+
+        private static bool IsSiftUnavailable(Exception exception)
+        {
+            Exception baseException = exception.GetBaseException();
+            return baseException is EntryPointNotFoundException
+                || baseException.Message.IndexOf("features2d_SIFT_create", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        private sealed class FeatureDetectorRuntime : IDisposable
+        {
+            public FeatureDetectorRuntime(Feature2D detector, NormTypes normType)
+            {
+                Detector = detector;
+                NormType = normType;
+            }
+
+            public Feature2D Detector { get; }
+            public NormTypes NormType { get; }
+
+            public void Dispose()
+            {
+                Detector?.Dispose();
+            }
+        }
+
+        private static double CalculateFeatureScore(Mat inlierMask, int matchCount)
+        {
+            if (matchCount <= 0 || inlierMask == null || inlierMask.Empty())
+            {
+                return 0;
+            }
+
+            return Math.Round((double)Cv2.CountNonZero(inlierMask) / matchCount * 100.0D, 1);
         }
 
         public OpenCvSharp.Point2d ConvertPoint2fToPoint2d(OpenCvSharp.Point2f point)
