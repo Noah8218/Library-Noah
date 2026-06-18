@@ -87,8 +87,8 @@ namespace Lib.OpenCV
         {
             if (IsImageEmpty(image)) return false;
 
-            if (image.Channels() == 1) Cv2.CvtColor(image, image, ColorConversionCodes.GRAY2RGB);
-            if (image.Channels() == 3) Cv2.CvtColor(image, image, ColorConversionCodes.RGB2RGBA);
+            if (image.Channels() == 1) ConvertChannelInPlace(image, ColorConversionCodes.GRAY2RGBA);
+            if (image.Channels() == 3) ConvertChannelInPlace(image, ColorConversionCodes.RGB2RGBA);
 
             return true;
         }
@@ -97,8 +97,8 @@ namespace Lib.OpenCV
         {
             if (IsImageEmpty(image)) return false;
 
-            if (image.Channels() == 1) Cv2.CvtColor(image, image, ColorConversionCodes.GRAY2RGB);
-            if (image.Channels() == 4) Cv2.CvtColor(image, image, ColorConversionCodes.RGBA2RGB);
+            if (image.Channels() == 1) ConvertChannelInPlace(image, ColorConversionCodes.GRAY2RGB);
+            if (image.Channels() == 4) ConvertChannelInPlace(image, ColorConversionCodes.RGBA2RGB);
 
             return true;
         }
@@ -107,8 +107,7 @@ namespace Lib.OpenCV
         {
             if (IsImageEmpty(image)) return null;
 
-            if (image.Channels() == 1) Cv2.CvtColor(image, image, ColorConversionCodes.GRAY2RGB);
-            if (image.Channels() == 4) Cv2.CvtColor(image, image, ColorConversionCodes.RGBA2RGB);
+            SetImageChannel3(image);
 
             return image;
         }
@@ -117,10 +116,19 @@ namespace Lib.OpenCV
         {
             if (IsImageEmpty(image)) return false;
 
-            if (image.Channels() == 3) Cv2.CvtColor(image, image, ColorConversionCodes.RGB2GRAY);
-            if (image.Channels() == 4) Cv2.CvtColor(image, image, ColorConversionCodes.RGBA2GRAY);
+            if (image.Channels() == 3) ConvertChannelInPlace(image, ColorConversionCodes.RGB2GRAY);
+            if (image.Channels() == 4) ConvertChannelInPlace(image, ColorConversionCodes.RGBA2GRAY);
 
             return true;
+        }
+
+        private static void ConvertChannelInPlace(Mat image, ColorConversionCodes conversion)
+        {
+            using (Mat converted = new Mat())
+            {
+                Cv2.CvtColor(image, converted, conversion);
+                converted.CopyTo(image);
+            }
         }
     }
 }
