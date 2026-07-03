@@ -39,7 +39,7 @@ Library-Noah
 
 | 프로젝트 | 역할 |
 | --- | --- |
-| `Lib.Common` | 공통 유틸리티, Bitmap/Mat 변환, 좌표/ROI 변환, 라인 계산, 로그, WinForms 보조 기능 |
+| `Lib.Common` | 공통 유틸리티, Bitmap/Mat 변환, 좌표/ROI 변환, 라인 계산, 디렉터리/COM 포트 보조 기능 |
 | `Lib.OpenCV` | 주요 OpenCV 검사 도구, 속성 인터페이스, 결과 모델, 파이프라인 실행 구조 |
 | `Lib.OpenCV.Blob` | Blob 라벨링/면적 필터링 도구 |
 
@@ -59,8 +59,7 @@ Lib.Common
 - `Bitmap`: `BitmapHelper`, `BitmapProcessing` 등 Bitmap 직접 처리 기능
 - `Line`: 직선 피팅, 수직선 계산, 교차점 계산용 모델과 계산기
 - `CFormula`, `FormulaUtil`: 각도, 교차점, 원근 변환, 폴리곤 판정 등 수식 유틸리티
-- `CLog`: log4net 기반 로그 래퍼
-- `AppUtil`, `UiUtil`: 파일 선택, 화면 캡처, WinForms 컨트롤 보조 기능
+- `AppUtil`, `CUtil`: 디렉터리 초기화, 폴더 동기화, 드라이브/COM 포트 조회 등 애플리케이션 보조 기능
 
 ### Lib.OpenCV
 

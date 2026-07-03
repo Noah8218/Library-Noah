@@ -13,9 +13,6 @@
       <HintPath>..\Lib.Common\DLL\OpenCvSharp.Blob.dll</HintPath>
       <Private>True</Private>
     </Reference>
-    <Reference Include="System.Windows.Forms">
-      <HintPath>..\Lib.Common\DLL\System.Windows.Forms.dll</HintPath>
-    </Reference>
     <Reference Include="WindowsBase">
       <HintPath>..\Lib.Common\DLL\WindowsBase.dll</HintPath>
     </Reference>

@@ -42,13 +42,13 @@ namespace Lib.OpenCV.Tool
 
             if (COpenCVHelper.IsImageEmpty(imageSource))
             {
-                CLOG.ABNORMAL("Image is Empty");
+                Console.Error.WriteLine("Image is Empty");
                 return false;
             }
 
             if (property.CvROI.Width == 0 || property.CvROI.Height == 0)
             {
-                CLOG.ABNORMAL("ROI is Empty");
+                Console.Error.WriteLine("ROI is Empty");
                 return false;
             }
 
@@ -302,7 +302,7 @@ namespace Lib.OpenCV.Tool
 
             if (COpenCVHelper.IsImageEmpty(imageSource))
             {
-                CLOG.ABNORMAL("Image is Empty");
+                Console.Error.WriteLine("Image is Empty");
                 return false;
             }
 
@@ -310,7 +310,7 @@ namespace Lib.OpenCV.Tool
             {
                 if (property.CvROIS[index].Width == 0 || property.CvROIS[index].Height == 0)
                 {
-                    CLOG.ABNORMAL("ROI is Empty");
+                    Console.Error.WriteLine("ROI is Empty");
                     return false;
                 }
 

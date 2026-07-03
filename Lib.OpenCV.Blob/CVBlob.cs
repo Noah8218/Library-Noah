@@ -44,7 +44,7 @@ namespace Lib.OpenCV.Blob
 
                 if (COpenCVHelper.IsImageEmpty(imageSource))
                 {
-                    CLOG.ABNORMAL("Image is Empty");
+                    Console.Error.WriteLine("Image is Empty");
                     return false;
                 }
 
@@ -118,7 +118,7 @@ namespace Lib.OpenCV.Blob
             }
             catch (Exception Desc)
             {
-                CLOG.ABNORMAL($"[ERROR] {MethodBase.GetCurrentMethod().ReflectedType.Name}==>{MethodBase.GetCurrentMethod().Name} Ex ==> {Desc.Message}");
+                Console.Error.WriteLine($"[ERROR] {MethodBase.GetCurrentMethod().ReflectedType.Name}==>{MethodBase.GetCurrentMethod().Name} Ex ==> {Desc.Message}");
                 return false;
             }
             return true;
@@ -133,7 +133,7 @@ namespace Lib.OpenCV.Blob
 
                 if (COpenCVHelper.IsImageEmpty(imageSource))
                 {
-                    CLOG.ABNORMAL("Image is Empty");
+                    Console.Error.WriteLine("Image is Empty");
                     return false;
                 }
 
@@ -216,7 +216,7 @@ namespace Lib.OpenCV.Blob
             }
             catch (Exception Desc)
             {
-                CLOG.ABNORMAL($"[ERROR] {MethodBase.GetCurrentMethod().ReflectedType.Name}==>{MethodBase.GetCurrentMethod().Name} Ex ==> {Desc.Message}");
+                Console.Error.WriteLine($"[ERROR] {MethodBase.GetCurrentMethod().ReflectedType.Name}==>{MethodBase.GetCurrentMethod().Name} Ex ==> {Desc.Message}");
                 return false;
             }
 

@@ -33,7 +33,7 @@ namespace Lib.OpenCV
 
             catch (Exception Desc)
             {
-                CLOG.ABNORMAL($"[FAILED] {MethodBase.GetCurrentMethod().ReflectedType.Name}==>{MethodBase.GetCurrentMethod().Name}   Execption ==> {Desc.Message}");
+                Console.Error.WriteLine($"[FAILED] {MethodBase.GetCurrentMethod().ReflectedType.Name}==>{MethodBase.GetCurrentMethod().Name}   Execption ==> {Desc.Message}");
                 return false;
             }
         }
@@ -42,14 +42,14 @@ namespace Lib.OpenCV
         {
             if (rt == null)
             {
-                CLOG.ABNORMAL("Rect is null");
+                Console.Error.WriteLine("Rect is null");
                 Debug.WriteLine("Rect is null");
                 return true;
             }
 
             if (rt.Width == 0 || rt.Height == 0)
             {
-                CLOG.ABNORMAL("Rect Size Empty");
+                Console.Error.WriteLine("Rect Size Empty");
                 Debug.WriteLine("Rect Size Empty");
                 return true;
             }
@@ -61,21 +61,21 @@ namespace Lib.OpenCV
         {
             if (image == null)
             {
-                CLOG.ABNORMAL("Image is null");
+                Console.Error.WriteLine("Image is null");
                 Debug.WriteLine("Image is null");
                 return true;
             }
 
             if (image.IsDisposed)
             {
-                CLOG.ABNORMAL("Image Disposed");
+                Console.Error.WriteLine("Image Disposed");
                 Debug.WriteLine("Image Disposed");
                 return true;
             }
 
             if (image.Width == 0 || image.Height == 0)
             {
-                CLOG.ABNORMAL("Image Size Empty");
+                Console.Error.WriteLine("Image Size Empty");
                 Debug.WriteLine("Image Size Empty");
                 return true;
             }

@@ -13,7 +13,7 @@ namespace Lib.Line
         {
             if (Edges.Count == 0)
             {
-                CLOG.ABNORMAL($"Not Exists Edge, Check Parameter");
+                Console.Error.WriteLine("Not Exists Edge, Check Parameter");
                 Debug.WriteLine($"Not Exists Edge, Check Parameter");
                 return new CLine();
             }
@@ -40,7 +40,7 @@ namespace Lib.Line
         {
             if (Edges.Count == 0)
             {
-                CLOG.ABNORMAL($"Not Exists Edge, Check Parameter");
+                Console.Error.WriteLine("Not Exists Edge, Check Parameter");
                 Debug.WriteLine($"Not Exists Edge, Check Parameter");
                 return new CLine();
             }

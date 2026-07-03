@@ -46,7 +46,7 @@ namespace Lib.OpenCV.Tool
             }
             catch (Exception Desc)
             {
-                CLOG.ABNORMAL($"[ERROR] {MethodBase.GetCurrentMethod().ReflectedType.Name}==>{MethodBase.GetCurrentMethod().Name} Ex ==> {Desc.Message}");
+                Console.Error.WriteLine($"[ERROR] {MethodBase.GetCurrentMethod().ReflectedType.Name}==>{MethodBase.GetCurrentMethod().Name} Ex ==> {Desc.Message}");
                 return false;
             }
         }
@@ -62,7 +62,7 @@ namespace Lib.OpenCV.Tool
             }
             catch (Exception Desc)
             {
-                CLOG.ABNORMAL($"[ERROR] {MethodBase.GetCurrentMethod().ReflectedType.Name}==>{MethodBase.GetCurrentMethod().Name} Ex ==> {Desc.Message}");
+                Console.Error.WriteLine($"[ERROR] {MethodBase.GetCurrentMethod().ReflectedType.Name}==>{MethodBase.GetCurrentMethod().Name} Ex ==> {Desc.Message}");
                 return false;
             }
         }

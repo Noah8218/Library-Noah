@@ -26,7 +26,7 @@ namespace Lib.OpenCV.Tool
 
                 if (COpenCVHelper.IsImageEmpty(imageSource))
                 {
-                    CLOG.ABNORMAL( "Image is Empty");
+                    Console.Error.WriteLine("Image is Empty");
                     return;
                 }
 
@@ -86,7 +86,7 @@ namespace Lib.OpenCV.Tool
             }
             catch (Exception Desc)
             {
-                CLOG.ABNORMAL($"[ERROR] {MethodBase.GetCurrentMethod().ReflectedType.Name}==>{MethodBase.GetCurrentMethod().Name} Ex ==> {Desc.Message}");
+                Console.Error.WriteLine($"[ERROR] {MethodBase.GetCurrentMethod().ReflectedType.Name}==>{MethodBase.GetCurrentMethod().Name} Ex ==> {Desc.Message}");
             }
         }
     }
