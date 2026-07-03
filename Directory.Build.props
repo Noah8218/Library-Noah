@@ -1,7 +1,9 @@
 ﻿<Project>
   <PropertyGroup>
-    <Authors>OpenVisionLab</Authors>
+    <Authors>최노아(Noah-Choi);OpenVisionLab</Authors>
     <Company>OpenVisionLab</Company>
+    <Copyright>Copyright (c) 2026 최노아(Noah-Choi)</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <Version>2.1.0</Version>
     <PackageVersion>2.1.0</PackageVersion>
     <RepositoryType>git</RepositoryType>

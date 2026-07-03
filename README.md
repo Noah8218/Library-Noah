@@ -1,5 +1,13 @@
 # Library-Noah
 
+## 라이선스
+
+이 프로젝트는 MIT License로 배포됩니다. 상업적 사용, 수정, 배포는 허용되지만, 이 프로젝트 또는 주요 소스 일부를 사용하는 경우 저작권 고지와 라이선스 문구를 유지해야 합니다.
+
+Copyright (c) 2026 최노아(Noah-Choi)
+
+자세한 내용은 [LICENSE](LICENSE)를 확인하세요.
+
 OpenCvSharp 기반의 C# 비전 검사 라이브러리입니다.
 
 Threshold, Filter, Morphology, Edge, Contour, Matching, Line Gauge, Mean, Blob 등 검사 도구를 공통 실행 구조로 묶고, 결과 이미지/검출 결과/에러 코드/메트릭을 애플리케이션에서 사용하기 쉽게 제공합니다.
