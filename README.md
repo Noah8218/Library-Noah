@@ -363,6 +363,267 @@ using (VisionPipelineContext context = new VisionPipelineContext())
 | `Metrics` | 결과 개수, 이미지 크기, 면적/스코어/각도 등 수치 정보 |
 | `Overlays` | UI 표시용 사각형, 점, 라인 등 오버레이 정보 |
 
+## 검출 결과 이미지 표시
+
+검사 프로그램에서는 Tool 실행 결과를 바로 화면에 표시해야 하는 경우가 많습니다. 이 라이브러리는 UI 프레임워크에 직접 의존하지 않도록 `Mat`과 `VisionToolResult.Overlays`를 제공합니다.
+
+권장 흐름:
+
+1. 원본 이미지 `Mat`을 Tool에 입력합니다.
+2. `VisionToolResult`를 받습니다.
+3. 표시용 이미지에는 원본 이미지를 복사한 뒤 `Overlays`를 그립니다.
+4. UI 프로젝트에서는 표시용 `Mat`을 `Bitmap`, `BitmapSource` 등 화면 컨트롤이 요구하는 타입으로 변환해서 표시합니다.
+
+### 실제 검출 예시 이미지
+
+아래 이미지는 README용 샘플 이미지에 Edge, Matching, Edge-Based Matching, Contour, Blob, LineGauge 검출/피팅을 적용한 결과입니다. 각 Tool을 사용하면 어떤 형태의 검출 결과가 화면에 표시되는지 빠르게 확인할 수 있습니다.
+
+<table>
+  <tr>
+    <th>Edge Detection</th>
+    <th>Matching</th>
+    <th>Edge-Based Matching</th>
+  </tr>
+  <tr>
+    <td><img src="./docs/images/edge_detection_result.png" alt="Edge Detection result" width="280"></td>
+    <td><img src="./docs/images/matching_detection_result.png" alt="Template Matching result" width="280"></td>
+    <td><img src="./docs/images/edge_based_matching_result.png" alt="Edge-Based Matching result" width="280"></td>
+  </tr>
+  <tr>
+    <th>Contour</th>
+    <th>Blob</th>
+    <th>LineGauge</th>
+  </tr>
+  <tr>
+    <td><img src="./docs/images/contour_detection_result.png" alt="Contour detection result" width="280"></td>
+    <td><img src="./docs/images/blob_detection_result.png" alt="Blob detection result" width="280"></td>
+    <td><img src="./docs/images/line_gauge_result.png" alt="LineGauge result" width="280"></td>
+  </tr>
+</table>
+
+### 공통 오버레이 렌더러
+
+`MatchingTool`, `EdgeBasedTemplateMatchingTool`, `ContourTool`, `BlobTool`, `LineGaugeTool`은 `VisionToolResult.Overlays`에 사각형, 점, 점 목록, 직선 정보를 담습니다. 다음 헬퍼를 UI 프로젝트에 두면 대부분의 검출 결과를 같은 방식으로 표시할 수 있습니다.
+
+```csharp
+using System;
+using System.Drawing;
+using Lib.OpenCV;
+using Lib.OpenCV.Tool;
+using OpenCvSharp;
+using CvPoint = OpenCvSharp.Point;
+
+public static class VisionDisplayHelper
+{
+    public static Mat DrawVisionResult(Mat source, VisionToolResult result)
+    {
+        if (source == null || source.Empty())
+        {
+            return new Mat();
+        }
+
+        Mat display = source.Clone();
+        OpenCvHelper.SetImageChannel3(display);
+
+        if (result == null || !result.Success)
+        {
+            return display;
+        }
+
+        foreach (VisionToolOverlay overlay in result.Overlays)
+        {
+            DrawOverlay(display, overlay);
+        }
+
+        return display;
+    }
+
+    private static void DrawOverlay(Mat image, VisionToolOverlay overlay)
+    {
+        Scalar color = new Scalar(50, 205, 50);
+
+        switch (overlay.Kind)
+        {
+            case VisionToolOverlayKind.Rectangle:
+                DrawRectangle(image, overlay.Bounds, color);
+                DrawText(image, overlay.Label, overlay.Bounds.X, overlay.Bounds.Y - 6, color);
+                if (overlay.Center != PointF.Empty)
+                {
+                    DrawPoint(image, overlay.Center, Scalar.Yellow);
+                }
+                break;
+
+            case VisionToolOverlayKind.Point:
+                DrawPoint(image, overlay.Center, color);
+                DrawText(image, overlay.Label, overlay.Center.X + 5, overlay.Center.Y - 5, color);
+                break;
+
+            case VisionToolOverlayKind.Points:
+                foreach (PointF point in overlay.Points)
+                {
+                    DrawPoint(image, point, Scalar.Yellow, 2);
+                }
+                DrawText(image, overlay.Label, overlay.Center.X + 5, overlay.Center.Y - 5, color);
+                break;
+
+            case VisionToolOverlayKind.Line:
+                Scalar lineColor = new Scalar(255, 191, 0);
+                Cv2.Line(image, ToCvPoint(overlay.Start), ToCvPoint(overlay.End), lineColor, 2, LineTypes.AntiAlias);
+                DrawText(image, overlay.Label, overlay.Center.X + 5, overlay.Center.Y - 5, lineColor);
+                break;
+        }
+    }
+
+    private static void DrawRectangle(Mat image, RectangleF bounds, Scalar color)
+    {
+        Rect rect = new Rect(
+            (int)Math.Round(bounds.X),
+            (int)Math.Round(bounds.Y),
+            Math.Max(1, (int)Math.Round(bounds.Width)),
+            Math.Max(1, (int)Math.Round(bounds.Height)));
+
+        Cv2.Rectangle(image, rect, color, 2, LineTypes.AntiAlias);
+    }
+
+    private static void DrawPoint(Mat image, PointF point, Scalar color, int radius = 4)
+    {
+        Cv2.Circle(image, ToCvPoint(point), radius, color, Cv2.FILLED, LineTypes.AntiAlias);
+    }
+
+    private static void DrawText(Mat image, string text, float x, float y, Scalar color)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return;
+        }
+
+        Cv2.PutText(
+            image,
+            text,
+            new CvPoint(Math.Max(0, (int)Math.Round(x)), Math.Max(15, (int)Math.Round(y))),
+            HersheyFonts.HersheySimplex,
+            0.45,
+            color,
+            1,
+            LineTypes.AntiAlias);
+    }
+
+    private static CvPoint ToCvPoint(PointF point)
+    {
+        return new CvPoint((int)Math.Round(point.X), (int)Math.Round(point.Y));
+    }
+}
+```
+
+사용:
+
+```csharp
+VisionToolResult result = tool.Execute(source);
+
+using (Mat display = VisionDisplayHelper.DrawVisionResult(source, result))
+{
+    Cv2.ImWrite("display_result.png", display);
+
+    // WinForms/WPF/기타 UI에서는 여기서 display Mat을 화면용 이미지 타입으로 변환해 표시합니다.
+    // 예: Bitmap bitmap = Lib.Common.BitmapImageConverter.ToBitmap(display);
+}
+```
+
+### Tool별 표시 기준
+
+| Tool | 표시 방법 |
+| --- | --- |
+| `EdgeDetectionTool` | `result.ResultImage`가 Edge 이미지입니다. 그대로 표시하거나, 필요하면 `OpenCvHelper.SetImageChannel3` 후 색상 표시를 추가합니다. |
+| `MatchingTool` | `tool.results`에 `MatchingResult`가 들어 있고, `result.Overlays`에 매칭 사각형/중심점/점수 라벨이 들어갑니다. 공통 오버레이 렌더러를 사용하면 됩니다. |
+| `EdgeBasedTemplateMatchingTool` | `MatchingTool`과 같은 `MatchingResult` 구조를 사용합니다. `USE_DRAW_IMAGE = true`이면 Tool 내부에서 Edge 모델 윤곽을 `ResultImage`에 그립니다. |
+| `ContourTool` | `USE_DRAW_IMAGE = true`이면 `ResultImage`에 Contour가 그려집니다. UI에서 일관된 스타일이 필요하면 공통 오버레이 렌더러를 사용합니다. |
+| `BlobTool` | `tool.results`에 `BlobResult`가 들어 있고, `result.Overlays`에 Bounding/Center/Area 정보가 들어갑니다. 공통 오버레이 렌더러를 사용하면 됩니다. |
+| `LineGaugeTool` | `tool.resultList`에 FitLine과 Edge 목록이 들어 있고, `result.Overlays`에 Edge points와 Fit line이 들어갑니다. 공통 오버레이 렌더러를 사용하면 됩니다. |
+
+### Matching / EdgeBasedMatching 표시 예제
+
+```csharp
+using Lib.OpenCV.Result;
+using Lib.OpenCV.Tool;
+using OpenCvSharp;
+
+MatchingTool tool = new MatchingTool();
+tool.SetProperty(matchingProperty);
+tool.SetTemplateImage(template);
+
+VisionToolResult result = tool.Execute(source);
+
+using (Mat display = VisionDisplayHelper.DrawVisionResult(source, result))
+{
+    Cv2.ImWrite("display_matching.png", display);
+}
+
+foreach (MatchingResult match in tool.results)
+{
+    Console.WriteLine($"#{match.Index}, Score={match.Score:0.000}, Center={match.Center}, Angle={match.Angle:0.00}, Scale={match.Scale:0.000}");
+}
+```
+
+엣지 기반 매칭도 표시 방식은 동일합니다.
+
+```csharp
+EdgeBasedTemplateMatchingTool tool = new EdgeBasedTemplateMatchingTool();
+tool.SetProperty(edgeBasedMatchingProperty);
+tool.SetTemplateImage(template);
+
+VisionToolResult result = tool.Execute(source);
+
+using (Mat display = VisionDisplayHelper.DrawVisionResult(source, result))
+{
+    Cv2.ImWrite("display_edge_matching.png", display);
+}
+```
+
+### Contour / Blob 표시 예제
+
+```csharp
+ContourTool contourTool = new ContourTool();
+contourTool.SetProperty(contourProperty);
+
+VisionToolResult contourResult = contourTool.Execute(source);
+
+using (Mat contourDisplay = VisionDisplayHelper.DrawVisionResult(source, contourResult))
+{
+    Cv2.ImWrite("display_contour.png", contourDisplay);
+}
+```
+
+```csharp
+BlobTool blobTool = new BlobTool();
+blobTool.SetProperty(blobProperty);
+
+VisionToolResult blobResult = blobTool.Execute(source);
+
+using (Mat blobDisplay = VisionDisplayHelper.DrawVisionResult(source, blobResult))
+{
+    Cv2.ImWrite("display_blob.png", blobDisplay);
+}
+```
+
+### LineGauge 표시 예제
+
+```csharp
+LineGaugeTool lineTool = new LineGaugeTool();
+lineTool.SetProperty(lineGaugeProperty);
+
+VisionToolResult lineResult = lineTool.Execute(source);
+
+using (Mat lineDisplay = VisionDisplayHelper.DrawVisionResult(source, lineResult))
+{
+    Cv2.ImWrite("display_line_gauge.png", lineDisplay);
+}
+
+foreach (var item in lineTool.resultList)
+{
+    Console.WriteLine($"#{item.Index}, EdgeCount={item.EdgePointCount}, FitLine={item.FitLine.Start}->{item.FitLine.End}");
+}
+```
+
 ## ROI와 전처리 규칙
 
 `IOpenCVPropertyBase`를 구현하는 Tool은 공통 전처리 옵션을 사용할 수 있습니다.
