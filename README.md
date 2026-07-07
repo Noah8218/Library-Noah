@@ -1,5 +1,107 @@
 # Library-Noah
 
+OpenCvSharp 기반의 C# 비전 검사 라이브러리입니다.
+
+Threshold, Filter, Morphology, Edge, Contour, Matching, Line Gauge, Mean, Blob 등 검사 도구를 공통 실행 구조로 묶고, 결과 이미지/검출 결과/에러 코드/메트릭을 애플리케이션에서 사용하기 쉽게 제공합니다.
+
+## 1분 요약
+
+- `Lib.Common`은 Bitmap/Mat 변환, 좌표/라인 계산, OpenCV native DLL 패키징을 담당합니다.
+- `Lib.OpenCV`는 Threshold, Filter, Edge, Contour, Matching, LineGauge 등 주요 검사 Tool을 제공합니다.
+- `Lib.OpenCV.Blob`은 Blob 라벨링과 면적 필터링 기능을 제공합니다.
+- 각 Tool은 `Execute(Mat source)`로 실행하고 `VisionToolResult`에서 성공 여부, 결과 이미지, 메트릭, 오버레이를 확인합니다.
+- UI 프레임워크에 직접 의존하지 않으며, 콘솔/데스크톱/검사 프로그램에서 결과 `Mat`과 `Overlays`를 원하는 방식으로 표시할 수 있습니다.
+
+## 설치/참조 방법
+
+소스 프로젝트를 직접 참조하는 경우 사용하는 애플리케이션에서 필요한 프로젝트를 참조합니다.
+
+```xml
+<ItemGroup>
+  <ProjectReference Include="..\Library-Noah\Lib.OpenCV\Lib.OpenCV.csproj" />
+  <ProjectReference Include="..\Library-Noah\Lib.OpenCV.Blob\Lib.OpenCV.Blob.csproj" />
+</ItemGroup>
+```
+
+로컬 NuGet 패키지로 사용하는 경우 먼저 패키지를 생성한 뒤 `artifacts/packages`를 패키지 소스로 추가합니다.
+
+```powershell
+dotnet pack Lib.Common.sln -c Release
+dotnet add package Lib.OpenCV --source .\artifacts\packages
+dotnet add package Lib.OpenCV.Blob --source .\artifacts\packages
+```
+
+## Quick Start
+
+아래 예제는 샘플 이미지를 읽고 Canny Edge 결과를 `artifacts/smoke_edge.png`로 저장합니다.
+
+```csharp
+using System;
+using System.IO;
+using Lib.OpenCV;
+using Lib.OpenCV.Property;
+using Lib.OpenCV.Tool;
+using OpenCvSharp;
+
+Directory.CreateDirectory("artifacts");
+
+using (Mat source = Cv2.ImRead("docs/samples/vision_sample.png", ImreadModes.Grayscale))
+{
+    EdgeDetectionTool tool = new EdgeDetectionTool();
+    tool.SetProperty(new EdgeDetectionToolProperty
+    {
+        EdgeType = EdgeDetectionToolType.Canny,
+        CannyThresholdLow = 80,
+        CannyThresholdHigh = 160,
+        CannyApertureSize = 3
+    });
+
+    VisionToolResult result = tool.Execute(source);
+    if (!result.Success)
+    {
+        throw new InvalidOperationException($"{result.ErrorName}: {result.Message}");
+    }
+
+    Cv2.ImWrite("artifacts/smoke_edge.png", result.ResultImage);
+    result.ResultImage?.Dispose();
+}
+```
+
+## 샘플 데이터
+
+- 입력 샘플: `docs/samples/vision_sample.png`
+- README 검출 결과 이미지: `docs/images/*.png`
+
+기본 예제는 저장소 루트에서 실행하는 것을 기준으로 `docs/samples/vision_sample.png`를 사용합니다. 다른 위치에서 실행하는 경우 이미지 경로를 실행 파일 기준으로 조정하세요.
+
+## Build / Smoke Check
+
+빌드 확인:
+
+```powershell
+dotnet restore Lib.Common.sln
+dotnet build Lib.Common.sln -c Debug
+```
+
+패키징까지 포함한 smoke check:
+
+```powershell
+dotnet restore Lib.Common.sln
+dotnet build Lib.Common.sln -c Debug
+dotnet pack Lib.Common.sln -c Debug --no-build
+```
+
+현재 별도 테스트 프로젝트는 없으므로 smoke check는 전체 솔루션 빌드와 패키지 생성 성공 여부를 기준으로 합니다.
+
+## CI
+
+GitHub Actions workflow는 `.github/workflows/build.yml`에 있습니다. `main` 브랜치 push와 pull request에서 다음 작업을 수행합니다.
+
+1. .NET SDK 설치
+2. `dotnet restore Lib.Common.sln`
+3. `dotnet build Lib.Common.sln -c Debug --no-restore`
+4. `dotnet pack Lib.Common.sln -c Debug --no-build`
+
 ## 라이선스
 
 이 프로젝트는 MIT License로 배포됩니다. 상업적 사용, 수정, 배포는 허용되지만, 이 프로젝트 또는 주요 소스 일부를 사용하는 경우 저작권 고지, 라이선스 문구, NOTICE의 귀속 고지를 유지해야 합니다.
@@ -10,10 +112,6 @@ Copyright (c) 2026 최노아(Noah-Choi)
 - 귀속 고지: [NOTICE](NOTICE)
 
 재배포, 패키징, 또는 파생 작업에 이 라이브러리의 주요 부분이 포함되는 경우 `LICENSE`와 `NOTICE`를 삭제하거나 흐리게 표시하지 마세요.
-
-OpenCvSharp 기반의 C# 비전 검사 라이브러리입니다.
-
-Threshold, Filter, Morphology, Edge, Contour, Matching, Line Gauge, Mean, Blob 등 검사 도구를 공통 실행 구조로 묶고, 결과 이미지/검출 결과/에러 코드/메트릭을 애플리케이션에서 사용하기 쉽게 제공합니다.
 
 ## 개발 환경
 
@@ -159,7 +257,7 @@ public static class ThresholdExample
 {
     public static void Run()
     {
-        using (Mat source = Cv2.ImRead("sample.png", ImreadModes.Color))
+        using (Mat source = Cv2.ImRead("docs/samples/vision_sample.png", ImreadModes.Color))
         {
             ThresholdTool tool = new ThresholdTool();
             tool.SetProperty(new ThresholdToolProperty
@@ -193,7 +291,7 @@ using Lib.OpenCV.Property;
 using Lib.OpenCV.Tool;
 using OpenCvSharp;
 
-using (Mat source = Cv2.ImRead("sample.png", ImreadModes.Grayscale))
+using (Mat source = Cv2.ImRead("docs/samples/vision_sample.png", ImreadModes.Grayscale))
 {
     FilterTool filter = new FilterTool();
     filter.SetProperty(new FilterToolProperty
@@ -272,7 +370,7 @@ using Lib.OpenCV.Blob;
 using Lib.OpenCV.Tool;
 using OpenCvSharp;
 
-using (Mat source = Cv2.ImRead("sample.png", ImreadModes.Grayscale))
+using (Mat source = Cv2.ImRead("docs/samples/vision_sample.png", ImreadModes.Grayscale))
 {
     BlobTool tool = new BlobTool();
     tool.SetProperty(new BlobProperty
@@ -338,7 +436,7 @@ threshold.Parameters[nameof(ThresholdToolProperty.MaxValue)] = "255";
 
 pipeline.Steps.Add(threshold);
 
-using (Mat source = Cv2.ImRead("sample.png", ImreadModes.Color))
+using (Mat source = Cv2.ImRead("docs/samples/vision_sample.png", ImreadModes.Color))
 using (VisionPipelineContext context = new VisionPipelineContext())
 {
     context.SetLayer("input", source);
@@ -663,6 +761,14 @@ ROI의 폭 또는 높이가 0인 경우 Tool에 따라 전체 이미지로 대�
 - `COpenCVHelper`
 
 새 코드에서는 가능하면 `BlobTool`, `MatchingTool`, `LineGaugeTool`, `OpenCvAlgorithmBase`, `VisionToolResult` 기반 API를 사용하는 것을 권장합니다. 레거시 API는 기존 애플리케이션 호환을 위해 유지됩니다.
+
+## Known Limitations
+
+- Windows x64 환경을 우선 지원합니다. `OpenCvSharpExtern.dll`은 `runtimes/win-x64/native` 경로로 패키징됩니다.
+- UI 프레임워크는 포함하지 않습니다. 화면 표시는 `VisionToolResult.ResultImage`와 `VisionToolResult.Overlays`를 애플리케이션에서 렌더링해야 합니다.
+- 일부 `CV*`, `C*` 계열 레거시 API가 호환성을 위해 남아 있습니다. 신규 코드는 `*Tool`과 `VisionToolResult` 기반 API를 권장합니다.
+- 현재 별도 단위 테스트 프로젝트는 없습니다. 기본 검증은 `dotnet build`와 `dotnet pack` smoke check를 사용합니다.
+- OpenCvSharp DLL은 저장소에 포함된 버전을 기준으로 동작합니다. DLL 버전을 교체할 때는 native DLL 호환성과 패키징 결과를 함께 확인해야 합니다.
 
 ## 패키징 참고
 
