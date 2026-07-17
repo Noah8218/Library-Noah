@@ -69,7 +69,7 @@ namespace Lib.Line
                     // X축에 평행
                 }
             }
-            catch (Exception Desc)
+            catch (Exception)
             {
                 listPtVert = new List<OpenCvSharp.Point>();
                 return;

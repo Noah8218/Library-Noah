@@ -160,7 +160,6 @@ namespace Lib.Line
         {
             float Xmin = 0;
             float Xmax = size.Width;
-            float Ymin = 0;
             float Ymax = size.Height;
 
             // 직선에 맞추기            

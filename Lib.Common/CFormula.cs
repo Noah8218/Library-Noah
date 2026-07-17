@@ -41,7 +41,7 @@ namespace Lib.Common
                 ptIntersection = new OpenCvSharp.Point(dX, dY);
                 return true;
             }
-            catch (Exception Desc)
+            catch (Exception)
             {
                 ptIntersection = new OpenCvSharp.Point();                
                 return false;
