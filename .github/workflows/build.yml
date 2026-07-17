@@ -27,5 +27,8 @@ jobs:
       - name: Build
         run: dotnet build Lib.Common.sln -c Debug --no-restore
 
+      - name: Smoke 2D and 3D combined inspection
+        run: dotnet run --project Lib.Inspection.Smoke/Lib.Inspection.Smoke.csproj -c Debug --no-build
+
       - name: Smoke pack
         run: dotnet pack Lib.Common.sln -c Debug --no-build

@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <PackageDescription>Pure height-map based 3D inspection contracts and algorithms for OpenVisionLab.</PackageDescription>
+  </PropertyGroup>
+
+</Project>
