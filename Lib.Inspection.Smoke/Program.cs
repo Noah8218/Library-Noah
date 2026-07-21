@@ -47,6 +47,8 @@ namespace Lib.Inspection.Smoke
                 Run("Reference-grid re-sampling chooses deterministic collision winners", TestReferenceGridCollisionTieBreak, ref passed, ref total);
                 Run("Reference-grid re-sampling rejects half-open upper-bound overflow", TestReferenceGridOutOfBounds, ref passed, ref total);
                 Run("Reference-grid re-sampling rejects invalid frame axes", TestReferenceGridInvalidAxes, ref passed, ref total);
+                Run("Height-difference edge retains strongest pair and exact-tie order", TestDeterministicHeightDifferenceEdge, ref passed, ref total);
+                Run("Height-difference edge skips missing pairs and requires support", TestDeterministicHeightDifferenceEdgeMissingAndSupport, ref passed, ref total);
                 Run("Deterministic line fit preserves full-XYZ inliers and direction", TestDeterministicLineFit, ref passed, ref total);
                 Run("Deterministic line fit rejects insufficient support", TestDeterministicLineFitSupportFailure, ref passed, ref total);
                 Run("Combined runner executes 2D and 3D pass steps", TestCombinedRunnerPass, ref passed, ref total);
@@ -551,6 +553,68 @@ namespace Lib.Inspection.Smoke
                 new[] { new ReferenceGridInputPoint(0, 0, 0.0, 0.0, 0.0) }, invalid);
 
             Require(!result.Success && result.Message.IndexOf("orthonormal", StringComparison.OrdinalIgnoreCase) >= 0, "Reference-grid non-orthonormal axes must be rejected.");
+        }
+
+        private static void TestDeterministicHeightDifferenceEdge()
+        {
+            HeightDifferenceEdgeResult result = new DeterministicHeightDifferenceEdgeTool().Execute(
+                3,
+                4,
+                new[]
+                {
+                    0.0, 5.0, 15.0, 25.0,
+                    0.0, 7.0, 17.0, 27.0,
+                    0.0, 9.0, 19.0, 29.0
+                },
+                new HeightDifferenceEdgeOptions
+                {
+                    Selection = new HeightDifferenceEdgeSelection(0, 0, 3, 4),
+                    ComparisonAxis = HeightDifferenceEdgeComparisonAxis.AcrossColumns,
+                    Polarity = HeightDifferenceEdgePolarity.Rising,
+                    MinimumDelta = 10.0
+                });
+
+            Require(result.Success, "Height-difference edge must accept the analytic scanlines.");
+            Require(result.Points.Count == 3 && result.Diagnostics.EligiblePairCount == 9 && result.Diagnostics.SkippedMissingPairCount == 0,
+                "Height-difference edge must retain the expected scan diagnostics.");
+            Require(result.Points.All(point => point.FirstColumn == 1 && point.SecondColumn == 2 && point.Magnitude == 10.0),
+                "Exact strongest-pair ties must retain the first start index.");
+        }
+
+        private static void TestDeterministicHeightDifferenceEdgeMissingAndSupport()
+        {
+            HeightDifferenceEdgeResult missing = new DeterministicHeightDifferenceEdgeTool().Execute(
+                3,
+                3,
+                new[]
+                {
+                    0.0, 10.0, 25.0,
+                    0.0, double.NaN, 30.0,
+                    0.0, 10.0, 25.0
+                },
+                new HeightDifferenceEdgeOptions
+                {
+                    Selection = new HeightDifferenceEdgeSelection(0, 0, 3, 3),
+                    ComparisonAxis = HeightDifferenceEdgeComparisonAxis.AcrossColumns,
+                    Polarity = HeightDifferenceEdgePolarity.Rising,
+                    MinimumDelta = 10.0
+                });
+            HeightDifferenceEdgeResult insufficient = new DeterministicHeightDifferenceEdgeTool().Execute(
+                2,
+                2,
+                new[] { 0.0, 10.0, 0.0, 1.0 },
+                new HeightDifferenceEdgeOptions
+                {
+                    Selection = new HeightDifferenceEdgeSelection(0, 0, 2, 2),
+                    ComparisonAxis = HeightDifferenceEdgeComparisonAxis.AcrossColumns,
+                    Polarity = HeightDifferenceEdgePolarity.Rising,
+                    MinimumDelta = 5.0
+                });
+
+            Require(missing.Success && missing.Points.Count == 2 && missing.Diagnostics.SkippedMissingPairCount == 2,
+                "Missing edge cells must skip only their adjacent pairs without filling or bridging.");
+            Require(!insufficient.Success && insufficient.Message.IndexOf("at least two accepted", StringComparison.OrdinalIgnoreCase) >= 0,
+                "Height-difference edge must reject fewer than two accepted scanlines.");
         }
 
         private static void TestDeterministicLineFit()
