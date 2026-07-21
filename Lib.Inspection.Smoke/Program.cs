@@ -29,6 +29,8 @@ namespace Lib.Inspection.Smoke
                 Run("Warpage rejects an invalid limit", TestWarpageInvalidParameter, ref passed, ref total);
                 Run("Two-point line constructs an ordered full-XYZ segment", TestTwoPointLine, ref passed, ref total);
                 Run("Two-point line rejects a zero-length segment", TestTwoPointLineZeroLength, ref passed, ref total);
+                Run("Line intersection recovers a perpendicular corner", TestLineIntersection, ref passed, ref total);
+                Run("Line intersection rejects parallel geometry", TestLineIntersectionParallel, ref passed, ref total);
                 Run("Full XYZ affine solve recovers an analytic matrix", TestFullXyzAffineSolve, ref passed, ref total);
                 Run("Full XYZ affine solve rejects a taught condition limit", TestFullXyzAffineCondition, ref passed, ref total);
                 Run("Combined runner executes 2D and 3D pass steps", TestCombinedRunnerPass, ref passed, ref total);
@@ -257,6 +259,44 @@ namespace Lib.Inspection.Smoke
             TwoPointLineResult result = new TwoPointLineTool().Execute(new TwoPointLineInput(point, point));
 
             Require(!result.Success, "Two-point line must reject a zero-length segment.");
+        }
+
+        private static void TestLineIntersection()
+        {
+            LineIntersectionResult result = new LineIntersectionTool().Execute(
+                CreateLine(new ThreeDPoint(0.0, 0.0, 0.0), new ThreeDPoint(1.0, 0.0, 0.0), new ThreeDPoint(-2.0, 0.0, 0.0), new ThreeDPoint(2.0, 0.0, 0.0)),
+                CreateLine(new ThreeDPoint(0.0, 0.0, 0.0), new ThreeDPoint(0.0, 1.0, 0.0), new ThreeDPoint(0.0, -2.0, 0.0), new ThreeDPoint(0.0, 2.0, 0.0)),
+                new LineIntersectionOptions
+                {
+                    MaximumClosestApproachDistance = 0.001,
+                    MinimumAcuteAngleDegrees = 45.0,
+                    MaximumSupportExtension = 0.0
+                });
+
+            Require(result.Success, "Perpendicular full-XYZ lines must intersect.");
+            RequireApproximately(result.ClosestApproachDistance, 0.0, 1e-12, "Unexpected line-intersection gap.");
+            RequireApproximately(result.AcuteAngleDegrees, 90.0, 1e-12, "Unexpected line-intersection acute angle.");
+            RequireApproximately(result.CornerAnchor.X, 0.0, 1e-12, "Unexpected line-intersection corner X.");
+        }
+
+        private static void TestLineIntersectionParallel()
+        {
+            LineIntersectionResult result = new LineIntersectionTool().Execute(
+                CreateLine(new ThreeDPoint(0.0, 0.0, 0.0), new ThreeDPoint(1.0, 0.0, 0.0), new ThreeDPoint(-2.0, 0.0, 0.0), new ThreeDPoint(2.0, 0.0, 0.0)),
+                CreateLine(new ThreeDPoint(0.0, 1.0, 0.0), new ThreeDPoint(1.0, 0.0, 0.0), new ThreeDPoint(-2.0, 1.0, 0.0), new ThreeDPoint(2.0, 1.0, 0.0)),
+                new LineIntersectionOptions
+                {
+                    MaximumClosestApproachDistance = 10.0,
+                    MinimumAcuteAngleDegrees = 1.0,
+                    MaximumSupportExtension = 1.0
+                });
+
+            Require(!result.Success, "Parallel full-XYZ lines must be rejected.");
+        }
+
+        private static ThreeDLineGeometry CreateLine(ThreeDPoint anchor, ThreeDPoint direction, ThreeDPoint start, ThreeDPoint end)
+        {
+            return new ThreeDLineGeometry(anchor, direction, start, end);
         }
 
         private static void TestFullXyzAffineSolve()

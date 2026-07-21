@@ -21,6 +21,9 @@ not know a camera, C3D file, recipe, UI, or calibration claim.
   exactly four independent correspondence pairs using scaled partial pivoting.
   It returns matrix, determinant, condition, and residual evidence only; it
   does not move a point cloud or create a height map.
+- `LineIntersectionTool` evaluates the closest approach, acute angle, and
+  finite-segment support of two normalized full-XYZ line geometries. It does
+  not choose lines, attach source/frame identity, or claim a physical corner.
 
 A host owns source binding, metadata, persistence, identity hashing, and any
 display or inspection lifecycle around these pure results.
