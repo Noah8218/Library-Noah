@@ -107,13 +107,14 @@ namespace Lib.ThreeD.FeatureExtraction
     /// </summary>
     public readonly struct ReferenceGridHeightCell
     {
-        public ReferenceGridHeightCell(int row, int column, double height, int sourceRow, int sourceColumn)
+        public ReferenceGridHeightCell(int row, int column, double height, int sourceRow, int sourceColumn, double planarDistanceSquared)
         {
             Row = row;
             Column = column;
             Height = height;
             SourceRow = sourceRow;
             SourceColumn = sourceColumn;
+            PlanarDistanceSquared = planarDistanceSquared;
         }
 
         public int Row { get; }
@@ -121,6 +122,7 @@ namespace Lib.ThreeD.FeatureExtraction
         public double Height { get; }
         public int SourceRow { get; }
         public int SourceColumn { get; }
+        public double PlanarDistanceSquared { get; }
         public bool HasValue => !double.IsNaN(Height);
     }
 
@@ -258,8 +260,8 @@ namespace Lib.ThreeD.FeatureExtraction
                     {
                         int cellIndex = checked(row * profile.ColumnCount + column);
                         cells[cellIndex] = populated[cellIndex]
-                            ? new ReferenceGridHeightCell(row, column, heights[cellIndex], sourceRows[cellIndex], sourceColumns[cellIndex])
-                            : new ReferenceGridHeightCell(row, column, double.NaN, -1, -1);
+                            ? new ReferenceGridHeightCell(row, column, heights[cellIndex], sourceRows[cellIndex], sourceColumns[cellIndex], planarDistances[cellIndex])
+                            : new ReferenceGridHeightCell(row, column, double.NaN, -1, -1, double.NaN);
                     }
                 }
                 double coverageRatio = (double)populatedCellCount / cellCount;

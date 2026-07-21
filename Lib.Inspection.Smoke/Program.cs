@@ -504,7 +504,8 @@ namespace Lib.Inspection.Smoke
             RequireApproximately(result.Cells[0].Height, 10.0, 1e-12, "Unexpected first projected height.");
             RequireApproximately(result.Cells[1].Height, 20.0, 1e-12, "Unexpected second projected height.");
             RequireApproximately(result.Cells[2].Height, 30.0, 1e-12, "Unexpected third projected height.");
-            Require(double.IsNaN(result.Cells[3].Height) && result.Cells[3].SourceRow == -1, "Reference-grid holes must remain missing without fill.");
+            Require(!double.IsNaN(result.Cells[0].PlanarDistanceSquared), "Reference-grid populated cells must retain winner planar-distance evidence.");
+            Require(double.IsNaN(result.Cells[3].Height) && result.Cells[3].SourceRow == -1 && double.IsNaN(result.Cells[3].PlanarDistanceSquared), "Reference-grid holes must remain missing without fill.");
             RequireApproximately(result.CoverageRatio, 0.75, 1e-12, "Unexpected reference-grid coverage.");
             Require(result.MeetsMinimumCoverage, "Coverage must meet the authored Publish minimum.");
         }
