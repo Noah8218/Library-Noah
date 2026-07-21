@@ -10,6 +10,21 @@ The 3D libraries target `netstandard2.0`. They do not reference WPF, SharpGL, a
 viewer control, or the OpenVisionLab 3D Studio application. A host can render the
 same result separately without making rendering part of the measurement algorithm.
 
+## Source-neutral feature extraction
+
+`Lib.ThreeD.FeatureExtraction` contains pure full-XYZ geometry tools that do
+not know a camera, C3D file, recipe, UI, or calibration claim.
+
+- `TwoPointLineTool` constructs an ordered finite full-XYZ segment from two
+  explicit points. It does not pick, snap, fit, or measure.
+- `FullXyzAffineSolveTool` solves one source-to-reference affine matrix from
+  exactly four independent correspondence pairs using scaled partial pivoting.
+  It returns matrix, determinant, condition, and residual evidence only; it
+  does not move a point cloud or create a height map.
+
+A host owns source binding, metadata, persistence, identity hashing, and any
+display or inspection lifecycle around these pure results.
+
 ## Height-map contract
 
 `HeightMap3D` is an immutable regular grid with:

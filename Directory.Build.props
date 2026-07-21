@@ -4,8 +4,8 @@
     <Company>OpenVisionLab</Company>
     <Copyright>Copyright (c) 2026 최노아(Noah-Choi)</Copyright>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <Version>2.1.0</Version>
-    <PackageVersion>2.1.0</PackageVersion>
+    <Version>2.2.0</Version>
+    <PackageVersion>2.2.0</PackageVersion>
     <RepositoryType>git</RepositoryType>
     <PackageOutputPath>$(MSBuildThisFileDirectory)artifacts\packages</PackageOutputPath>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>

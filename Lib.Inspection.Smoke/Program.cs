@@ -1,5 +1,6 @@
 using Lib.Inspection;
 using Lib.OpenCV.Tool;
+using Lib.ThreeD.FeatureExtraction;
 using Lib.ThreeD.Geometry;
 using Lib.ThreeD.Inspection;
 using OpenCvSharp;
@@ -26,6 +27,10 @@ namespace Lib.Inspection.Smoke
                 Run("Warpage rejects insufficient valid samples", TestWarpageInsufficientSamples, ref passed, ref total);
                 Run("Warpage rejects collinear geometry", TestWarpageDegenerateGeometry, ref passed, ref total);
                 Run("Warpage rejects an invalid limit", TestWarpageInvalidParameter, ref passed, ref total);
+                Run("Two-point line constructs an ordered full-XYZ segment", TestTwoPointLine, ref passed, ref total);
+                Run("Two-point line rejects a zero-length segment", TestTwoPointLineZeroLength, ref passed, ref total);
+                Run("Full XYZ affine solve recovers an analytic matrix", TestFullXyzAffineSolve, ref passed, ref total);
+                Run("Full XYZ affine solve rejects a taught condition limit", TestFullXyzAffineCondition, ref passed, ref total);
                 Run("Combined runner executes 2D and 3D pass steps", TestCombinedRunnerPass, ref passed, ref total);
                 Run("Combined runner retains later 3D evidence after 2D failure", TestCombinedRunnerContinuesAfterFailure, ref passed, ref total);
                 Run("Combined runner converts a 3D exception to a result", TestCombinedRunnerCatchesThreeDException, ref passed, ref total);
@@ -232,6 +237,60 @@ namespace Lib.Inspection.Smoke
             ThreeDInspectionResult result = tool.Execute(CreatePlaneMap(2, 2, 0.0, 0.0, 1.0));
 
             Require(result.ResultStatus == ThreeDInspectionResultStatus.InvalidParameter, "Negative warpage limit must be rejected.");
+        }
+
+        private static void TestTwoPointLine()
+        {
+            TwoPointLineResult result = new TwoPointLineTool().Execute(
+                new TwoPointLineInput(new ThreeDPoint(1.0, 2.0, 3.0), new ThreeDPoint(4.0, 6.0, 3.0)));
+
+            Require(result.Success, "Two-point line must succeed for distinct finite points.");
+            RequireApproximately(result.SegmentLength, 5.0, 1e-12, "Unexpected two-point segment length.");
+            RequireApproximately(result.Direction.X, 0.6, 1e-12, "Unexpected two-point X direction.");
+            RequireApproximately(result.Direction.Y, 0.8, 1e-12, "Unexpected two-point Y direction.");
+            Require(result.SegmentStart.X == 1.0 && result.SegmentEnd.X == 4.0, "Two-point authored order was not retained.");
+        }
+
+        private static void TestTwoPointLineZeroLength()
+        {
+            ThreeDPoint point = new ThreeDPoint(1.0, 2.0, 3.0);
+            TwoPointLineResult result = new TwoPointLineTool().Execute(new TwoPointLineInput(point, point));
+
+            Require(!result.Success, "Two-point line must reject a zero-length segment.");
+        }
+
+        private static void TestFullXyzAffineSolve()
+        {
+            FullXyzAffineSolveResult result = new FullXyzAffineSolveTool().Execute(
+                CreateAffinePairs(),
+                new FullXyzAffineSolveOptions { MaximumConditionEstimate = 1000.0, ArithmeticResidualWarning = 1e-10 });
+
+            Require(result.Success, "Full XYZ affine solve must recover four independent pairs.");
+            RequireApproximately(result.Matrix.M11, 2.0, 1e-12, "Unexpected affine M11.");
+            RequireApproximately(result.Matrix.M12, 0.5, 1e-12, "Unexpected affine M12.");
+            RequireApproximately(result.Matrix.M13, -0.25, 1e-12, "Unexpected affine M13.");
+            RequireApproximately(result.Matrix.M14, 10.0, 1e-12, "Unexpected affine M14.");
+            RequireApproximately(result.ArithmeticMaximumResidual, 0.0, 1e-10, "Exact affine residual must be zero.");
+        }
+
+        private static void TestFullXyzAffineCondition()
+        {
+            FullXyzAffineSolveResult result = new FullXyzAffineSolveTool().Execute(
+                CreateAffinePairs(),
+                new FullXyzAffineSolveOptions { MaximumConditionEstimate = 0.5, ArithmeticResidualWarning = 0.0 });
+
+            Require(!result.Success, "Full XYZ affine solve must reject an exceeded taught condition limit.");
+        }
+
+        private static IReadOnlyList<FullXyzAffineCorrespondence> CreateAffinePairs()
+        {
+            return new[]
+            {
+                new FullXyzAffineCorrespondence(new ThreeDPoint(0.0, 0.0, 0.0), new ThreeDPoint(10.0, 20.0, 30.0)),
+                new FullXyzAffineCorrespondence(new ThreeDPoint(1.0, 0.0, 0.0), new ThreeDPoint(12.0, 19.0, 30.2)),
+                new FullXyzAffineCorrespondence(new ThreeDPoint(0.0, 1.0, 0.0), new ThreeDPoint(10.5, 23.0, 29.7)),
+                new FullXyzAffineCorrespondence(new ThreeDPoint(0.0, 0.0, 1.0), new ThreeDPoint(9.75, 20.75, 34.0))
+            };
         }
 
         private static void TestCombinedRunnerPass()
