@@ -29,6 +29,9 @@ namespace Lib.Inspection.Smoke
                 Run("Warpage rejects an invalid limit", TestWarpageInvalidParameter, ref passed, ref total);
                 Run("Two-point line constructs an ordered full-XYZ segment", TestTwoPointLine, ref passed, ref total);
                 Run("Two-point line rejects a zero-length segment", TestTwoPointLineZeroLength, ref passed, ref total);
+                Run("Three-point plane preserves authored normal orientation", TestThreePointPlane, ref passed, ref total);
+                Run("Three-point plane reverses normal when pick order reverses", TestThreePointPlaneOrder, ref passed, ref total);
+                Run("Three-point plane rejects collinear and near-collinear support", TestThreePointPlaneDegenerate, ref passed, ref total);
                 Run("Line intersection recovers a perpendicular corner", TestLineIntersection, ref passed, ref total);
                 Run("Line intersection rejects parallel geometry", TestLineIntersectionParallel, ref passed, ref total);
                 Run("Full XYZ affine solve recovers an analytic matrix", TestFullXyzAffineSolve, ref passed, ref total);
@@ -259,6 +262,51 @@ namespace Lib.Inspection.Smoke
             TwoPointLineResult result = new TwoPointLineTool().Execute(new TwoPointLineInput(point, point));
 
             Require(!result.Success, "Two-point line must reject a zero-length segment.");
+        }
+
+        private static void TestThreePointPlane()
+        {
+            ThreePointPlaneResult result = new ThreePointPlaneTool().Execute(
+                new ThreePointPlaneInput(
+                    new ThreeDPoint(1.0, 2.0, 3.0),
+                    new ThreeDPoint(4.0, 2.0, 3.0),
+                    new ThreeDPoint(1.0, 6.0, 3.0)));
+
+            Require(result.Success, "Three-point plane must succeed for a non-collinear ordered triple.");
+            RequireApproximately(result.Normal.X, 0.0, 1e-12, "Unexpected three-point plane normal X.");
+            RequireApproximately(result.Normal.Y, 0.0, 1e-12, "Unexpected three-point plane normal Y.");
+            RequireApproximately(result.Normal.Z, 1.0, 1e-12, "Unexpected three-point plane normal Z.");
+            RequireApproximately(result.PlaneOffset, -3.0, 1e-12, "Unexpected three-point plane offset.");
+            Require(result.SupportFirst.X == 1.0 && result.SupportSecond.X == 4.0 && result.SupportThird.Y == 6.0, "Three-point support order was not retained.");
+        }
+
+        private static void TestThreePointPlaneOrder()
+        {
+            ThreePointPlaneResult result = new ThreePointPlaneTool().Execute(
+                new ThreePointPlaneInput(
+                    new ThreeDPoint(1.0, 2.0, 3.0),
+                    new ThreeDPoint(1.0, 6.0, 3.0),
+                    new ThreeDPoint(4.0, 2.0, 3.0)));
+
+            Require(result.Success, "Reordered non-collinear three-point plane must remain valid.");
+            RequireApproximately(result.Normal.Z, -1.0, 1e-12, "Reordered support must reverse the oriented normal.");
+            RequireApproximately(result.PlaneOffset, 3.0, 1e-12, "Reordered support must reverse the oriented plane offset.");
+        }
+
+        private static void TestThreePointPlaneDegenerate()
+        {
+            ThreePointPlaneResult collinear = new ThreePointPlaneTool().Execute(
+                new ThreePointPlaneInput(
+                    new ThreeDPoint(0.0, 0.0, 0.0),
+                    new ThreeDPoint(1.0, 0.0, 0.0),
+                    new ThreeDPoint(2.0, 0.0, 0.0)));
+            ThreePointPlaneResult nearCollinear = new ThreePointPlaneTool().Execute(
+                new ThreePointPlaneInput(
+                    new ThreeDPoint(0.0, 0.0, 0.0),
+                    new ThreeDPoint(1.0, 0.0, 0.0),
+                    new ThreeDPoint(2.0, 1e-13, 0.0)));
+
+            Require(!collinear.Success && !nearCollinear.Success, "Collinear and near-collinear support must be rejected.");
         }
 
         private static void TestLineIntersection()
