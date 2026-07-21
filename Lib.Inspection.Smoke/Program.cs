@@ -47,6 +47,8 @@ namespace Lib.Inspection.Smoke
                 Run("Reference-grid re-sampling chooses deterministic collision winners", TestReferenceGridCollisionTieBreak, ref passed, ref total);
                 Run("Reference-grid re-sampling rejects half-open upper-bound overflow", TestReferenceGridOutOfBounds, ref passed, ref total);
                 Run("Reference-grid re-sampling rejects invalid frame axes", TestReferenceGridInvalidAxes, ref passed, ref total);
+                Run("Median filter removes a spike with the declared kernel", TestDeterministicMedianFilterSpike, ref passed, ref total);
+                Run("Median filter preserves missing cells and clipped borders", TestDeterministicMedianFilterMissingAndBorder, ref passed, ref total);
                 Run("Height-difference edge retains strongest pair and exact-tie order", TestDeterministicHeightDifferenceEdge, ref passed, ref total);
                 Run("Height-difference edge skips missing pairs and requires support", TestDeterministicHeightDifferenceEdgeMissingAndSupport, ref passed, ref total);
                 Run("Deterministic line fit preserves full-XYZ inliers and direction", TestDeterministicLineFit, ref passed, ref total);
@@ -553,6 +555,37 @@ namespace Lib.Inspection.Smoke
                 new[] { new ReferenceGridInputPoint(0, 0, 0.0, 0.0, 0.0) }, invalid);
 
             Require(!result.Success && result.Message.IndexOf("orthonormal", StringComparison.OrdinalIgnoreCase) >= 0, "Reference-grid non-orthonormal axes must be rejected.");
+        }
+
+        private static void TestDeterministicMedianFilterSpike()
+        {
+            DeterministicMedianFilterResult result = new DeterministicMedianFilterTool().Execute(
+                3,
+                3,
+                new[] { 1.0, 1.0, 1.0, 1.0, 100.0, 1.0, 1.0, 1.0, 1.0 },
+                new DeterministicMedianFilterOptions { KernelSize = 3 });
+
+            Require(result.Success && result.Values.All(value => value == 1.0) && result.ChangedCount == 1,
+                "Median filter must remove one isolated center spike.");
+        }
+
+        private static void TestDeterministicMedianFilterMissingAndBorder()
+        {
+            DeterministicMedianFilterResult missing = new DeterministicMedianFilterTool().Execute(
+                3,
+                1,
+                new[] { 1.0, double.NaN, 5.0 },
+                new DeterministicMedianFilterOptions { KernelSize = 3 });
+            DeterministicMedianFilterResult border = new DeterministicMedianFilterTool().Execute(
+                2,
+                2,
+                new[] { 1.0, 2.0, 3.0, 4.0 },
+                new DeterministicMedianFilterOptions { KernelSize = 3 });
+
+            Require(missing.Success && missing.Values[0] == 1.0 && double.IsNaN(missing.Values[1]) && missing.Values[2] == 5.0,
+                "Median filter must preserve the source missing mask.");
+            Require(border.Success && border.Values.All(value => value == 2.5),
+                "Median filter borders must use available neighbors only.");
         }
 
         private static void TestDeterministicHeightDifferenceEdge()
