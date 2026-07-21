@@ -42,10 +42,26 @@ namespace Lib.ThreeD.FeatureExtraction
 
         public ThreeDPoint Transform(ThreeDPoint point)
         {
-            return new ThreeDPoint(
-                (M11 * point.X) + (M12 * point.Y) + (M13 * point.Z) + M14,
-                (M21 * point.X) + (M22 * point.Y) + (M23 * point.Z) + M24,
-                (M31 * point.X) + (M32 * point.Y) + (M33 * point.Z) + M34);
+            if (point == null) throw new ArgumentNullException(nameof(point));
+            TransformCoordinates(point.X, point.Y, point.Z, out double x, out double y, out double z);
+            return new ThreeDPoint(x, y, z);
+        }
+
+        /// <summary>
+        /// Applies this matrix without allocating an intermediate point object.
+        /// High-volume callers can retain their own value representation.
+        /// </summary>
+        public void TransformCoordinates(
+            double x,
+            double y,
+            double z,
+            out double transformedX,
+            out double transformedY,
+            out double transformedZ)
+        {
+            transformedX = (M11 * x) + (M12 * y) + (M13 * z) + M14;
+            transformedY = (M21 * x) + (M22 * y) + (M23 * z) + M24;
+            transformedZ = (M31 * x) + (M32 * y) + (M33 * z) + M34;
         }
     }
 

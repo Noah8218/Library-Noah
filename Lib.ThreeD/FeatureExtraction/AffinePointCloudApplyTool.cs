@@ -9,14 +9,22 @@ namespace Lib.ThreeD.FeatureExtraction
     /// evidence. Coordinate-system and source-file ownership remain outside
     /// this source-neutral library.
     /// </summary>
-    public sealed class AffinePointCloudInputPoint
+    public readonly struct AffinePointCloudInputPoint
     {
-        public AffinePointCloudInputPoint(int row, int column, double rawHeight, ThreeDPoint source)
+        public AffinePointCloudInputPoint(
+            int row,
+            int column,
+            double rawHeight,
+            double sourceX,
+            double sourceY,
+            double sourceZ)
         {
             Row = row;
             Column = column;
             RawHeight = rawHeight;
-            Source = source;
+            SourceX = sourceX;
+            SourceY = sourceY;
+            SourceZ = sourceZ;
         }
 
         public int Row { get; }
@@ -25,21 +33,33 @@ namespace Lib.ThreeD.FeatureExtraction
 
         public double RawHeight { get; }
 
-        public ThreeDPoint Source { get; }
+        public double SourceX { get; }
+
+        public double SourceY { get; }
+
+        public double SourceZ { get; }
     }
 
     /// <summary>
     /// Immutable transformed point retaining the caller's source locator and
     /// scalar evidence. It does not imply a re-gridded surface or mesh.
     /// </summary>
-    public sealed class AffinePointCloudPoint
+    public readonly struct AffinePointCloudPoint
     {
-        public AffinePointCloudPoint(int row, int column, double rawHeight, ThreeDPoint transformed)
+        public AffinePointCloudPoint(
+            int row,
+            int column,
+            double rawHeight,
+            double transformedX,
+            double transformedY,
+            double transformedZ)
         {
             Row = row;
             Column = column;
             RawHeight = rawHeight;
-            Transformed = transformed;
+            TransformedX = transformedX;
+            TransformedY = transformedY;
+            TransformedZ = transformedZ;
         }
 
         public int Row { get; }
@@ -48,7 +68,11 @@ namespace Lib.ThreeD.FeatureExtraction
 
         public double RawHeight { get; }
 
-        public ThreeDPoint Transformed { get; }
+        public double TransformedX { get; }
+
+        public double TransformedY { get; }
+
+        public double TransformedZ { get; }
     }
 
     public sealed class AffinePointCloudApplyResult
@@ -57,7 +81,7 @@ namespace Lib.ThreeD.FeatureExtraction
         {
             Success = success;
             Message = message ?? string.Empty;
-            Points = points ?? new AffinePointCloudPoint[0];
+            Points = points ?? Array.Empty<AffinePointCloudPoint>();
         }
 
         public bool Success { get; }
@@ -73,7 +97,7 @@ namespace Lib.ThreeD.FeatureExtraction
 
         internal static AffinePointCloudApplyResult Failed(string message)
         {
-            return new AffinePointCloudApplyResult(false, message, new AffinePointCloudPoint[0]);
+            return new AffinePointCloudApplyResult(false, message, Array.Empty<AffinePointCloudPoint>());
         }
     }
 
@@ -101,12 +125,24 @@ namespace Lib.ThreeD.FeatureExtraction
                     cancellationToken.ThrowIfCancellationRequested();
                     AffinePointCloudInputPoint point = points[index];
                     ValidatePoint(point, locators);
-                    ThreeDPoint transformed = matrix.Transform(point.Source);
-                    if (!transformed.IsFinite)
+                    matrix.TransformCoordinates(
+                        point.SourceX,
+                        point.SourceY,
+                        point.SourceZ,
+                        out double transformedX,
+                        out double transformedY,
+                        out double transformedZ);
+                    if (!IsFinite(transformedX) || !IsFinite(transformedY) || !IsFinite(transformedZ))
                     {
                         return AffinePointCloudApplyResult.Failed("Full XYZ affine application produced a non-finite transformed point.");
                     }
-                    output.Add(new AffinePointCloudPoint(point.Row, point.Column, point.RawHeight, transformed));
+                    output.Add(new AffinePointCloudPoint(
+                        point.Row,
+                        point.Column,
+                        point.RawHeight,
+                        transformedX,
+                        transformedY,
+                        transformedZ));
                 }
 
                 return AffinePointCloudApplyResult.Completed(output);
@@ -146,8 +182,8 @@ namespace Lib.ThreeD.FeatureExtraction
 
         private static void ValidatePoint(AffinePointCloudInputPoint point, HashSet<long> locators)
         {
-            if (point == null || point.Row < 0 || point.Column < 0 || !IsFinite(point.RawHeight)
-                || point.Source == null || !point.Source.IsFinite)
+            if (point.Row < 0 || point.Column < 0 || !IsFinite(point.RawHeight)
+                || !IsFinite(point.SourceX) || !IsFinite(point.SourceY) || !IsFinite(point.SourceZ))
             {
                 throw new ArgumentException("Affine point-cloud application requires finite points with non-negative unique locators.");
             }

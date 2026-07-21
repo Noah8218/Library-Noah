@@ -457,16 +457,16 @@ namespace Lib.Inspection.Smoke
             AffinePointCloudApplyResult result = new AffinePointCloudApplyTool().Execute(
                 new[]
                 {
-                    new AffinePointCloudInputPoint(2, 3, 7.0, new ThreeDPoint(3.0, 7.0, 2.0)),
-                    new AffinePointCloudInputPoint(5, 11, -2.0, new ThreeDPoint(11.0, -2.0, 5.0))
+                    new AffinePointCloudInputPoint(2, 3, 7.0, 3.0, 7.0, 2.0),
+                    new AffinePointCloudInputPoint(5, 11, -2.0, 11.0, -2.0, 5.0)
                 },
                 matrix);
 
             Require(result.Success && result.Points.Count == 2, "Full XYZ affine apply must transform every supplied finite point.");
             Require(result.Points[0].Row == 2 && result.Points[0].Column == 3 && result.Points[0].RawHeight == 7.0, "Full XYZ affine apply must preserve the source locator and raw scalar.");
-            RequireApproximately(result.Points[0].Transformed.X, 19.0, 1e-12, "Unexpected transformed X.");
-            RequireApproximately(result.Points[0].Transformed.Y, 39.5, 1e-12, "Unexpected transformed Y.");
-            RequireApproximately(result.Points[0].Transformed.Z, 35.25, 1e-12, "Unexpected transformed Z.");
+            RequireApproximately(result.Points[0].TransformedX, 19.0, 1e-12, "Unexpected transformed X.");
+            RequireApproximately(result.Points[0].TransformedY, 39.5, 1e-12, "Unexpected transformed Y.");
+            RequireApproximately(result.Points[0].TransformedZ, 35.25, 1e-12, "Unexpected transformed Z.");
         }
 
         private static void TestFullXyzAffineApplyDuplicateLocator()
@@ -474,8 +474,8 @@ namespace Lib.Inspection.Smoke
             AffinePointCloudApplyResult result = new AffinePointCloudApplyTool().Execute(
                 new[]
                 {
-                    new AffinePointCloudInputPoint(0, 0, 1.0, new ThreeDPoint(0.0, 1.0, 0.0)),
-                    new AffinePointCloudInputPoint(0, 0, 2.0, new ThreeDPoint(0.0, 2.0, 0.0))
+                    new AffinePointCloudInputPoint(0, 0, 1.0, 0.0, 1.0, 0.0),
+                    new AffinePointCloudInputPoint(0, 0, 2.0, 0.0, 2.0, 0.0)
                 },
                 new FullXyzAffineMatrix(
                     1.0, 0.0, 0.0, 0.0,
