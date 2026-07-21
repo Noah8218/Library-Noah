@@ -27,6 +27,10 @@ namespace Lib.Inspection.Smoke
                 Run("Warpage rejects insufficient valid samples", TestWarpageInsufficientSamples, ref passed, ref total);
                 Run("Warpage rejects collinear geometry", TestWarpageDegenerateGeometry, ref passed, ref total);
                 Run("Warpage rejects an invalid limit", TestWarpageInvalidParameter, ref passed, ref total);
+                Run("Datum plane evaluates an analytic raw-height surface", TestDatumPlaneAnalyticSurface, ref passed, ref total);
+                Run("Datum plane retains measurement for a local-limit failure", TestDatumPlaneToleranceFailure, ref passed, ref total);
+                Run("Datum plane rejects a near-vertical height-field orientation", TestDatumPlaneNearVertical, ref passed, ref total);
+                Run("Datum plane treats missing cells separately from valid samples", TestDatumPlaneMissingSamples, ref passed, ref total);
                 Run("Two-point line constructs an ordered full-XYZ segment", TestTwoPointLine, ref passed, ref total);
                 Run("Two-point line rejects a zero-length segment", TestTwoPointLineZeroLength, ref passed, ref total);
                 Run("Three-point plane preserves authored normal orientation", TestThreePointPlane, ref passed, ref total);
@@ -262,6 +266,78 @@ namespace Lib.Inspection.Smoke
             TwoPointLineResult result = new TwoPointLineTool().Execute(new TwoPointLineInput(point, point));
 
             Require(!result.Success, "Two-point line must reject a zero-length segment.");
+        }
+
+        private static void TestDatumPlaneAnalyticSurface()
+        {
+            ThreeDInspectionResult result = new DatumPlaneRawHeightDeviationInspectionTool(
+                new DatumPlaneRawHeightDeviationInspectionOptions
+                {
+                    PlaneNormalX = -2.0,
+                    PlaneNormalY = 1.0,
+                    PlaneNormalZ = -3.0,
+                    PlaneOffset = -5.0,
+                    MaximumPeakToValleyRawHeight = 0.000001
+                }).Execute(CreatePlaneMap(3, 3, 2.0, 3.0, 5.0));
+
+            Require(result.Success && result.HasMeasurement, "Analytic datum-plane surface must pass.");
+            RequireApproximately(result.Metrics["PeakToValleyRawHeight"], 0.0, 1e-12, "Unexpected datum-plane P2V.");
+            RequireApproximately(result.Metrics["RmsRawHeightResidual"], 0.0, 1e-12, "Unexpected datum-plane RMS.");
+            RequireApproximately(result.Metrics["PlaneNormalY"], 1.0 / Math.Sqrt(14.0), 1e-12, "Datum-plane normal must be normalized.");
+        }
+
+        private static void TestDatumPlaneToleranceFailure()
+        {
+            HeightMap3D source = CreatePlaneMap(3, 3, 2.0, 3.0, 5.0);
+            double[] values = source.CopyValues();
+            values[values.Length - 1] += 0.1;
+            source = new HeightMap3D(3, 3, 0.0, 0.0, 1.0, 1.0, values, "raw-height", "frame", "datum-failure");
+            ThreeDInspectionResult result = new DatumPlaneRawHeightDeviationInspectionTool(
+                new DatumPlaneRawHeightDeviationInspectionOptions
+                {
+                    PlaneNormalX = -2.0,
+                    PlaneNormalY = 1.0,
+                    PlaneNormalZ = -3.0,
+                    PlaneOffset = -5.0,
+                    MaximumPeakToValleyRawHeight = 0.001
+                }).Execute(source);
+
+            Require(!result.Success && result.HasMeasurement && result.ResultStatus == ThreeDInspectionResultStatus.Failed, "Out-of-limit datum-plane result must retain measurement evidence.");
+            Require(result.Metrics["PeakToValleyRawHeight"] > 0.001, "Datum-plane failure must expose the P2V evidence.");
+        }
+
+        private static void TestDatumPlaneNearVertical()
+        {
+            ThreeDInspectionResult result = new DatumPlaneRawHeightDeviationInspectionTool(
+                new DatumPlaneRawHeightDeviationInspectionOptions
+                {
+                    PlaneNormalX = 1.0,
+                    PlaneNormalY = 0.01,
+                    PlaneNormalZ = 0.0,
+                    PlaneOffset = 0.0,
+                    MaximumPeakToValleyRawHeight = 1.0
+                }).Execute(CreatePlaneMap(2, 2, 0.0, 0.0, 1.0));
+
+            Require(!result.HasMeasurement && result.ErrorCode == ThreeDInspectionErrorCode.DegenerateGeometry, "Near-vertical plane must be rejected before raw-height residual evaluation.");
+        }
+
+        private static void TestDatumPlaneMissingSamples()
+        {
+            HeightMap3D source = new HeightMap3D(2, 2, 0.0, 0.0, 1.0, 1.0, new[] { 5.0, double.NaN, 5.0, 6.0 }, "raw-height", "frame", "datum-missing");
+            ThreeDInspectionResult result = new DatumPlaneRawHeightDeviationInspectionTool(
+                new DatumPlaneRawHeightDeviationInspectionOptions
+                {
+                    PlaneNormalX = -1.0,
+                    PlaneNormalY = 1.0,
+                    PlaneNormalZ = 0.0,
+                    PlaneOffset = -5.0,
+                    MaximumPeakToValleyRawHeight = 0.000001,
+                    MinimumValidSamples = 3
+                }).Execute(source);
+
+            Require(result.Success && result.HasMeasurement, "Three finite datum-plane samples must remain measurable.");
+            RequireApproximately(result.Metrics["ValidSampleCount"], 3.0, 1e-12, "Unexpected datum-plane valid count.");
+            RequireApproximately(result.Metrics["MissingSampleCount"], 1.0, 1e-12, "Unexpected datum-plane missing count.");
         }
 
         private static void TestThreePointPlane()
