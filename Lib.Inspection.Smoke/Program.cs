@@ -6,6 +6,7 @@ using Lib.ThreeD.Inspection;
 using OpenCvSharp;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Lib.Inspection.Smoke
 {
@@ -46,6 +47,8 @@ namespace Lib.Inspection.Smoke
                 Run("Reference-grid re-sampling chooses deterministic collision winners", TestReferenceGridCollisionTieBreak, ref passed, ref total);
                 Run("Reference-grid re-sampling rejects half-open upper-bound overflow", TestReferenceGridOutOfBounds, ref passed, ref total);
                 Run("Reference-grid re-sampling rejects invalid frame axes", TestReferenceGridInvalidAxes, ref passed, ref total);
+                Run("Deterministic line fit preserves full-XYZ inliers and direction", TestDeterministicLineFit, ref passed, ref total);
+                Run("Deterministic line fit rejects insufficient support", TestDeterministicLineFitSupportFailure, ref passed, ref total);
                 Run("Combined runner executes 2D and 3D pass steps", TestCombinedRunnerPass, ref passed, ref total);
                 Run("Combined runner retains later 3D evidence after 2D failure", TestCombinedRunnerContinuesAfterFailure, ref passed, ref total);
                 Run("Combined runner converts a 3D exception to a result", TestCombinedRunnerCatchesThreeDException, ref passed, ref total);
@@ -548,6 +551,63 @@ namespace Lib.Inspection.Smoke
                 new[] { new ReferenceGridInputPoint(0, 0, 0.0, 0.0, 0.0) }, invalid);
 
             Require(!result.Success && result.Message.IndexOf("orthonormal", StringComparison.OrdinalIgnoreCase) >= 0, "Reference-grid non-orthonormal axes must be rejected.");
+        }
+
+        private static void TestDeterministicLineFit()
+        {
+            List<DeterministicLineFitPoint> points = new List<DeterministicLineFitPoint>();
+            for (int index = 0; index < 8; index++)
+            {
+                points.Add(new DeterministicLineFitPoint(index, new ThreeDPoint(2.0 + (0.5 * index), -3.0 + (0.25 * index), index)));
+            }
+            points.Add(new DeterministicLineFitPoint(8, new ThreeDPoint(20.0, -30.0, 8.0)));
+            points.Add(new DeterministicLineFitPoint(9, new ThreeDPoint(-10.0, 25.0, 9.0)));
+
+            DeterministicLineFitOptions options = new DeterministicLineFitOptions
+            {
+                InputHash = new string('A', 64),
+                MaximumOrthogonalResidual = 0.05,
+                MinimumInlierCount = 6,
+                MinimumInlierRatio = 0.6,
+                MinimumInlierScanlineSpan = 5,
+                PositiveScanlineAxis = DeterministicLineFitPositiveAxis.Z
+            };
+            DeterministicLineFitResult first = new DeterministicLineFitTool().Execute(points, options);
+            DeterministicLineFitResult second = new DeterministicLineFitTool().Execute(points, options);
+            double norm = Math.Sqrt((0.5 * 0.5) + (0.25 * 0.25) + 1.0);
+
+            Require(first.Success && second.Success, "Deterministic line fit must accept the analytic full-XYZ inlier set.");
+            Require(first.Diagnostics.InlierCount == 8 && first.Diagnostics.OutlierCount == 2, "Deterministic line fit must retain the expected inlier membership.");
+            RequireApproximately(first.Geometry.Direction.X, 0.5 / norm, 1e-9, "Unexpected deterministic line direction X.");
+            RequireApproximately(first.Geometry.Direction.Y, 0.25 / norm, 1e-9, "Unexpected deterministic line direction Y.");
+            RequireApproximately(first.Geometry.Direction.Z, 1.0 / norm, 1e-9, "Unexpected deterministic line direction Z.");
+            Require(first.PointDiagnostics.Count == second.PointDiagnostics.Count
+                && first.PointDiagnostics.Where(point => point.IsInlier).Count() == second.PointDiagnostics.Where(point => point.IsInlier).Count(),
+                "Repeated deterministic line fits must retain identical membership counts.");
+        }
+
+        private static void TestDeterministicLineFitSupportFailure()
+        {
+            DeterministicLineFitResult result = new DeterministicLineFitTool().Execute(
+                new[]
+                {
+                    new DeterministicLineFitPoint(0, new ThreeDPoint(0.0, 0.0, 0.0)),
+                    new DeterministicLineFitPoint(1, new ThreeDPoint(0.0, 0.0, 1.0)),
+                    new DeterministicLineFitPoint(2, new ThreeDPoint(0.0, 0.0, 2.0)),
+                    new DeterministicLineFitPoint(3, new ThreeDPoint(50.0, 50.0, 3.0)),
+                    new DeterministicLineFitPoint(4, new ThreeDPoint(-50.0, -50.0, 4.0))
+                },
+                new DeterministicLineFitOptions
+                {
+                    InputHash = new string('B', 64),
+                    MaximumOrthogonalResidual = 0.01,
+                    MinimumInlierCount = 3,
+                    MinimumInlierRatio = 0.8,
+                    MinimumInlierScanlineSpan = 2,
+                    PositiveScanlineAxis = DeterministicLineFitPositiveAxis.Z
+                });
+
+            Require(!result.Success && result.Message.IndexOf("support", StringComparison.OrdinalIgnoreCase) >= 0, "Deterministic line fit must reject insufficient taught support.");
         }
 
         private static ReferenceGridProfile CreateReferenceGridProfile(int rows, int columns, double minimumCoverage)
