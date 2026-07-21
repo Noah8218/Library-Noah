@@ -42,6 +42,10 @@ namespace Lib.Inspection.Smoke
                 Run("Full XYZ affine solve rejects a taught condition limit", TestFullXyzAffineCondition, ref passed, ref total);
                 Run("Full XYZ affine apply preserves locator order and exact transformed XYZ", TestFullXyzAffineApply, ref passed, ref total);
                 Run("Full XYZ affine apply rejects duplicate source locators", TestFullXyzAffineApplyDuplicateLocator, ref passed, ref total);
+                Run("Reference-grid re-sampling projects U/V/H cells and preserves holes", TestReferenceGridProjectionAndHoles, ref passed, ref total);
+                Run("Reference-grid re-sampling chooses deterministic collision winners", TestReferenceGridCollisionTieBreak, ref passed, ref total);
+                Run("Reference-grid re-sampling rejects half-open upper-bound overflow", TestReferenceGridOutOfBounds, ref passed, ref total);
+                Run("Reference-grid re-sampling rejects invalid frame axes", TestReferenceGridInvalidAxes, ref passed, ref total);
                 Run("Combined runner executes 2D and 3D pass steps", TestCombinedRunnerPass, ref passed, ref total);
                 Run("Combined runner retains later 3D evidence after 2D failure", TestCombinedRunnerContinuesAfterFailure, ref passed, ref total);
                 Run("Combined runner converts a 3D exception to a result", TestCombinedRunnerCatchesThreeDException, ref passed, ref total);
@@ -483,6 +487,77 @@ namespace Lib.Inspection.Smoke
                     0.0, 0.0, 1.0, 0.0));
 
             Require(!result.Success, "Full XYZ affine apply must reject duplicate source locators.");
+        }
+
+        private static void TestReferenceGridProjectionAndHoles()
+        {
+            ReferenceGridRegridResult result = new ReferenceGridRegridTool().Execute(
+                new[]
+                {
+                    new ReferenceGridInputPoint(2, 4, 0.10, 0.10, 10.0),
+                    new ReferenceGridInputPoint(2, 5, 1.10, 0.10, 20.0),
+                    new ReferenceGridInputPoint(3, 4, 0.10, 1.10, 30.0)
+                },
+                CreateReferenceGridProfile(2, 2, 0.70));
+
+            Require(result.Success && result.Cells.Count == 4, "Reference-grid re-sampling must emit every authored row-major cell.");
+            RequireApproximately(result.Cells[0].Height, 10.0, 1e-12, "Unexpected first projected height.");
+            RequireApproximately(result.Cells[1].Height, 20.0, 1e-12, "Unexpected second projected height.");
+            RequireApproximately(result.Cells[2].Height, 30.0, 1e-12, "Unexpected third projected height.");
+            Require(double.IsNaN(result.Cells[3].Height) && result.Cells[3].SourceRow == -1, "Reference-grid holes must remain missing without fill.");
+            RequireApproximately(result.CoverageRatio, 0.75, 1e-12, "Unexpected reference-grid coverage.");
+            Require(result.MeetsMinimumCoverage, "Coverage must meet the authored Publish minimum.");
+        }
+
+        private static void TestReferenceGridCollisionTieBreak()
+        {
+            ReferenceGridRegridResult result = new ReferenceGridRegridTool().Execute(
+                new[]
+                {
+                    new ReferenceGridInputPoint(9, 9, 0.75, 0.50, 90.0),
+                    new ReferenceGridInputPoint(3, 8, 0.25, 0.50, 30.0),
+                    new ReferenceGridInputPoint(3, 7, 0.25, 0.50, 20.0)
+                },
+                CreateReferenceGridProfile(1, 1, 1.0));
+
+            Require(result.Success && result.CollisionCount == 2 && result.PopulatedCellCount == 1, "Reference-grid collisions must be counted without adding cells.");
+            Require(result.Cells[0].SourceRow == 3 && result.Cells[0].SourceColumn == 7, "Equal planar-distance collisions must choose lower source row then column.");
+            RequireApproximately(result.Cells[0].Height, 20.0, 1e-12, "Collision winner height was not retained.");
+        }
+
+        private static void TestReferenceGridOutOfBounds()
+        {
+            ReferenceGridRegridResult result = new ReferenceGridRegridTool().Execute(
+                new[] { new ReferenceGridInputPoint(0, 0, 1.0, 0.0, 2.0) },
+                CreateReferenceGridProfile(1, 1, 0.0));
+
+            Require(!result.Success && result.Message.IndexOf("half-open", StringComparison.OrdinalIgnoreCase) >= 0, "Reference-grid upper U boundary must be rejected rather than assigned outside the grid.");
+        }
+
+        private static void TestReferenceGridInvalidAxes()
+        {
+            ReferenceGridProfile invalid = new ReferenceGridProfile(
+                "frame.fixture-reference", "fixture-unit", "fixture reference", "R1",
+                0.0, 0.0, 0.0,
+                1.0, 0.0, 0.0,
+                1.0, 0.0, 0.0,
+                0.0, 0.0, 1.0,
+                1.0, 1.0, 1, 1, 0.0);
+            ReferenceGridRegridResult result = new ReferenceGridRegridTool().Execute(
+                new[] { new ReferenceGridInputPoint(0, 0, 0.0, 0.0, 0.0) }, invalid);
+
+            Require(!result.Success && result.Message.IndexOf("orthonormal", StringComparison.OrdinalIgnoreCase) >= 0, "Reference-grid non-orthonormal axes must be rejected.");
+        }
+
+        private static ReferenceGridProfile CreateReferenceGridProfile(int rows, int columns, double minimumCoverage)
+        {
+            return new ReferenceGridProfile(
+                "frame.fixture-reference", "fixture-unit", "fixture reference", "R1",
+                0.0, 0.0, 0.0,
+                1.0, 0.0, 0.0,
+                0.0, 1.0, 0.0,
+                0.0, 0.0, 1.0,
+                1.0, 1.0, rows, columns, minimumCoverage);
         }
 
         private static IReadOnlyList<FullXyzAffineCorrespondence> CreateAffinePairs()
