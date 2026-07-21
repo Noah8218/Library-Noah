@@ -40,6 +40,8 @@ namespace Lib.Inspection.Smoke
                 Run("Line intersection rejects parallel geometry", TestLineIntersectionParallel, ref passed, ref total);
                 Run("Full XYZ affine solve recovers an analytic matrix", TestFullXyzAffineSolve, ref passed, ref total);
                 Run("Full XYZ affine solve rejects a taught condition limit", TestFullXyzAffineCondition, ref passed, ref total);
+                Run("Full XYZ affine apply preserves locator order and exact transformed XYZ", TestFullXyzAffineApply, ref passed, ref total);
+                Run("Full XYZ affine apply rejects duplicate source locators", TestFullXyzAffineApplyDuplicateLocator, ref passed, ref total);
                 Run("Combined runner executes 2D and 3D pass steps", TestCombinedRunnerPass, ref passed, ref total);
                 Run("Combined runner retains later 3D evidence after 2D failure", TestCombinedRunnerContinuesAfterFailure, ref passed, ref total);
                 Run("Combined runner converts a 3D exception to a result", TestCombinedRunnerCatchesThreeDException, ref passed, ref total);
@@ -444,6 +446,43 @@ namespace Lib.Inspection.Smoke
                 new FullXyzAffineSolveOptions { MaximumConditionEstimate = 0.5, ArithmeticResidualWarning = 0.0 });
 
             Require(!result.Success, "Full XYZ affine solve must reject an exceeded taught condition limit.");
+        }
+
+        private static void TestFullXyzAffineApply()
+        {
+            FullXyzAffineMatrix matrix = new FullXyzAffineMatrix(
+                2.0, 0.5, -0.25, 10.0,
+                -1.0, 3.0, 0.75, 20.0,
+                0.25, -0.5, 4.0, 30.0);
+            AffinePointCloudApplyResult result = new AffinePointCloudApplyTool().Execute(
+                new[]
+                {
+                    new AffinePointCloudInputPoint(2, 3, 7.0, new ThreeDPoint(3.0, 7.0, 2.0)),
+                    new AffinePointCloudInputPoint(5, 11, -2.0, new ThreeDPoint(11.0, -2.0, 5.0))
+                },
+                matrix);
+
+            Require(result.Success && result.Points.Count == 2, "Full XYZ affine apply must transform every supplied finite point.");
+            Require(result.Points[0].Row == 2 && result.Points[0].Column == 3 && result.Points[0].RawHeight == 7.0, "Full XYZ affine apply must preserve the source locator and raw scalar.");
+            RequireApproximately(result.Points[0].Transformed.X, 19.0, 1e-12, "Unexpected transformed X.");
+            RequireApproximately(result.Points[0].Transformed.Y, 39.5, 1e-12, "Unexpected transformed Y.");
+            RequireApproximately(result.Points[0].Transformed.Z, 35.25, 1e-12, "Unexpected transformed Z.");
+        }
+
+        private static void TestFullXyzAffineApplyDuplicateLocator()
+        {
+            AffinePointCloudApplyResult result = new AffinePointCloudApplyTool().Execute(
+                new[]
+                {
+                    new AffinePointCloudInputPoint(0, 0, 1.0, new ThreeDPoint(0.0, 1.0, 0.0)),
+                    new AffinePointCloudInputPoint(0, 0, 2.0, new ThreeDPoint(0.0, 2.0, 0.0))
+                },
+                new FullXyzAffineMatrix(
+                    1.0, 0.0, 0.0, 0.0,
+                    0.0, 1.0, 0.0, 0.0,
+                    0.0, 0.0, 1.0, 0.0));
+
+            Require(!result.Success, "Full XYZ affine apply must reject duplicate source locators.");
         }
 
         private static IReadOnlyList<FullXyzAffineCorrespondence> CreateAffinePairs()
