@@ -53,6 +53,9 @@ namespace Lib.Inspection.Smoke
                 Run("Height-difference edge skips missing pairs and requires support", TestDeterministicHeightDifferenceEdgeMissingAndSupport, ref passed, ref total);
                 Run("Deterministic line fit preserves full-XYZ inliers and direction", TestDeterministicLineFit, ref passed, ref total);
                 Run("Deterministic line fit rejects insufficient support", TestDeterministicLineFitSupportFailure, ref passed, ref total);
+                Run("Least-squares height-field plane fit preserves analytic coefficients", TestLeastSquaresHeightFieldPlaneFit, ref passed, ref total);
+                Run("Plane flatness measures independent reference and surface samples", TestPlaneFlatnessInspection, ref passed, ref total);
+                Run("Plane flatness rejects degenerate reference geometry", TestPlaneFlatnessDegenerateReference, ref passed, ref total);
                 Run("Combined runner executes 2D and 3D pass steps", TestCombinedRunnerPass, ref passed, ref total);
                 Run("Combined runner retains later 3D evidence after 2D failure", TestCombinedRunnerContinuesAfterFailure, ref passed, ref total);
                 Run("Combined runner converts a 3D exception to a result", TestCombinedRunnerCatchesThreeDException, ref passed, ref total);
@@ -705,6 +708,77 @@ namespace Lib.Inspection.Smoke
                 });
 
             Require(!result.Success && result.Message.IndexOf("support", StringComparison.OrdinalIgnoreCase) >= 0, "Deterministic line fit must reject insufficient taught support.");
+        }
+
+        private static void TestLeastSquaresHeightFieldPlaneFit()
+        {
+            HeightFieldPlaneFitSample[] samples = CreateAnalyticPlaneSamples(0.5, -0.25, 2.0, new double[9]);
+            LeastSquaresHeightFieldPlaneFitResult result = new LeastSquaresHeightFieldPlaneFitTool().Execute(samples);
+
+            RequireApproximately(result.SlopeX, 0.5, 1e-12, "Unexpected height-field plane X slope.");
+            RequireApproximately(result.SlopeZ, -0.25, 1e-12, "Unexpected height-field plane Z slope.");
+            RequireApproximately(result.Intercept, 2.0, 1e-12, "Unexpected height-field plane intercept.");
+            RequireApproximately(result.RootMeanSquareDistance, 0.0, 1e-7, "Analytic plane fit RMS must be zero within float-compatible distance precision.");
+        }
+
+        private static void TestPlaneFlatnessInspection()
+        {
+            HeightFieldPlaneFitSample[] reference = CreateAnalyticPlaneSamples(0.5, -0.25, 2.0, new double[9]);
+            HeightFieldPlaneFitSample[] measurement = CreateAnalyticPlaneSamples(
+                0.5,
+                -0.25,
+                2.0,
+                new[] { -0.4, 0.0, 0.6, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 });
+            PlaneFlatnessInspectionResult result = new PlaneFlatnessInspectionTool().Execute(reference, measurement, 1.1);
+
+            Require(result.Passed && result.ReferenceSampleCount == 9 && result.MeasurementSampleCount == 9,
+                "Independent plane-flatness sample counts or pass state are incorrect.");
+            RequireApproximately(result.Flatness, 1.0, 1e-6, "Unexpected orthogonal flatness.");
+            Require(result.MinimumSignedDistance < 0.0 && result.MaximumSignedDistance > 0.0,
+                "Plane-flatness extrema must preserve signed sides of the reference plane.");
+        }
+
+        private static void TestPlaneFlatnessDegenerateReference()
+        {
+            HeightFieldPlaneFitSample[] reference =
+            {
+                new HeightFieldPlaneFitSample(new ThreeDPoint(0.0, 0.0, 0.0), 0.0),
+                new HeightFieldPlaneFitSample(new ThreeDPoint(1.0, 1.0, 0.0), 1.0),
+                new HeightFieldPlaneFitSample(new ThreeDPoint(2.0, 2.0, 0.0), 2.0)
+            };
+            HeightFieldPlaneFitSample[] measurement = CreateAnalyticPlaneSamples(0.0, 0.0, 0.0, new double[9]);
+
+            try
+            {
+                new PlaneFlatnessInspectionTool().Execute(reference, measurement, 1.0);
+                throw new InvalidOperationException("Degenerate reference geometry must be rejected.");
+            }
+            catch (ArgumentException exception)
+            {
+                Require(exception.Message.IndexOf("span two horizontal axes", StringComparison.OrdinalIgnoreCase) >= 0,
+                    "Degenerate reference rejection must retain the plane-fit contract.");
+            }
+        }
+
+        private static HeightFieldPlaneFitSample[] CreateAnalyticPlaneSamples(
+            double slopeX,
+            double slopeZ,
+            double intercept,
+            IReadOnlyList<double> normalOffsets)
+        {
+            HeightFieldPlaneFitSample[] samples = new HeightFieldPlaneFitSample[9];
+            double normalLength = Math.Sqrt((slopeX * slopeX) + 1.0 + (slopeZ * slopeZ));
+            for (int z = 0; z < 3; z++)
+            {
+                for (int x = 0; x < 3; x++)
+                {
+                    int index = (z * 3) + x;
+                    double y = (slopeX * x) + (slopeZ * z) + intercept + (normalOffsets[index] * normalLength);
+                    samples[index] = new HeightFieldPlaneFitSample(new ThreeDPoint(x, y, z), y);
+                }
+            }
+
+            return samples;
         }
 
         private static ReferenceGridProfile CreateReferenceGridProfile(int rows, int columns, double minimumCoverage)
