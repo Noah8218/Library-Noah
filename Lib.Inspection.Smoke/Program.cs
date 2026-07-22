@@ -65,6 +65,9 @@ namespace Lib.Inspection.Smoke
                 Run("Volume integrates signed height relative to a reference plane", TestVolume, ref passed, ref total);
                 Run("Volume preserves below-plane sign and tolerance failure", TestVolumeBelowPlane, ref passed, ref total);
                 Run("Volume rejects an empty measurement ROI", TestVolumeEmptyMeasurement, ref passed, ref total);
+                Run("Cross-section measures axis width and scalar-height range", TestCrossSectionDimensions, ref passed, ref total);
+                Run("Cross-section reports independent width and height failures", TestCrossSectionDimensionsFailure, ref passed, ref total);
+                Run("Cross-section rejects non-finite samples", TestCrossSectionDimensionsInvalidSample, ref passed, ref total);
                 Run("Combined runner executes 2D and 3D pass steps", TestCombinedRunnerPass, ref passed, ref total);
                 Run("Combined runner retains later 3D evidence after 2D failure", TestCombinedRunnerContinuesAfterFailure, ref passed, ref total);
                 Run("Combined runner converts a 3D exception to a result", TestCombinedRunnerCatchesThreeDException, ref passed, ref total);
@@ -930,6 +933,73 @@ namespace Lib.Inspection.Smoke
                 SampleArea = sampleArea,
                 ExpectedNetVolume = expectedNetVolume,
                 Tolerance = tolerance
+            };
+
+        private static void TestCrossSectionDimensions()
+        {
+            CrossSectionDimensionsInspectionResult result = new CrossSectionDimensionsInspectionTool().Execute(
+                new[]
+                {
+                    new CrossSectionDimensionsSample(2, -1.5, 10.0),
+                    new CrossSectionDimensionsSample(3, 0.5, 15.0),
+                    new CrossSectionDimensionsSample(4, 3.5, 5.0)
+                },
+                CrossSectionOptions(5.0, 10.0));
+
+            Require(result.Passed, "Analytic cross-section must pass exact acceptance.");
+            RequireApproximately(result.Width, 5.0, 1e-12, "Unexpected cross-section width.");
+            RequireApproximately(result.HeightRange, 10.0, 1e-12, "Unexpected cross-section height range.");
+            RequireApproximately(result.HeightMinimum, 5.0, 1e-12, "Unexpected cross-section minimum height.");
+            RequireApproximately(result.HeightMaximum, 15.0, 1e-12, "Unexpected cross-section maximum height.");
+        }
+
+        private static void TestCrossSectionDimensionsFailure()
+        {
+            CrossSectionDimensionsInspectionResult result = new CrossSectionDimensionsInspectionTool().Execute(
+                new[]
+                {
+                    new CrossSectionDimensionsSample(0, 0.0, 2.0),
+                    new CrossSectionDimensionsSample(1, 4.0, 8.0)
+                },
+                new CrossSectionDimensionsInspectionOptions
+                {
+                    ExpectedWidth = 3.0,
+                    WidthTolerance = 0.1,
+                    ExpectedHeightRange = 6.0,
+                    HeightTolerance = 0.1
+                });
+
+            Require(!result.Passed && !result.WidthPassed && result.HeightPassed,
+                "Cross-section acceptance must retain independent metric status.");
+        }
+
+        private static void TestCrossSectionDimensionsInvalidSample()
+        {
+            try
+            {
+                new CrossSectionDimensionsInspectionTool().Execute(
+                    new[]
+                    {
+                        new CrossSectionDimensionsSample(0, 0.0, 1.0),
+                        new CrossSectionDimensionsSample(1, double.NaN, 2.0)
+                    },
+                    CrossSectionOptions(1.0, 1.0));
+                throw new InvalidOperationException("Non-finite cross-section samples must be rejected.");
+            }
+            catch (ArgumentException exception)
+            {
+                Require(exception.Message.IndexOf("finite", StringComparison.OrdinalIgnoreCase) >= 0,
+                    "Cross-section rejection must explain the finite sample contract.");
+            }
+        }
+
+        private static CrossSectionDimensionsInspectionOptions CrossSectionOptions(double expectedWidth, double expectedHeightRange) =>
+            new CrossSectionDimensionsInspectionOptions
+            {
+                ExpectedWidth = expectedWidth,
+                WidthTolerance = 1e-9,
+                ExpectedHeightRange = expectedHeightRange,
+                HeightTolerance = 1e-9
             };
 
         private static PointPairDimensionsInspectionOptions PointPairOptions(
