@@ -62,6 +62,9 @@ namespace Lib.Inspection.Smoke
                 Run("Gap/flush measures signed separation and height difference", TestGapFlush, ref passed, ref total);
                 Run("Gap/flush preserves signed overlap", TestGapFlushOverlap, ref passed, ref total);
                 Run("Gap/flush rejects an empty region", TestGapFlushEmptyRegion, ref passed, ref total);
+                Run("Volume integrates signed height relative to a reference plane", TestVolume, ref passed, ref total);
+                Run("Volume preserves below-plane sign and tolerance failure", TestVolumeBelowPlane, ref passed, ref total);
+                Run("Volume rejects an empty measurement ROI", TestVolumeEmptyMeasurement, ref passed, ref total);
                 Run("Combined runner executes 2D and 3D pass steps", TestCombinedRunnerPass, ref passed, ref total);
                 Run("Combined runner retains later 3D evidence after 2D failure", TestCombinedRunnerContinuesAfterFailure, ref passed, ref total);
                 Run("Combined runner converts a 3D exception to a result", TestCombinedRunnerCatchesThreeDException, ref passed, ref total);
@@ -870,6 +873,63 @@ namespace Lib.Inspection.Smoke
                 GapTolerance = 1e-9,
                 ExpectedFlush = expectedFlush,
                 FlushTolerance = 1e-9
+            };
+
+        private static void TestVolume()
+        {
+            HeightFieldPlaneFitSample[] reference = CreateAnalyticPlaneSamples(0.5, -0.25, 2.0, new double[9]);
+            HeightFieldPlaneFitSample[] measurement = CreateAnalyticPlaneSamples(
+                0.5, -0.25, 2.0, new[] { 1.0, 1.0, 1.0, 1.0, 0.0, -1.0, -1.0, -1.0, -1.0 });
+            double normalLength = Math.Sqrt(1.3125);
+            VolumeInspectionResult result = new VolumeInspectionTool().Execute(
+                reference,
+                measurement,
+                VolumeOptions(0.5, 0.0, 1e-9));
+
+            Require(result.Passed, "Balanced analytic volume must pass.");
+            RequireApproximately(result.AboveVolume, 2.0 * normalLength, 1e-10, "Unexpected above-plane volume.");
+            RequireApproximately(result.BelowVolume, 2.0 * normalLength, 1e-10, "Unexpected below-plane volume.");
+            RequireApproximately(result.NetVolume, 0.0, 1e-10, "Balanced volume must have zero net value.");
+        }
+
+        private static void TestVolumeBelowPlane()
+        {
+            HeightFieldPlaneFitSample[] reference = CreateAnalyticPlaneSamples(0.0, 0.0, 3.0, new double[9]);
+            HeightFieldPlaneFitSample[] measurement = CreateAnalyticPlaneSamples(0.0, 0.0, 3.0, new[] { -2.0, -2.0, -2.0, -2.0, -2.0, -2.0, -2.0, -2.0, -2.0 });
+            VolumeInspectionResult result = new VolumeInspectionTool().Execute(
+                reference,
+                measurement,
+                VolumeOptions(0.25, 0.0, 1.0));
+
+            Require(!result.Passed, "Out-of-tolerance below-plane volume must fail.");
+            RequireApproximately(result.AboveVolume, 0.0, 1e-12, "Below-plane data must not add above volume.");
+            RequireApproximately(result.BelowVolume, 4.5, 1e-12, "Unexpected below-plane volume.");
+            RequireApproximately(result.NetVolume, -4.5, 1e-12, "Below-plane net volume must remain negative.");
+        }
+
+        private static void TestVolumeEmptyMeasurement()
+        {
+            try
+            {
+                new VolumeInspectionTool().Execute(
+                    CreateAnalyticPlaneSamples(0.0, 0.0, 0.0, new double[9]),
+                    new HeightFieldPlaneFitSample[0],
+                    VolumeOptions(1.0, 0.0, 0.0));
+                throw new InvalidOperationException("Empty volume measurement input must be rejected.");
+            }
+            catch (ArgumentException exception)
+            {
+                Require(exception.Message.IndexOf("at least one sample", StringComparison.OrdinalIgnoreCase) >= 0,
+                    "Empty volume rejection must name the sample requirement.");
+            }
+        }
+
+        private static VolumeInspectionOptions VolumeOptions(double sampleArea, double expectedNetVolume, double tolerance) =>
+            new VolumeInspectionOptions
+            {
+                SampleArea = sampleArea,
+                ExpectedNetVolume = expectedNetVolume,
+                Tolerance = tolerance
             };
 
         private static PointPairDimensionsInspectionOptions PointPairOptions(
