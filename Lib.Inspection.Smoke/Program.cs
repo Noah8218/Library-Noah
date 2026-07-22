@@ -56,6 +56,9 @@ namespace Lib.Inspection.Smoke
                 Run("Least-squares height-field plane fit preserves analytic coefficients", TestLeastSquaresHeightFieldPlaneFit, ref passed, ref total);
                 Run("Plane flatness measures independent reference and surface samples", TestPlaneFlatnessInspection, ref passed, ref total);
                 Run("Plane flatness rejects degenerate reference geometry", TestPlaneFlatnessDegenerateReference, ref passed, ref total);
+                Run("Point pair measures dimensions relative to the height axis", TestPointPairDimensions, ref passed, ref total);
+                Run("Point pair honors a rotated height axis", TestPointPairDimensionsRotatedAxis, ref passed, ref total);
+                Run("Point pair rejects coincident positions", TestPointPairDimensionsCoincident, ref passed, ref total);
                 Run("Combined runner executes 2D and 3D pass steps", TestCombinedRunnerPass, ref passed, ref total);
                 Run("Combined runner retains later 3D evidence after 2D failure", TestCombinedRunnerContinuesAfterFailure, ref passed, ref total);
                 Run("Combined runner converts a 3D exception to a result", TestCombinedRunnerCatchesThreeDException, ref passed, ref total);
@@ -759,6 +762,73 @@ namespace Lib.Inspection.Smoke
                     "Degenerate reference rejection must retain the plane-fit contract.");
             }
         }
+
+        private static void TestPointPairDimensions()
+        {
+            PointPairDimensionsInspectionResult result = new PointPairDimensionsInspectionTool().Execute(
+                new ThreeDPoint(1.0, 2.0, 3.0),
+                new ThreeDPoint(4.0, 6.0, 7.0),
+                new ThreeDPoint(0.0, 1.0, 0.0),
+                12.0,
+                16.0,
+                PointPairOptions(Math.Sqrt(41.0), 5.0, Math.Atan2(4.0, 5.0) * 180.0 / Math.PI));
+
+            Require(result.Passed, "Analytic point pair must pass exact tolerances.");
+            RequireApproximately(result.Distance, Math.Sqrt(41.0), 1e-12, "Unexpected point-pair distance.");
+            RequireApproximately(result.PlanarWidth, 5.0, 1e-12, "Unexpected point-pair planar width.");
+            RequireApproximately(result.AxialHeightDelta, 4.0, 1e-12, "Unexpected point-pair axial height delta.");
+            RequireApproximately(result.ScalarHeightDelta, 4.0, 1e-12, "Unexpected point-pair scalar height delta.");
+        }
+
+        private static void TestPointPairDimensionsRotatedAxis()
+        {
+            PointPairDimensionsInspectionResult result = new PointPairDimensionsInspectionTool().Execute(
+                new ThreeDPoint(0.0, 0.0, 0.0),
+                new ThreeDPoint(3.0, 4.0, 12.0),
+                new ThreeDPoint(0.0, 0.0, 2.0),
+                2.0,
+                14.0,
+                PointPairOptions(13.0, 5.0, Math.Atan2(12.0, 5.0) * 180.0 / Math.PI));
+
+            Require(result.Passed, "Rotated-axis point pair must pass exact tolerances.");
+            RequireApproximately(result.NormalizedHeightAxis.Z, 1.0, 1e-12, "Height axis was not normalized.");
+            RequireApproximately(result.PlanarWidth, 5.0, 1e-12, "Planar width must be orthogonal to the declared height axis.");
+            RequireApproximately(result.AxialHeightDelta, 12.0, 1e-12, "Axial height must follow the declared height axis.");
+        }
+
+        private static void TestPointPairDimensionsCoincident()
+        {
+            try
+            {
+                new PointPairDimensionsInspectionTool().Execute(
+                    new ThreeDPoint(1.0, 2.0, 3.0),
+                    new ThreeDPoint(1.0, 2.0, 3.0),
+                    new ThreeDPoint(0.0, 1.0, 0.0),
+                    0.0,
+                    0.0,
+                    PointPairOptions(0.0, 0.0, 0.0));
+                throw new InvalidOperationException("Coincident point-pair positions must be rejected.");
+            }
+            catch (ArgumentException exception)
+            {
+                Require(exception.Message.IndexOf("distinct", StringComparison.OrdinalIgnoreCase) >= 0,
+                    "Coincident point-pair rejection must explain the distinct-point contract.");
+            }
+        }
+
+        private static PointPairDimensionsInspectionOptions PointPairOptions(
+            double distance,
+            double planarWidth,
+            double elevationAngleDegrees) =>
+            new PointPairDimensionsInspectionOptions
+            {
+                ExpectedDistance = distance,
+                DistanceTolerance = 1e-10,
+                ExpectedPlanarWidth = planarWidth,
+                PlanarWidthTolerance = 1e-10,
+                ExpectedElevationAngleDegrees = elevationAngleDegrees,
+                ElevationAngleToleranceDegrees = 1e-10
+            };
 
         private static HeightFieldPlaneFitSample[] CreateAnalyticPlaneSamples(
             double slopeX,
