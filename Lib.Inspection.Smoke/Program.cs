@@ -59,6 +59,9 @@ namespace Lib.Inspection.Smoke
                 Run("Point pair measures dimensions relative to the height axis", TestPointPairDimensions, ref passed, ref total);
                 Run("Point pair honors a rotated height axis", TestPointPairDimensionsRotatedAxis, ref passed, ref total);
                 Run("Point pair rejects coincident positions", TestPointPairDimensionsCoincident, ref passed, ref total);
+                Run("Gap/flush measures signed separation and height difference", TestGapFlush, ref passed, ref total);
+                Run("Gap/flush preserves signed overlap", TestGapFlushOverlap, ref passed, ref total);
+                Run("Gap/flush rejects an empty region", TestGapFlushEmptyRegion, ref passed, ref total);
                 Run("Combined runner executes 2D and 3D pass steps", TestCombinedRunnerPass, ref passed, ref total);
                 Run("Combined runner retains later 3D evidence after 2D failure", TestCombinedRunnerContinuesAfterFailure, ref passed, ref total);
                 Run("Combined runner converts a 3D exception to a result", TestCombinedRunnerCatchesThreeDException, ref passed, ref total);
@@ -815,6 +818,59 @@ namespace Lib.Inspection.Smoke
                     "Coincident point-pair rejection must explain the distinct-point contract.");
             }
         }
+
+        private static void TestGapFlush()
+        {
+            GapFlushInspectionResult result = new GapFlushInspectionTool().Execute(
+                0.0, 2.0, 3.0, 5.0,
+                new GapFlushRegionStatistics(20, 100.0, 1.0),
+                new GapFlushRegionStatistics(30, 104.0, 1.4),
+                GapFlushOptions(1.0, 4.0));
+
+            Require(result.Passed, "Analytic gap/flush must pass exact tolerances.");
+            RequireApproximately(result.SignedGap, 1.0, 1e-12, "Unexpected signed gap.");
+            RequireApproximately(result.SignedFlush, 4.0, 1e-12, "Unexpected signed flush.");
+            RequireApproximately(result.SignedReferenceFlush, 0.4, 1e-12, "Unexpected reference-height flush.");
+        }
+
+        private static void TestGapFlushOverlap()
+        {
+            GapFlushInspectionResult result = new GapFlushInspectionTool().Execute(
+                0.0, 2.0, 1.5, 3.5,
+                new GapFlushRegionStatistics(2, 8.0, 8.0),
+                new GapFlushRegionStatistics(2, 9.0, 9.0),
+                GapFlushOptions(-0.5, 1.0));
+
+            Require(result.Passed, "Authored overlap must retain its negative signed gap.");
+            RequireApproximately(result.SignedGap, -0.5, 1e-12, "Overlap sign was lost.");
+        }
+
+        private static void TestGapFlushEmptyRegion()
+        {
+            try
+            {
+                new GapFlushInspectionTool().Execute(
+                    0.0, 1.0, 2.0, 3.0,
+                    new GapFlushRegionStatistics(0, 1.0, 1.0),
+                    new GapFlushRegionStatistics(1, 2.0, 2.0),
+                    GapFlushOptions(1.0, 1.0));
+                throw new InvalidOperationException("Empty gap/flush input must be rejected.");
+            }
+            catch (ArgumentException exception)
+            {
+                Require(exception.Message.IndexOf("at least one sample", StringComparison.OrdinalIgnoreCase) >= 0,
+                    "Empty gap/flush rejection must name the sample requirement.");
+            }
+        }
+
+        private static GapFlushInspectionOptions GapFlushOptions(double expectedGap, double expectedFlush) =>
+            new GapFlushInspectionOptions
+            {
+                ExpectedGap = expectedGap,
+                GapTolerance = 1e-9,
+                ExpectedFlush = expectedFlush,
+                FlushTolerance = 1e-9
+            };
 
         private static PointPairDimensionsInspectionOptions PointPairOptions(
             double distance,
