@@ -6,6 +6,8 @@ namespace Lib.OpenCV.Property
     {
         double SCORE_MIN { get; set; }
         int NUM_MATCH { get; set; }
+        bool USE_UNIQUE_MATCH_VALIDATION { get; set; }
+        double UNIQUE_MATCH_MIN_SCORE_MARGIN { get; set; }
         string PATTERN_PATH { get; set; }
         int CANNY_LOW { get; set; }
         int CANNY_HIGH { get; set; }

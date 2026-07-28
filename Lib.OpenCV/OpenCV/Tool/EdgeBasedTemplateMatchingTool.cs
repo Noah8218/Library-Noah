@@ -37,6 +37,7 @@ namespace Lib.OpenCV.Tool
         private const double PyramidPositionProposalWeakVerifiedMargin = 0.03D;
         private const double CandidateAmbiguityScoreGapThreshold = 0.03D;
         private const double CandidateAmbiguityDistanceFactor = 0.35D;
+        private const int UniqueMatchMinimumInternalTopK = 8;
         private const int ModelSmallTemplateMinDimension = 24;
         private const int ModelLowEdgePointThreshold = 40;
         private const double ModelLowCoverageAreaThreshold = 0.15D;
@@ -73,6 +74,17 @@ namespace Lib.OpenCV.Tool
             templateRevision++;
         }
 
+        public override VisionToolResult Execute(Mat source)
+        {
+            VisionToolResult result = base.Execute(source);
+            if (result != null)
+            {
+                result.EdgeBasedMatchingDiagnostics = CreateDiagnosticEvidence(result);
+            }
+
+            return result;
+        }
+
         protected override bool TryValidateBeforeRun(out VisionToolErrorCode errorCode, out string message)
         {
             if (!base.TryValidateBeforeRun(out errorCode, out message))
@@ -100,6 +112,31 @@ namespace Lib.OpenCV.Tool
             {
                 errorCode = VisionToolErrorCode.InvalidParameter;
                 message = $"Edge based matching NUM_MATCH must be greater than 0. NUM_MATCH={property.NUM_MATCH}.";
+                return false;
+            }
+
+            if (property.USE_UNIQUE_MATCH_VALIDATION && property.NUM_MATCH != 1)
+            {
+                errorCode = VisionToolErrorCode.InvalidParameter;
+                message = $"Unique edge matching requires NUM_MATCH=1. NUM_MATCH={property.NUM_MATCH}.";
+                return false;
+            }
+
+            if (property.USE_UNIQUE_MATCH_VALIDATION && property.USE_MULTI_ROI)
+            {
+                errorCode = VisionToolErrorCode.InvalidParameter;
+                message = "Unique edge matching requires one search region. USE_MULTI_ROI must be false.";
+                return false;
+            }
+
+            if (property.USE_UNIQUE_MATCH_VALIDATION
+                && (double.IsNaN(property.UNIQUE_MATCH_MIN_SCORE_MARGIN)
+                    || double.IsInfinity(property.UNIQUE_MATCH_MIN_SCORE_MARGIN)
+                    || property.UNIQUE_MATCH_MIN_SCORE_MARGIN < 0D
+                    || property.UNIQUE_MATCH_MIN_SCORE_MARGIN > 1D))
+            {
+                errorCode = VisionToolErrorCode.InvalidParameter;
+                message = $"Unique edge matching score margin must be between 0 and 1. Margin={property.UNIQUE_MATCH_MIN_SCORE_MARGIN}.";
                 return false;
             }
 
@@ -341,6 +378,7 @@ namespace Lib.OpenCV.Tool
                     RecordImageProposalDiagnostics(imageProposal);
 
                     MatchCandidate candidate = imageProposal;
+                    List<MatchCandidate> candidateSeeds = new List<MatchCandidate>();
                     bool useFastPath = TryUseHybridProposalFastPath(imageProposal, localMatchCount);
                     if (useFastPath)
                     {
@@ -354,7 +392,6 @@ namespace Lib.OpenCV.Tool
                             candidateDiagnostics.FallbackSearchCount++;
                         }
 
-                        List<MatchCandidate> candidateSeeds;
                         long searchStart = StartPhaseTiming();
                         candidate = FindBestCandidate(
                             source,
@@ -374,8 +411,19 @@ namespace Lib.OpenCV.Tool
                         }
                     }
 
+                    RecordCandidateDisplayEvidence(
+                        candidate,
+                        (candidateSeeds ?? new List<MatchCandidate>())
+                            .Concat(imageProposal == null
+                                ? Enumerable.Empty<MatchCandidate>()
+                                : new[] { imageProposal }),
+                        template,
+                        roi,
+                        useRoi);
+
                     if (candidate == null || candidate.Score < property.SCORE_MIN)
                     {
+                        RecordUniqueMatchNoMatch(candidate);
                         if (results.Count == 0)
                         {
                             SetMatchingFailure(
@@ -383,6 +431,11 @@ namespace Lib.OpenCV.Tool
                                 $"Edge based matching found no result above score threshold. BestScore={(candidate?.Score * 100.0) ?? 0:0.###}, {FormatMatchingOptions()}");
                         }
 
+                        break;
+                    }
+
+                    if (!TryAcceptUniqueMatch(candidate))
+                    {
                         break;
                     }
 
@@ -606,6 +659,7 @@ namespace Lib.OpenCV.Tool
             AddModelPyramidDiagnostics(metrics, templateModelCache?.Model);
             AddSearchSpaceDiagnostics(metrics, templateModelCache?.Model);
             AddCandidateDiagnostics(metrics, candidateDiagnostics, property?.USE_FIND_SCALE == true);
+            AddUniqueMatchDiagnostics(metrics);
             lock (phaseElapsedSync)
             {
                 foreach (KeyValuePair<string, double> phase in phaseElapsedMs)
@@ -615,6 +669,27 @@ namespace Lib.OpenCV.Tool
             }
 
             return metrics;
+        }
+
+        private void AddUniqueMatchDiagnostics(IDictionary<string, double> metrics)
+        {
+            if (metrics == null || property == null)
+            {
+                return;
+            }
+
+            bool enabled = property.USE_UNIQUE_MATCH_VALIDATION;
+            metrics["UniqueMatch.Enabled"] = enabled ? 1D : 0D;
+            metrics["UniqueMatch.State"] = enabled ? (double)candidateDiagnostics.UniqueMatchState : 0D;
+            metrics["UniqueMatch.MinimumInternalTopK"] = enabled ? UniqueMatchMinimumInternalTopK : 0D;
+            metrics["UniqueMatch.PlausibleAlternativeCount"] = candidateDiagnostics.UniqueMatchPlausibleAlternativeCount;
+            metrics["UniqueMatch.SelectedScore"] = NormalizeDiagnosticScore(candidateDiagnostics.UniqueMatchSelectedScore);
+            metrics["UniqueMatch.StrongestAlternativeScore"] = NormalizeDiagnosticScore(candidateDiagnostics.UniqueMatchStrongestAlternativeScore);
+            metrics["UniqueMatch.ScoreMargin"] = NormalizeDiagnosticScore(candidateDiagnostics.UniqueMatchScoreMargin);
+            metrics["UniqueMatch.MinimumScoreMargin"] = enabled
+                ? property.UNIQUE_MATCH_MIN_SCORE_MARGIN
+                : 0D;
+            metrics["UniqueMatch.DistanceThresholdPx"] = NormalizeDiagnosticScore(candidateDiagnostics.UniqueMatchDistanceThreshold);
         }
 
         private static void AddCandidateDiagnostics(
@@ -642,6 +717,7 @@ namespace Lib.OpenCV.Tool
             metrics["Candidate.MaxImageProposalEdgeScore"] = NormalizeDiagnosticScore(diagnostics.MaxImageProposalEdgeScore);
             metrics["Candidate.MaxImageProposalImageScore"] = NormalizeDiagnosticScore(diagnostics.MaxImageProposalImageScore);
             metrics["Candidate.MaxEdgeSearchScore"] = NormalizeDiagnosticScore(diagnostics.MaxEdgeSearchScore);
+            metrics["Candidate.PyramidProposalScale"] = PyramidPositionProposalScale;
             metrics["Candidate.PyramidProposalAttemptCount"] = diagnostics.PyramidProposalAttemptCount;
             metrics["Candidate.PyramidProposalAcceptedCount"] = diagnostics.PyramidProposalAcceptedCount;
             metrics["Candidate.PyramidProposalFallbackCount"] = diagnostics.PyramidProposalFallbackCount;
@@ -715,6 +791,8 @@ namespace Lib.OpenCV.Tool
             MatchCandidate selected,
             Mat template)
         {
+            EvaluateUniqueMatch(candidates, selected, template);
+
             if (candidates == null || selected == null || OpenCvHelper.IsImageEmpty(template))
             {
                 return;
@@ -788,6 +866,208 @@ namespace Lib.OpenCV.Tool
             candidateDiagnostics.MaxAmbiguousScaleDelta = Math.Max(
                 candidateDiagnostics.MaxAmbiguousScaleDelta,
                 maxScaleDelta);
+        }
+
+        private void RecordCandidateDisplayEvidence(
+            MatchCandidate selected,
+            IEnumerable<MatchCandidate> candidates,
+            Mat template,
+            Rect roi,
+            bool useRoi)
+        {
+            if (selected == null)
+            {
+                return;
+            }
+
+            if (candidateDiagnostics.SelectedCandidate == null)
+            {
+                candidateDiagnostics.SelectedCandidate = CreateCandidateDiagnostic(
+                    selected,
+                    roi,
+                    useRoi);
+            }
+
+            if (candidateDiagnostics.StrongestSpatialAlternative != null
+                || OpenCvHelper.IsImageEmpty(template))
+            {
+                return;
+            }
+
+            double distanceThreshold = Math.Max(
+                8D,
+                Math.Min(template.Width, template.Height) * CandidateAmbiguityDistanceFactor);
+            MatchCandidate strongest = null;
+            foreach (MatchCandidate candidate in candidates ?? Enumerable.Empty<MatchCandidate>())
+            {
+                if (candidate == null || IsSameCandidate(candidate, selected))
+                {
+                    continue;
+                }
+
+                double dx = candidate.TemplateCenter.X - selected.TemplateCenter.X;
+                double dy = candidate.TemplateCenter.Y - selected.TemplateCenter.Y;
+                if (Math.Sqrt((dx * dx) + (dy * dy)) < distanceThreshold)
+                {
+                    continue;
+                }
+
+                if (strongest == null
+                    || GetUniqueMatchSelectionScore(candidate) > GetUniqueMatchSelectionScore(strongest))
+                {
+                    strongest = candidate;
+                }
+            }
+
+            if (strongest != null)
+            {
+                candidateDiagnostics.StrongestSpatialAlternative = CreateCandidateDiagnostic(
+                    strongest,
+                    roi,
+                    useRoi);
+            }
+        }
+
+        private static EdgeBasedMatchingCandidateDiagnostic CreateCandidateDiagnostic(
+            MatchCandidate candidate,
+            Rect roi,
+            bool useRoi)
+        {
+            if (candidate == null)
+            {
+                return null;
+            }
+
+            float offsetX = useRoi ? roi.X : 0F;
+            float offsetY = useRoi ? roi.Y : 0F;
+            return new EdgeBasedMatchingCandidateDiagnostic
+            {
+                Score = candidate.Score,
+                Angle = candidate.Angle,
+                Scale = NormalizeScale(candidate.Scale),
+                Center = new PointF(
+                    (float)candidate.TemplateCenter.X + offsetX,
+                    (float)candidate.TemplateCenter.Y + offsetY),
+                Bounds = new RectangleF(
+                    candidate.Bounds.X + offsetX,
+                    candidate.Bounds.Y + offsetY,
+                    candidate.Bounds.Width,
+                    candidate.Bounds.Height)
+            };
+        }
+
+        private void EvaluateUniqueMatch(
+            IEnumerable<MatchCandidate> candidates,
+            MatchCandidate selected,
+            Mat template)
+        {
+            if (!property.USE_UNIQUE_MATCH_VALIDATION
+                || selected == null
+                || OpenCvHelper.IsImageEmpty(template))
+            {
+                return;
+            }
+
+            double distanceThreshold = Math.Max(
+                8D,
+                Math.Min(template.Width, template.Height) * CandidateAmbiguityDistanceFactor);
+            double selectedScore = GetUniqueMatchSelectionScore(selected);
+            double strongestAlternativeScore = double.NegativeInfinity;
+            int eligibleAlternativeCount = 0;
+            int plausibleAlternativeCount = 0;
+
+            foreach (MatchCandidate candidate in candidates ?? Enumerable.Empty<MatchCandidate>())
+            {
+                if (candidate == null
+                    || IsSameCandidate(candidate, selected)
+                    || candidate.Score < property.SCORE_MIN)
+                {
+                    continue;
+                }
+
+                double dx = candidate.TemplateCenter.X - selected.TemplateCenter.X;
+                double dy = candidate.TemplateCenter.Y - selected.TemplateCenter.Y;
+                if (Math.Sqrt((dx * dx) + (dy * dy)) < distanceThreshold)
+                {
+                    continue;
+                }
+
+                eligibleAlternativeCount++;
+                double candidateSelectionScore = GetUniqueMatchSelectionScore(candidate);
+                strongestAlternativeScore = Math.Max(
+                    strongestAlternativeScore,
+                    candidateSelectionScore);
+                if (selectedScore - candidateSelectionScore < property.UNIQUE_MATCH_MIN_SCORE_MARGIN)
+                {
+                    plausibleAlternativeCount++;
+                }
+            }
+
+            double alternativeScore = eligibleAlternativeCount > 0
+                ? strongestAlternativeScore
+                : 0D;
+            double scoreMargin = selectedScore - alternativeScore;
+
+            candidateDiagnostics.UniqueMatchState = plausibleAlternativeCount > 0
+                ? UniqueMatchState.Ambiguous
+                : UniqueMatchState.Success;
+            candidateDiagnostics.UniqueMatchPlausibleAlternativeCount = plausibleAlternativeCount;
+            candidateDiagnostics.UniqueMatchSelectedScore = selectedScore;
+            candidateDiagnostics.UniqueMatchStrongestAlternativeScore = alternativeScore;
+            candidateDiagnostics.UniqueMatchScoreMargin = scoreMargin;
+            candidateDiagnostics.UniqueMatchDistanceThreshold = distanceThreshold;
+        }
+
+        private double GetUniqueMatchSelectionScore(MatchCandidate candidate)
+        {
+            return ShouldUseHybridVerify() && !double.IsNaN(candidate.HybridScore)
+                ? candidate.HybridScore
+                : candidate.Score;
+        }
+
+        private void RecordUniqueMatchNoMatch(MatchCandidate candidate)
+        {
+            if (!property.USE_UNIQUE_MATCH_VALIDATION)
+            {
+                return;
+            }
+
+            candidateDiagnostics.UniqueMatchState = UniqueMatchState.NoMatch;
+            candidateDiagnostics.UniqueMatchSelectedScore = candidate?.Score ?? 0D;
+            candidateDiagnostics.UniqueMatchStrongestAlternativeScore = 0D;
+            candidateDiagnostics.UniqueMatchScoreMargin = 0D;
+        }
+
+        private bool TryAcceptUniqueMatch(MatchCandidate candidate)
+        {
+            if (!property.USE_UNIQUE_MATCH_VALIDATION)
+            {
+                return true;
+            }
+
+            if (candidateDiagnostics.UniqueMatchState == UniqueMatchState.Ambiguous)
+            {
+                SetMatchingFailure(
+                    VisionToolErrorCode.MatchingAmbiguous,
+                    $"Edge based matching rejected an ambiguous unique match. "
+                    + $"BestScore={candidateDiagnostics.UniqueMatchSelectedScore * 100D:0.###}, "
+                    + $"AlternativeScore={candidateDiagnostics.UniqueMatchStrongestAlternativeScore * 100D:0.###}, "
+                    + $"ScoreMargin={candidateDiagnostics.UniqueMatchScoreMargin * 100D:0.###}, "
+                    + $"RequiredMargin={property.UNIQUE_MATCH_MIN_SCORE_MARGIN * 100D:0.###}, "
+                    + $"PlausibleAlternatives={candidateDiagnostics.UniqueMatchPlausibleAlternativeCount}, "
+                    + FormatMatchingOptions());
+                return false;
+            }
+
+            if (candidateDiagnostics.UniqueMatchState == UniqueMatchState.Disabled)
+            {
+                candidateDiagnostics.UniqueMatchState = UniqueMatchState.Success;
+                candidateDiagnostics.UniqueMatchSelectedScore = GetUniqueMatchSelectionScore(candidate);
+                candidateDiagnostics.UniqueMatchStrongestAlternativeScore = 0D;
+                candidateDiagnostics.UniqueMatchScoreMargin = candidateDiagnostics.UniqueMatchSelectedScore;
+            }
+
+            return true;
         }
 
         private static void AddModelQualityMetrics(IDictionary<string, double> metrics, EdgeTemplateModel model)
@@ -2492,7 +2772,25 @@ namespace Lib.OpenCV.Tool
                 candidate.Width,
                 candidate.Height);
             Point2f center = new Point2f((float)templateCenterX, (float)templateCenterY);
-            return new MatchingResult(0, Math.Round(candidate.Score * 100d, 3), center, bounding, candidate.Angle, candidate.Scale);
+            double edgeScore = Math.Round(candidate.Score * 100D, 3);
+            MatchingResult result = new MatchingResult(
+                0,
+                edgeScore,
+                center,
+                bounding,
+                candidate.Angle,
+                candidate.Scale)
+            {
+                EdgeScore = edgeScore,
+                ImageScore = double.IsNaN(candidate.ImageVerifyScore)
+                    ? double.NaN
+                    : Math.Round(candidate.ImageVerifyScore * 100D, 3),
+                FinalScore = Math.Round(GetUniqueMatchSelectionScore(candidate) * 100D, 3),
+                ScoreMargin = property.USE_UNIQUE_MATCH_VALIDATION
+                    ? Math.Round(candidateDiagnostics.UniqueMatchScoreMargin * 100D, 3)
+                    : double.NaN
+            };
+            return result;
         }
 
         private static RectangleF CreateLocalBounds(int centerX, int centerY, RotatedEdgeTemplateModel model)
@@ -2544,7 +2842,8 @@ namespace Lib.OpenCV.Tool
 
         private bool TryUseHybridProposalFastPath(MatchCandidate imageProposal, int localMatchCount)
         {
-            if (!ShouldUseHybridVerify()
+            if (property.USE_UNIQUE_MATCH_VALIDATION
+                || !ShouldUseHybridVerify()
                 || localMatchCount != 1
                 || imageProposal == null
                 || double.IsNaN(imageProposal.ImageVerifyScore))
@@ -3411,12 +3710,17 @@ namespace Lib.OpenCV.Tool
                 capacity = Math.Max(capacity, hybridCapacity);
             }
 
+            if (property.USE_UNIQUE_MATCH_VALIDATION)
+            {
+                capacity = Math.Max(capacity, UniqueMatchMinimumInternalTopK);
+            }
+
             return capacity;
         }
 
         private bool ShouldUseHybridSpatialSeeds()
         {
-            return ShouldUseHybridVerify();
+            return ShouldUseHybridVerify() || property.USE_UNIQUE_MATCH_VALIDATION;
         }
 
         private static bool IsBetterHybridCandidate(MatchCandidate candidate, MatchCandidate currentBest)
@@ -3479,6 +3783,83 @@ namespace Lib.OpenCV.Tool
                     Scalar.Yellow,
                     1,
                     LineTypes.AntiAlias);
+            }
+        }
+
+        private EdgeBasedMatchingDiagnosticEvidence CreateDiagnosticEvidence(VisionToolResult result)
+        {
+            EdgeTemplateModel model = templateModelCache?.Model;
+            Rect searchRoi = property?.USE_ROI == true
+                ? NormalizeRoi(property.CvROI)
+                : new Rect(0, 0, Math.Max(0, imageSource?.Width ?? 0), Math.Max(0, imageSource?.Height ?? 0));
+            EdgeBasedMatchingDiagnosticEvidence evidence = new EdgeBasedMatchingDiagnosticEvidence
+            {
+                State = ResolveDiagnosticState(result),
+                ErrorCode = result?.ErrorName ?? string.Empty,
+                SearchRoi = new RectangleF(searchRoi.X, searchRoi.Y, searchRoi.Width, searchRoi.Height),
+                TemplateWidth = Math.Max(0, model?.Width ?? 0),
+                TemplateHeight = Math.Max(0, model?.Height ?? 0),
+                ModelCenter = new PointF(
+                    (float)(model?.Center.X ?? 0D),
+                    (float)(model?.Center.Y ?? 0D)),
+                SelectedCandidate = candidateDiagnostics.SelectedCandidate?.Clone(),
+                StrongestSpatialAlternative = candidateDiagnostics.StrongestSpatialAlternative?.Clone()
+            };
+            if (model?.Points != null)
+            {
+                evidence.ModelPoints.AddRange(model.Points.Select(point => new PointF(point.X, point.Y)));
+            }
+
+            evidence.Reason = ResolveDiagnosticReason(result, evidence);
+            return evidence;
+        }
+
+        private string ResolveDiagnosticReason(
+            VisionToolResult result,
+            EdgeBasedMatchingDiagnosticEvidence evidence)
+        {
+            if (!string.IsNullOrWhiteSpace(result?.Message))
+            {
+                return result.Message;
+            }
+
+            EdgeBasedMatchingCandidateDiagnostic selected = evidence?.SelectedCandidate;
+            if (result?.Success == true && selected != null)
+            {
+                EdgeBasedMatchingCandidateDiagnostic alternative = evidence.StrongestSpatialAlternative;
+                string alternativeText = alternative == null
+                    ? "StrongestSpatialAlternative=None"
+                    : string.Format(
+                        CultureInfo.InvariantCulture,
+                        "StrongestSpatialAlternative={0:0.###}, ScoreMargin={1:0.###}",
+                        alternative.Score,
+                        selected.Score - alternative.Score);
+                return string.Format(
+                    CultureInfo.InvariantCulture,
+                    "Success: selected score {0:0.###} >= SCORE_MIN {1:0.###}; {2}.",
+                    selected.Score,
+                    property?.SCORE_MIN ?? 0D,
+                    alternativeText);
+            }
+
+            return "Edge based matching did not retain a candidate decision.";
+        }
+
+        private static string ResolveDiagnosticState(VisionToolResult result)
+        {
+            if (result?.Success == true)
+            {
+                return "Success";
+            }
+
+            switch (result?.ErrorCode)
+            {
+                case VisionToolErrorCode.MatchingNoResult:
+                    return "NoMatch";
+                case VisionToolErrorCode.MatchingAmbiguous:
+                    return "Ambiguous";
+                default:
+                    return "Error";
             }
         }
 
@@ -3567,7 +3948,10 @@ namespace Lib.OpenCV.Tool
             string hybrid = ShouldUseHybridVerify()
                 ? $", Hybrid=Top{property.HYBRID_VERIFY_TOP_N}/W{property.HYBRID_VERIFY_IMAGE_WEIGHT:0.###}"
                 : string.Empty;
-            return $"ScoreMin={property.SCORE_MIN}, MatchCount={property.NUM_MATCH}, Canny={property.CANNY_LOW}..{property.CANNY_HIGH}, {angle}, {scale}, {position}{pyramid}{hybrid}, MaxPoints={property.MAX_TEMPLATE_POINTS}, ROI={roi}";
+            string unique = property.USE_UNIQUE_MATCH_VALIDATION
+                ? $", Unique=Margin{property.UNIQUE_MATCH_MIN_SCORE_MARGIN:0.###}"
+                : string.Empty;
+            return $"ScoreMin={property.SCORE_MIN}, MatchCount={property.NUM_MATCH}, Canny={property.CANNY_LOW}..{property.CANNY_HIGH}, {angle}, {scale}, {position}{pyramid}{hybrid}{unique}, MaxPoints={property.MAX_TEMPLATE_POINTS}, ROI={roi}";
         }
 
         private static string FormatRoi(Rect roi)
@@ -4325,6 +4709,14 @@ namespace Lib.OpenCV.Tool
 
         private sealed class CandidateDiagnostics
         {
+            public EdgeBasedMatchingCandidateDiagnostic SelectedCandidate { get; set; }
+            public EdgeBasedMatchingCandidateDiagnostic StrongestSpatialAlternative { get; set; }
+            public UniqueMatchState UniqueMatchState { get; set; }
+            public int UniqueMatchPlausibleAlternativeCount { get; set; }
+            public double UniqueMatchSelectedScore { get; set; } = double.NegativeInfinity;
+            public double UniqueMatchStrongestAlternativeScore { get; set; } = double.NegativeInfinity;
+            public double UniqueMatchScoreMargin { get; set; } = double.NegativeInfinity;
+            public double UniqueMatchDistanceThreshold { get; set; } = double.NegativeInfinity;
             public int ImageProposalCount { get; set; }
             public int ImageProposalMissingCount { get; set; }
             public int FastPathCount { get; set; }
@@ -4354,6 +4746,14 @@ namespace Lib.OpenCV.Tool
             public double MinAmbiguousScoreGap { get; set; } = double.PositiveInfinity;
             public double MaxAmbiguousDistance { get; set; } = double.NegativeInfinity;
             public double MaxAmbiguousScaleDelta { get; set; } = double.NegativeInfinity;
+        }
+
+        private enum UniqueMatchState
+        {
+            Disabled = 0,
+            NoMatch = 1,
+            Success = 2,
+            Ambiguous = 3
         }
 
         private sealed class HybridVerificationScore

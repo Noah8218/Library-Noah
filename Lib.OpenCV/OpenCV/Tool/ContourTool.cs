@@ -7,6 +7,7 @@ using Lib.Common;
 using Lib.OpenCV.Property;
 using Lib.OpenCV.Result;
 using OpenCvSharp;
+using OpenCvSharp.Blob;
 
 namespace Lib.OpenCV.Tool
 {
@@ -93,7 +94,6 @@ namespace Lib.OpenCV.Tool
         public bool SingleRun()
         {
             OpenCvSharp.Point[][] Contours;
-            HierarchyIndex[] hierarchy;
 
             int MinArea = property.MIN_AREA;
             int MaxArea = property.MAX_AREA;
@@ -115,8 +115,12 @@ namespace Lib.OpenCV.Tool
             }
 
             using (Mat imageSrc = CreateWorkingContourImage(roi, property.USE_ROI))
+            using (Mat contourInput = CreateFindContoursInput(imageSrc))
             {
-                Cv2.FindContours(imageSrc, out Contours, out hierarchy, property.DetectMode, property.ApproximationModes, null);
+                Contours = FindContours(
+                    contourInput,
+                    property.DetectMode,
+                    property.ApproximationModes);
             }
 
             AddRoiToContourPoints(Contours, roi, property.USE_ROI);
@@ -143,7 +147,6 @@ namespace Lib.OpenCV.Tool
         public bool MultiRun()
         {
             OpenCvSharp.Point[][] Contours;
-            HierarchyIndex[] hierarchy;
 
             int MinArea = property.MIN_AREA;
             int MaxArea = property.MAX_AREA;
@@ -168,8 +171,12 @@ namespace Lib.OpenCV.Tool
                 Rect roi = NormalizeContourRoi(property.CvROIS[i]);
 
                 using (Mat imageSrc = CreateWorkingContourImage(roi, true))
+                using (Mat contourInput = CreateFindContoursInput(imageSrc))
                 {
-                    Cv2.FindContours(imageSrc, out Contours, out hierarchy, property.DetectMode, property.ApproximationModes, null);
+                    Contours = FindContours(
+                        contourInput,
+                        property.DetectMode,
+                        property.ApproximationModes);
                 }
 
                 AddRoiToContourPoints(Contours, roi, true);
@@ -201,6 +208,92 @@ namespace Lib.OpenCV.Tool
         private Mat CreateWorkingContourImage(OpenCvSharp.Rect roi, bool useRoi)
         {
             return CreatePreprocessedImage(roi, useRoi, property);
+        }
+
+        private static Mat CreateFindContoursInput(Mat source)
+        {
+            if (OpenCvHelper.IsImageEmpty(source))
+            {
+                throw new InvalidOperationException("Contour preprocessing produced an empty image.");
+            }
+
+            if (source.Channels() != 1)
+            {
+                throw new InvalidOperationException(
+                    $"Contour preprocessing must produce one channel. Actual={source.Channels()}.");
+            }
+
+            Mat input = new Mat();
+            if (source.Type() == MatType.CV_8UC1)
+            {
+                source.CopyTo(input);
+            }
+            else
+            {
+                source.ConvertTo(input, MatType.CV_8UC1);
+            }
+
+            if (input.Empty() || !input.IsContinuous())
+            {
+                input.Dispose();
+                throw new InvalidOperationException("Contour input must be a non-empty continuous CV_8UC1 image.");
+            }
+
+            return input;
+        }
+
+        private static OpenCvSharp.Point[][] FindContours(
+            Mat input,
+            RetrievalModes retrievalMode,
+            ContourApproximationModes approximationMode)
+        {
+            CvBlobs blobs = new CvBlobs();
+            blobs.Label(input);
+            List<OpenCvSharp.Point[]> contours = new List<OpenCvSharp.Point[]>();
+            foreach (KeyValuePair<int, CvBlob> item in blobs.OrderBy(pair => pair.Key))
+            {
+                AddContourChain(contours, item.Value?.Contour, approximationMode);
+                if (retrievalMode == RetrievalModes.External)
+                {
+                    continue;
+                }
+
+                foreach (CvContourChainCode internalContour in item.Value?.InternalContours
+                    ?? new List<CvContourChainCode>())
+                {
+                    AddContourChain(contours, internalContour, approximationMode);
+                }
+            }
+
+            return contours.ToArray();
+        }
+
+        private static void AddContourChain(
+            ICollection<OpenCvSharp.Point[]> destination,
+            CvContourChainCode chain,
+            ContourApproximationModes approximationMode)
+        {
+            if (destination == null || chain == null)
+            {
+                return;
+            }
+
+            CvContourPolygon polygon = chain.ConvertToPolygon();
+            if (polygon == null || polygon.Count == 0)
+            {
+                return;
+            }
+
+            if (approximationMode != ContourApproximationModes.ApproxNone)
+            {
+                polygon = polygon.Simplify();
+            }
+
+            OpenCvSharp.Point[] points = polygon?.ToArray() ?? Array.Empty<OpenCvSharp.Point>();
+            if (points.Length > 0)
+            {
+                destination.Add(points);
+            }
         }
 
         private bool TryCreateContourResult(
@@ -316,11 +409,12 @@ namespace Lib.OpenCV.Tool
                 if (imageResult.Channels() == 1) Cv2.CvtColor(imageResult, imageResult, ColorConversionCodes.GRAY2RGB);
 
                 using (Mat imageContour = CreateWorkingContourImage(roi, property.USE_ROI))
+                using (Mat contourInput = CreateFindContoursInput(imageContour))
                 {
-                    OpenCvSharp.Point[][] contours;
-                    HierarchyIndex[] hierarchy;
-
-                    Cv2.FindContours(imageContour, out contours, out hierarchy, property.DetectMode, property.ApproximationModes, null);
+                    OpenCvSharp.Point[][] contours = FindContours(
+                        contourInput,
+                        property.DetectMode,
+                        property.ApproximationModes);
                     AddRoiToContourPoints(contours, roi, property.USE_ROI);
 
                     List<ContourResult> squareResults = new List<ContourResult>();

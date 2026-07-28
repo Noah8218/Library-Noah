@@ -1,4 +1,5 @@
 using OpenCvSharp;
+using Lib.OpenCV.Result;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -47,6 +48,7 @@ namespace Lib.OpenCV.Tool
         MatchingInvalidAngleStep = 604,
         MatchingInvalidAdaptiveBlockSize = 605,
         MatchingNoResult = 606,
+        MatchingAmbiguous = 607,
         LineGaugeRoiInvalid = 700,
         LineGaugeInvalidSampling = 701,
         LineGaugeInvalidAdaptiveBlockSize = 702,
@@ -62,7 +64,19 @@ namespace Lib.OpenCV.Tool
         FeatureNotEnoughMatches = 905,
         FeatureHomographyFailed = 906,
         FeatureNoResult = 907,
-        RotateScaleInvalidScale = 1000
+        RotateScaleInvalidScale = 1000,
+        AffineInvalidPoint = 1010,
+        AffineDegenerateSource = 1011,
+        AffineDegenerateDestination = 1012,
+        AffineInvalidOutputSize = 1013,
+        AffineInvalidSampling = 1014,
+        AffineInvalidGate = 1015,
+        AffineInsufficientCoverage = 1016,
+        AutoMPointInvalidRoi = 1020,
+        AutoMPointInvalidPatternSize = 1021,
+        AutoMPointInvalidParameter = 1022,
+        AutoMPointNoCandidate = 1023,
+        AutoMPointRepresentativeImageInvalid = 1024
     }
 
     public enum VisionToolResultStatus
@@ -93,6 +107,7 @@ namespace Lib.OpenCV.Tool
         public bool HasError => ErrorCode != VisionToolErrorCode.None;
         public Dictionary<string, double> Metrics { get; } = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
         public List<VisionToolOverlay> Overlays { get; } = new List<VisionToolOverlay>();
+        public EdgeBasedMatchingDiagnosticEvidence EdgeBasedMatchingDiagnostics { get; set; }
 
         public static VisionToolResult Passed(
             Mat resultImage,
@@ -159,6 +174,7 @@ namespace Lib.OpenCV.Tool
                     return VisionToolResultStatus.Passed;
                 case VisionToolErrorCode.InputImageInvalid:
                 case VisionToolErrorCode.InputLayerMissing:
+                case VisionToolErrorCode.AutoMPointRepresentativeImageInvalid:
                     return VisionToolResultStatus.InvalidInput;
                 case VisionToolErrorCode.InvalidRoi:
                 case VisionToolErrorCode.ContourRoiInvalid:
@@ -167,6 +183,7 @@ namespace Lib.OpenCV.Tool
                 case VisionToolErrorCode.LineGaugeRoiInvalid:
                 case VisionToolErrorCode.MeanRoiInvalid:
                 case VisionToolErrorCode.FeatureRoiInvalid:
+                case VisionToolErrorCode.AutoMPointInvalidRoi:
                     return VisionToolResultStatus.InvalidRoi;
                 case VisionToolErrorCode.InvalidParameter:
                 case VisionToolErrorCode.ThresholdInvalidRange:
@@ -191,6 +208,14 @@ namespace Lib.OpenCV.Tool
                 case VisionToolErrorCode.MeanInvalidAdaptiveBlockSize:
                 case VisionToolErrorCode.FeatureInvalidAdaptiveBlockSize:
                 case VisionToolErrorCode.RotateScaleInvalidScale:
+                case VisionToolErrorCode.AffineInvalidPoint:
+                case VisionToolErrorCode.AffineDegenerateSource:
+                case VisionToolErrorCode.AffineDegenerateDestination:
+                case VisionToolErrorCode.AffineInvalidOutputSize:
+                case VisionToolErrorCode.AffineInvalidSampling:
+                case VisionToolErrorCode.AffineInvalidGate:
+                case VisionToolErrorCode.AutoMPointInvalidPatternSize:
+                case VisionToolErrorCode.AutoMPointInvalidParameter:
                     return VisionToolResultStatus.InvalidParameter;
                 case VisionToolErrorCode.ToolPropertyMissing:
                 case VisionToolErrorCode.TemplateImageMissing:

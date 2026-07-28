@@ -74,6 +74,11 @@ using (Mat source = Cv2.ImRead("docs/samples/vision_sample.png", ImreadModes.Gra
 
 기본 예제는 저장소 루트에서 실행하는 것을 기준으로 `docs/samples/vision_sample.png`를 사용합니다. 다른 위치에서 실행하는 경우 이미지 경로를 실행 파일 기준으로 조정하세요.
 
+## Matching Contract References
+
+- Auto MPoint teaching core: `docs/AUTO_MPOINT_V1.md`
+- Edge-based fail-closed unique result: `docs/EDGE_BASED_UNIQUE_MATCH_V1.md`
+
 ## Build / Smoke Check
 
 빌드 확인:
@@ -238,6 +243,7 @@ else
 | `BlobTool` | Blob 라벨링과 면적 필터링 | `IOpenCVPropertyBlob` 구현체 |
 | `MatchingTool` | Template Matching, Scale/Angle 탐색 | `IOpenCVPropertyMatching` 구현체 |
 | `EdgeBasedTemplateMatchingTool` | 엣지 기반 템플릿 매칭 | `IOpenCVPropertyEdgeBasedTemplateMatching` 구현체 |
+| `AutoMPointTool` | 고정 크기 매칭 후보 자동 제안, 유일성/합성 변형/속도 검증 | `AutoMPointToolProperty` |
 | `SiftTool` | SIFT 특징점 기반 매칭 | `IOpenCVPropertyFeatureSIFT` 구현체 |
 | `LineGaugeTool` | ROI 내 엣지 검출 후 직선 피팅 | `IOpenCvPropertyLineGauge` 구현체 |
 | `MeanTool` | ROI 평균/표준편차 계산 | `IOpenCVPropertyMean` 구현체 |
@@ -774,7 +780,7 @@ ROI의 폭 또는 높이가 0인 경우 Tool에 따라 전체 이미지로 대�
 
 공통 패키지 메타데이터는 `Directory.Build.props`에 정의되어 있습니다.
 
-- `Version`: `2.1.0`
+- `Version`: `2.8.0`
 - `PackageOutputPath`: `artifacts/packages`
 - `GeneratePackageOnBuild`: `false`
 

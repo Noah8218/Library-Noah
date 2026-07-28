@@ -10,6 +10,10 @@ namespace Lib.OpenCV.Result
     {
         public int Index { get; set; } = 0;
         public double Score { get; set; } = 0.0D;
+        public double EdgeScore { get; set; } = 0.0D;
+        public double ImageScore { get; set; } = double.NaN;
+        public double FinalScore { get; set; } = 0.0D;
+        public double ScoreMargin { get; set; } = double.NaN;
         public double Angle { get; set; } = 0.0D;
         public double Scale { get; set; } = 1.0D;
         public OpenCvSharp.Point2f Center { get; set; } = new OpenCvSharp.Point2f();
@@ -19,6 +23,8 @@ namespace Lib.OpenCV.Result
         {
             Index = nIndex;
             Score = dScore;
+            EdgeScore = dScore;
+            FinalScore = dScore;
             Center = new OpenCvSharp.Point2f(ptCenter.X, ptCenter.Y);
             Bounding = new RectangleF(rt.X, rt.Y, rt.Width, rt.Height);
             Angle = dAngle;

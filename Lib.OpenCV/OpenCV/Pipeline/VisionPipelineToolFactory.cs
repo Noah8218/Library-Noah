@@ -32,6 +32,10 @@ namespace Lib.OpenCV.Pipeline
                 case "rotatescale":
                 case "rotateandscale":
                     return CreateRotateScaleTool(step.Parameters);
+                case "affine":
+                case "affinematrix":
+                case "affinetransform":
+                    return CreateAffineTransformTool(step.Parameters);
                 default:
                     throw new NotSupportedException($"Unsupported vision tool type '{step.ToolType}'.");
             }
@@ -128,6 +132,37 @@ namespace Lib.OpenCV.Pipeline
             };
 
             RotateScaleTool tool = new RotateScaleTool();
+            tool.SetProperty(property);
+            return tool;
+        }
+
+        private static IVisionTool CreateAffineTransformTool(IDictionary<string, string> parameters)
+        {
+            AffineTransformToolProperty property = new AffineTransformToolProperty
+            {
+                SourcePoint1X = GetDouble(parameters, nameof(AffineTransformToolProperty.SourcePoint1X), 0d),
+                SourcePoint1Y = GetDouble(parameters, nameof(AffineTransformToolProperty.SourcePoint1Y), 0d),
+                SourcePoint2X = GetDouble(parameters, nameof(AffineTransformToolProperty.SourcePoint2X), 100d),
+                SourcePoint2Y = GetDouble(parameters, nameof(AffineTransformToolProperty.SourcePoint2Y), 0d),
+                SourcePoint3X = GetDouble(parameters, nameof(AffineTransformToolProperty.SourcePoint3X), 0d),
+                SourcePoint3Y = GetDouble(parameters, nameof(AffineTransformToolProperty.SourcePoint3Y), 100d),
+                DestinationPoint1X = GetDouble(parameters, nameof(AffineTransformToolProperty.DestinationPoint1X), 0d),
+                DestinationPoint1Y = GetDouble(parameters, nameof(AffineTransformToolProperty.DestinationPoint1Y), 0d),
+                DestinationPoint2X = GetDouble(parameters, nameof(AffineTransformToolProperty.DestinationPoint2X), 100d),
+                DestinationPoint2Y = GetDouble(parameters, nameof(AffineTransformToolProperty.DestinationPoint2Y), 0d),
+                DestinationPoint3X = GetDouble(parameters, nameof(AffineTransformToolProperty.DestinationPoint3X), 0d),
+                DestinationPoint3Y = GetDouble(parameters, nameof(AffineTransformToolProperty.DestinationPoint3Y), 100d),
+                OutputWidth = GetInt(parameters, nameof(AffineTransformToolProperty.OutputWidth), 0),
+                OutputHeight = GetInt(parameters, nameof(AffineTransformToolProperty.OutputHeight), 0),
+                Interpolation = GetEnum(parameters, nameof(AffineTransformToolProperty.Interpolation), InterpolationFlags.Linear),
+                BorderType = GetEnum(parameters, nameof(AffineTransformToolProperty.BorderType), BorderTypes.Constant),
+                BorderValue = GetDouble(parameters, nameof(AffineTransformToolProperty.BorderValue), 0d),
+                MinimumSourceTriangleArea = GetDouble(parameters, nameof(AffineTransformToolProperty.MinimumSourceTriangleArea), 1d),
+                MinimumDestinationTriangleArea = GetDouble(parameters, nameof(AffineTransformToolProperty.MinimumDestinationTriangleArea), 1d),
+                MinimumValidPixelRatio = GetDouble(parameters, nameof(AffineTransformToolProperty.MinimumValidPixelRatio), 0d)
+            };
+
+            AffineTransformTool tool = new AffineTransformTool();
             tool.SetProperty(property);
             return tool;
         }

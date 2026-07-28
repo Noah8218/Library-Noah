@@ -11,6 +11,10 @@
       <HintPath>..\Lib.Common\DLL\OpenCvSharp.dll</HintPath>
       <Private>True</Private>
     </Reference>
+    <None Include="..\Lib.Common\DLL\OpenCvSharpExtern.dll">
+      <Link>OpenCvSharpExtern.dll</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
   <ItemGroup>

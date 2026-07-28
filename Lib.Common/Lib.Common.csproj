@@ -5,6 +5,9 @@
     <Platforms>AnyCPU;x64</Platforms>
     <PlatformTarget>AnyCPU</PlatformTarget>
     <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
+    <!-- Keep the public assembly identity compatible with existing OpenVisionLab deployments. -->
+    <AssemblyVersion>2.1.0.0</AssemblyVersion>
+    <FileVersion>2.8.0.0</FileVersion>
     <PackageDescription>Common utilities and OpenCV runtime assets for OpenVisionLab.</PackageDescription>
   </PropertyGroup>
 
