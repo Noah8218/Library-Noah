@@ -51,6 +51,9 @@ namespace Lib.Inspection.Smoke
                 Run("Reference-grid re-sampling rejects invalid frame axes", TestReferenceGridInvalidAxes, ref passed, ref total);
                 Run("Median filter removes a spike with the declared kernel", TestDeterministicMedianFilterSpike, ref passed, ref total);
                 Run("Median filter preserves missing cells and clipped borders", TestDeterministicMedianFilterMissingAndBorder, ref passed, ref total);
+                Run("Local-median outlier filter excludes the center and preserves the strict threshold", TestDeterministicLocalMedianOutlierFilter, ref passed, ref total);
+                Run("Level Surface detrends unique reference cells and preserves region evidence", TestLevelSurfaceDetrend, ref passed, ref total);
+                Run("Level Surface fails closed on insufficient unique reference support", TestLevelSurfaceInsufficientSupport, ref passed, ref total);
                 Run("Height-difference edge retains strongest pair and exact-tie order", TestDeterministicHeightDifferenceEdge, ref passed, ref total);
                 Run("Height-difference edge skips missing pairs and requires support", TestDeterministicHeightDifferenceEdgeMissingAndSupport, ref passed, ref total);
                 Run("Deterministic line fit preserves full-XYZ inliers and direction", TestDeterministicLineFit, ref passed, ref total);
@@ -624,6 +627,114 @@ namespace Lib.Inspection.Smoke
                 "Median filter must preserve the source missing mask.");
             Require(border.Success && border.Values.All(value => value == 2.5),
                 "Median filter borders must use available neighbors only.");
+        }
+
+        private static void TestDeterministicLocalMedianOutlierFilter()
+        {
+            double[] values =
+            {
+                1.0, 1.0, 1.0,
+                1.0, 100.0, 1.0,
+                1.0, 1.0, 1.0
+            };
+            DeterministicLocalMedianOutlierFilterResult result =
+                new DeterministicLocalMedianOutlierFilterTool().Execute(
+                    3,
+                    3,
+                    values,
+                    new DeterministicLocalMedianOutlierFilterOptions
+                    {
+                        WindowSize = 3,
+                        MaximumAbsoluteDeviation = 20.0,
+                        MinimumValidNeighbors = 3
+                    });
+            double[] thresholdValues =
+            {
+                1.0, 1.0, 1.0,
+                1.0, 21.0, 1.0,
+                1.0, 1.0, 1.0
+            };
+            DeterministicLocalMedianOutlierFilterResult threshold =
+                new DeterministicLocalMedianOutlierFilterTool().Execute(
+                    3,
+                    3,
+                    thresholdValues,
+                    new DeterministicLocalMedianOutlierFilterOptions
+                    {
+                        WindowSize = 3,
+                        MaximumAbsoluteDeviation = 20.0,
+                        MinimumValidNeighbors = 3
+                    });
+
+            Require(result.Success
+                && result.OutlierIndices.Count == 1
+                && result.OutlierIndices[0] == 4
+                && double.IsNaN(result.Values[4]),
+                "The local-median filter must remove only the isolated center spike.");
+            Require(threshold.Success
+                && threshold.OutlierIndices.Count == 0
+                && threshold.Values[4] == 21.0,
+                "Deviation exactly equal to the threshold must be retained.");
+        }
+
+        private static void TestLevelSurfaceDetrend()
+        {
+            const int rows = 4;
+            const int columns = 4;
+            double[] values = new double[rows * columns];
+            for (int row = 0; row < rows; row++)
+            {
+                for (int column = 0; column < columns; column++)
+                {
+                    values[(row * columns) + column] =
+                        10.0 + (2.0 * column) - (0.5 * row);
+                }
+            }
+
+            LevelSurfaceResult result = new LevelSurfaceTool().Execute(
+                rows,
+                columns,
+                values,
+                new[]
+                {
+                    new LevelSurfaceRegion(0, 0, 4, 3),
+                    new LevelSurfaceRegion(0, 2, 4, 2)
+                },
+                new LevelSurfaceOptions { MinimumValidSampleCount = 12 });
+
+            Require(result.Success
+                && result.ReferenceSampleCount == 16
+                && result.RegionEvidence.Count == 2
+                && result.RegionEvidence[0].ValidSampleCount == 12
+                && result.RegionEvidence[1].ValidSampleCount == 8,
+                "Level Surface must de-duplicate overlapping reference cells while retaining per-region counts.");
+            RequireApproximately(result.FittedSlopeX, 2.0, 1e-12,
+                "Unexpected Level Surface input X slope.");
+            RequireApproximately(result.FittedSlopeZ, -0.5, 1e-12,
+                "Unexpected Level Surface input Z slope.");
+            RequireApproximately(result.OutputReferenceSlopeX, 0.0, 1e-12,
+                "Level Surface must remove the reference X slope.");
+            RequireApproximately(result.OutputReferenceSlopeZ, 0.0, 1e-12,
+                "Level Surface must remove the reference Z slope.");
+            Require(result.Values.All(value => Math.Abs(value - 12.25) < 1e-12),
+                "Level Surface must detrend every finite cell to the reference mean.");
+        }
+
+        private static void TestLevelSurfaceInsufficientSupport()
+        {
+            LevelSurfaceResult result = new LevelSurfaceTool().Execute(
+                2,
+                2,
+                new[] { 1.0, double.NaN, 2.0, 3.0 },
+                new[] { new LevelSurfaceRegion(0, 0, 2, 2) },
+                new LevelSurfaceOptions { MinimumValidSampleCount = 4 });
+
+            Require(!result.Success
+                && result.Values.Count == 0
+                && result.Message.IndexOf(
+                    "unique finite reference samples",
+                    StringComparison.OrdinalIgnoreCase) >= 0,
+                "Level Surface must fail closed when unique finite support is insufficient.");
         }
 
         private static void TestDeterministicHeightDifferenceEdge()
