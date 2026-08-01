@@ -324,7 +324,10 @@ namespace Lib.ThreeD.FeatureExtraction
                     }
 
                     processedPointCount++;
-                    if (progress != null)
+                    if (progress != null
+                        && (processedPointCount % 65536 == 0
+                            || processedPointCount
+                                == options.ExpectedPointCount))
                     {
                         progress.Report(
                             new NominalActualMeshComparisonProgress(

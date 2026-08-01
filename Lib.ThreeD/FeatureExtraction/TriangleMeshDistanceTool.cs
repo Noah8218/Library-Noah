@@ -392,6 +392,17 @@ namespace Lib.ThreeD.FeatureExtraction
                 throw new ArgumentNullException(nameof(triangle));
             }
 
+            if (!IsFinite(triangle.A)
+                || !IsFinite(triangle.B)
+                || !IsFinite(triangle.C))
+            {
+                throw new ArgumentException(
+                    "Triangle "
+                    + triangle.SourceTriangleIndex
+                    + " contains a non-finite coordinate.",
+                    nameof(triangle));
+            }
+
             Vector3 a = ToVector(triangle.A, nameof(triangle));
             Vector3 b = ToVector(triangle.B, nameof(triangle));
             Vector3 c = ToVector(triangle.C, nameof(triangle));
@@ -591,6 +602,15 @@ namespace Lib.ThreeD.FeatureExtraction
         private static bool IsFinite(double value)
         {
             return !double.IsNaN(value) && !double.IsInfinity(value);
+        }
+
+        private static bool IsFinite(ThreeDPoint value)
+        {
+            return value != null
+                && value.IsFinite
+                && Math.Abs(value.X) <= float.MaxValue
+                && Math.Abs(value.Y) <= float.MaxValue
+                && Math.Abs(value.Z) <= float.MaxValue;
         }
 
         private static bool IsFinite(Vector3 value)
