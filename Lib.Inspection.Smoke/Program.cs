@@ -65,6 +65,12 @@ namespace Lib.Inspection.Smoke
                 Run("Height deviation preserves peak-side selection and pass decision", TestHeightDeviationInspection, ref passed, ref total);
                 Run("Height deviation preserves tolerance failure", TestHeightDeviationInspectionFailure, ref passed, ref total);
                 Run("Height deviation rejects invalid summary evidence", TestHeightDeviationInspectionInvalidInput, ref passed, ref total);
+                Run("Declared mesh normal quality accepts dense aligned normals", TestDeclaredMeshNormalQualityValid, ref passed, ref total);
+                Run("Declared mesh normal quality rejects reversed normals", TestDeclaredMeshNormalQualityReversed, ref passed, ref total);
+                Run("Declared mesh normal quality rejects partial and invalid topology", TestDeclaredMeshNormalQualityPartialAndInvalidTopology, ref passed, ref total);
+                Run("Landmark correspondence validation accepts independent tetrahedra", TestLandmarkCorrespondenceValidation, ref passed, ref total);
+                Run("Landmark correspondence validation rejects a coplanar source", TestLandmarkCorrespondenceValidationCoplanar, ref passed, ref total);
+                Run("Landmark correspondence validation rejects the taught volume boundary", TestLandmarkCorrespondenceValidationBoundary, ref passed, ref total);
                 Run("Height-difference edge retains strongest pair and exact-tie order", TestDeterministicHeightDifferenceEdge, ref passed, ref total);
                 Run("Height-difference edge skips missing pairs and requires support", TestDeterministicHeightDifferenceEdgeMissingAndSupport, ref passed, ref total);
                 Run("Deterministic line fit preserves full-XYZ inliers and direction", TestDeterministicLineFit, ref passed, ref total);
@@ -2701,6 +2707,173 @@ namespace Lib.Inspection.Smoke
             Require(!result.Success && result.Decision == HeightDeviationDecision.Error,
                 "Invalid height summary must fail closed.");
             Require(double.IsNaN(result.PeakDeviation), "Invalid height summary must not expose a peak value.");
+        }
+
+        private static void TestDeclaredMeshNormalQualityValid()
+        {
+            ThreeDPoint[] points = CreateNormalQualitySquare();
+            DeclaredMeshNormalQualityResult result =
+                new DeclaredMeshNormalQualityTool().Execute(
+                    points,
+                    new[] { 0, 1, 2, 0, 2, 3 },
+                    new[]
+                    {
+                        new ThreeDPoint(0.0, 0.0, 1.0),
+                        new ThreeDPoint(0.0, 0.0, 1.0),
+                        new ThreeDPoint(0.0, 0.0, 1.0),
+                        new ThreeDPoint(0.0, 0.0, 1.0)
+                    },
+                    null,
+                    1e-3,
+                    0.5);
+
+            Require(result.State == DeclaredMeshNormalQualityState.Valid,
+                "Dense aligned normals must be valid.");
+            Require(result.ComparableCornerCount == 6 && result.ConsistentCornerCount == 6,
+                "Every referenced normal corner must be comparable and aligned.");
+            RequireApproximately(result.MinimumAlignment, 1.0, 0.0,
+                "Unexpected aligned-normal minimum cosine.");
+        }
+
+        private static void TestDeclaredMeshNormalQualityReversed()
+        {
+            DeclaredMeshNormalQualityResult result =
+                new DeclaredMeshNormalQualityTool().Execute(
+                    CreateNormalQualitySquare(),
+                    new[] { 0, 1, 2, 0, 2, 3 },
+                    new[]
+                    {
+                        new ThreeDPoint(0.0, 0.0, -1.0),
+                        new ThreeDPoint(0.0, 0.0, -1.0),
+                        new ThreeDPoint(0.0, 0.0, -1.0),
+                        new ThreeDPoint(0.0, 0.0, -1.0)
+                    },
+                    null,
+                    1e-3,
+                    0.5);
+
+            Require(result.State == DeclaredMeshNormalQualityState.Invalid,
+                "Reversed normals must fail closed.");
+            Require(result.ReversedCornerCount == 6 && result.ConsistentCornerCount == 0,
+                "Reversed-normal evidence changed.");
+        }
+
+        private static void TestDeclaredMeshNormalQualityPartialAndInvalidTopology()
+        {
+            ThreeDPoint[] points = CreateNormalQualitySquare();
+            DeclaredMeshNormalQualityTool tool = new DeclaredMeshNormalQualityTool();
+            DeclaredMeshNormalQualityResult partial = tool.Execute(
+                points,
+                new[] { 0, 1, 2, 0, 2, 3 },
+                new[]
+                {
+                    new ThreeDPoint(0.0, 0.0, 1.0),
+                    new ThreeDPoint(0.0, 0.0, 1.0),
+                    new ThreeDPoint(0.0, 0.0, 1.0)
+                },
+                null,
+                1e-3,
+                0.5);
+            DeclaredMeshNormalQualityResult invalid = tool.Execute(
+                points,
+                new[] { 0, 4, 5 },
+                new[]
+                {
+                    new ThreeDPoint(0.0, 0.0, 1.0),
+                    new ThreeDPoint(0.0, 0.0, 1.0),
+                    new ThreeDPoint(0.0, 0.0, 1.0),
+                    new ThreeDPoint(0.0, 0.0, 1.0)
+                },
+                null,
+                1e-3,
+                0.5);
+
+            Require(partial.State == DeclaredMeshNormalQualityState.Invalid
+                && partial.NormalCount == 3,
+                "Partial declared normals must fail closed.");
+            Require(invalid.State == DeclaredMeshNormalQualityState.Invalid
+                && invalid.InvalidIndexCount == 2
+                && invalid.ComparableCornerCount == 0,
+                "Invalid topology evidence changed.");
+        }
+
+        private static void TestLandmarkCorrespondenceValidation()
+        {
+            ThreeDPoint[] tetrahedron = CreateIndependentTetrahedron();
+            LandmarkCorrespondenceValidationResult result =
+                new LandmarkCorrespondenceValidationTool().Execute(
+                    tetrahedron,
+                    tetrahedron,
+                    0.1);
+
+            Require(result.Success && result.SourceRank == 4 && result.ReferenceRank == 4,
+                "Independent landmark tetrahedra must pass.");
+            RequireApproximately(
+                result.SourceNormalizedTetrahedronVolume,
+                1.0 / Math.Pow(Math.Sqrt(2.0), 3.0),
+                1e-15,
+                "Unexpected normalized landmark volume.");
+        }
+
+        private static void TestLandmarkCorrespondenceValidationCoplanar()
+        {
+            LandmarkCorrespondenceValidationResult result =
+                new LandmarkCorrespondenceValidationTool().Execute(
+                    new[]
+                    {
+                        new ThreeDPoint(0.0, 0.0, 0.0),
+                        new ThreeDPoint(1.0, 0.0, 0.0),
+                        new ThreeDPoint(0.0, 1.0, 0.0),
+                        new ThreeDPoint(1.0, 1.0, 0.0)
+                    },
+                    CreateIndependentTetrahedron(),
+                    0.1);
+
+            Require(!result.Success && result.SourceRank == 3,
+                "Coplanar source landmarks must fail closed.");
+            Require(result.Message.StartsWith(
+                "Source landmark tetrahedron is not affine-independent",
+                StringComparison.Ordinal),
+                "Coplanar source failure message changed.");
+        }
+
+        private static void TestLandmarkCorrespondenceValidationBoundary()
+        {
+            ThreeDPoint[] tetrahedron = CreateIndependentTetrahedron();
+            LandmarkCorrespondenceValidationTool tool =
+                new LandmarkCorrespondenceValidationTool();
+            LandmarkCorrespondenceValidationResult baseline =
+                tool.Execute(tetrahedron, tetrahedron, 0.1);
+            LandmarkCorrespondenceValidationResult boundary =
+                tool.Execute(
+                    tetrahedron,
+                    tetrahedron,
+                    baseline.SourceNormalizedTetrahedronVolume);
+
+            Require(!boundary.Success,
+                "A normalized volume equal to the taught minimum must fail closed.");
+        }
+
+        private static ThreeDPoint[] CreateNormalQualitySquare()
+        {
+            return new[]
+            {
+                new ThreeDPoint(0.0, 0.0, 0.0),
+                new ThreeDPoint(1.0, 0.0, 0.0),
+                new ThreeDPoint(1.0, 1.0, 0.0),
+                new ThreeDPoint(0.0, 1.0, 0.0)
+            };
+        }
+
+        private static ThreeDPoint[] CreateIndependentTetrahedron()
+        {
+            return new[]
+            {
+                new ThreeDPoint(0.0, 0.0, 0.0),
+                new ThreeDPoint(1.0, 0.0, 0.0),
+                new ThreeDPoint(0.0, 1.0, 0.0),
+                new ThreeDPoint(0.0, 0.0, 1.0)
+            };
         }
 
         private static HeightFieldPlaneFitSample[] CreateThicknessPlaneSamples(

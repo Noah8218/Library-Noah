@@ -62,6 +62,14 @@ the consuming application.
 - `ReferenceGridPointReconstructionTool` maps finite grid cells to both
   declared-frame XYZ and reference-axis U/H/V coordinates under an explicit
   supported-coordinate range.
+- `DeclaredMeshNormalQualityTool` evaluates declared per-position normals for
+  finite/non-zero/unit length, topology validity, degenerate triangles, and
+  corner alignment. It does not generate, repair, or promote normals and does
+  not own source identity or admission policy.
+- `LandmarkCorrespondenceValidationTool` evaluates the augmented rank and
+  span-normalized tetrahedral volume of exactly four source/reference points.
+  Pair identities, lineage, units, frames, recipe lifecycle, affine solving,
+  and acceptance remain with the consuming application.
 
 A host owns source binding, metadata, persistence, identity hashing, and any
 display or inspection lifecycle around these pure results.
