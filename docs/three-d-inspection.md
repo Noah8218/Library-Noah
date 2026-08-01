@@ -70,6 +70,10 @@ the consuming application.
   span-normalized tetrahedral volume of exactly four source/reference points.
   Pair identities, lineage, units, frames, recipe lifecycle, affine solving,
   and acceptance remain with the consuming application.
+- `RepeatabilityStatisticsTool` calculates finite scalar mean, extrema, sample
+  standard deviation, six-sigma spread, and range. Study identity, units,
+  acceptance limits, Gauge R&R claims, and product decisions remain with the
+  consuming application.
 
 A host owns source binding, metadata, persistence, identity hashing, and any
 display or inspection lifecycle around these pure results.

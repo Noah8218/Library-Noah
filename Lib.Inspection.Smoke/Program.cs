@@ -71,6 +71,9 @@ namespace Lib.Inspection.Smoke
                 Run("Landmark correspondence validation accepts independent tetrahedra", TestLandmarkCorrespondenceValidation, ref passed, ref total);
                 Run("Landmark correspondence validation rejects a coplanar source", TestLandmarkCorrespondenceValidationCoplanar, ref passed, ref total);
                 Run("Landmark correspondence validation rejects the taught volume boundary", TestLandmarkCorrespondenceValidationBoundary, ref passed, ref total);
+                Run("Repeatability statistics preserve sample standard deviation and range", TestRepeatabilityStatistics, ref passed, ref total);
+                Run("Repeatability statistics preserve a zero-spread series", TestRepeatabilityStatisticsZeroSpread, ref passed, ref total);
+                Run("Repeatability statistics reject insufficient and non-finite input", TestRepeatabilityStatisticsInvalidInput, ref passed, ref total);
                 Run("Height-difference edge retains strongest pair and exact-tie order", TestDeterministicHeightDifferenceEdge, ref passed, ref total);
                 Run("Height-difference edge skips missing pairs and requires support", TestDeterministicHeightDifferenceEdgeMissingAndSupport, ref passed, ref total);
                 Run("Deterministic line fit preserves full-XYZ inliers and direction", TestDeterministicLineFit, ref passed, ref total);
@@ -2852,6 +2855,60 @@ namespace Lib.Inspection.Smoke
 
             Require(!boundary.Success,
                 "A normalized volume equal to the taught minimum must fail closed.");
+        }
+
+        private static void TestRepeatabilityStatistics()
+        {
+            RepeatabilityStatisticsResult result =
+                new RepeatabilityStatisticsTool().Execute(new[] { 10.0, 12.0, 14.0, 16.0 });
+
+            Require(result.Success && result.Count == 4,
+                "A four-run repeatability series must be accepted.");
+            RequireApproximately(result.Mean, 13.0, 0.0,
+                "Unexpected repeatability mean.");
+            RequireApproximately(result.Minimum, 10.0, 0.0,
+                "Unexpected repeatability minimum.");
+            RequireApproximately(result.Maximum, 16.0, 0.0,
+                "Unexpected repeatability maximum.");
+            RequireApproximately(result.SampleStandardDeviation, 2.581988897471611, 0.0,
+                "Unexpected repeatability sample standard deviation.");
+            RequireApproximately(result.SixSigmaSpread, 15.491933384829668, 0.0,
+                "Unexpected repeatability six-sigma spread.");
+            RequireApproximately(result.Range, 6.0, 0.0,
+                "Unexpected repeatability range.");
+        }
+
+        private static void TestRepeatabilityStatisticsZeroSpread()
+        {
+            RepeatabilityStatisticsResult result =
+                new RepeatabilityStatisticsTool().Execute(new[] { 4.25, 4.25, 4.25 });
+
+            Require(result.Success && result.Count == 3,
+                "A finite zero-spread series must be accepted.");
+            RequireApproximately(result.Mean, 4.25, 0.0,
+                "Unexpected zero-spread mean.");
+            RequireApproximately(result.SampleStandardDeviation, 0.0, 0.0,
+                "Unexpected zero-spread sample standard deviation.");
+            RequireApproximately(result.SixSigmaSpread, 0.0, 0.0,
+                "Unexpected zero-spread six-sigma value.");
+            RequireApproximately(result.Range, 0.0, 0.0,
+                "Unexpected zero-spread range.");
+        }
+
+        private static void TestRepeatabilityStatisticsInvalidInput()
+        {
+            RepeatabilityStatisticsTool tool = new RepeatabilityStatisticsTool();
+            RepeatabilityStatisticsResult insufficient = tool.Execute(new[] { 1.0 });
+            RepeatabilityStatisticsResult nonFinite = tool.Execute(new[] { 1.0, double.NaN });
+
+            Require(!insufficient.Success && insufficient.Count == 1,
+                "A single repeatability value must fail closed.");
+            Require(!nonFinite.Success && nonFinite.Count == 2,
+                "A non-finite repeatability value must fail closed.");
+            Require(double.IsNaN(nonFinite.Mean)
+                && double.IsNaN(nonFinite.SampleStandardDeviation)
+                && double.IsNaN(nonFinite.Range),
+                "Invalid repeatability input must not expose partial statistics.");
         }
 
         private static ThreeDPoint[] CreateNormalQualitySquare()
