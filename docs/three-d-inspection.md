@@ -73,7 +73,9 @@ the consuming application.
 - `RepeatabilityStatisticsTool` calculates finite scalar mean, extrema, sample
   standard deviation, six-sigma spread, and range. Study identity, units,
   acceptance limits, Gauge R&R claims, and product decisions remain with the
-  consuming application.
+  consuming application. Its explicit negative-variance policy lets a host
+  preserve an established round-off contract without moving product policy
+  into the Tool.
 
 A host owns source binding, metadata, persistence, identity hashing, and any
 display or inspection lifecycle around these pure results.

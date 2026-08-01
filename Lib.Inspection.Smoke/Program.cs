@@ -2900,11 +2900,16 @@ namespace Lib.Inspection.Smoke
             RepeatabilityStatisticsTool tool = new RepeatabilityStatisticsTool();
             RepeatabilityStatisticsResult insufficient = tool.Execute(new[] { 1.0 });
             RepeatabilityStatisticsResult nonFinite = tool.Execute(new[] { 1.0, double.NaN });
+            RepeatabilityStatisticsResult invalidPolicy = tool.Execute(
+                new[] { 1.0, 2.0 },
+                (RepeatabilityNegativeVariancePolicy)99);
 
             Require(!insufficient.Success && insufficient.Count == 1,
                 "A single repeatability value must fail closed.");
             Require(!nonFinite.Success && nonFinite.Count == 2,
                 "A non-finite repeatability value must fail closed.");
+            Require(!invalidPolicy.Success && invalidPolicy.Count == 2,
+                "An unsupported negative-variance policy must fail closed.");
             Require(double.IsNaN(nonFinite.Mean)
                 && double.IsNaN(nonFinite.SampleStandardDeviation)
                 && double.IsNaN(nonFinite.Range),

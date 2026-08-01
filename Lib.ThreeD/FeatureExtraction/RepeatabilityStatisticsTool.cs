@@ -3,6 +3,12 @@ using System.Collections.Generic;
 
 namespace Lib.ThreeD.FeatureExtraction
 {
+    public enum RepeatabilityNegativeVariancePolicy
+    {
+        ClampNearZero = 0,
+        ClampAnyNegative = 1
+    }
+
     public sealed class RepeatabilityStatisticsResult
     {
         internal RepeatabilityStatisticsResult(
@@ -55,7 +61,10 @@ namespace Lib.ThreeD.FeatureExtraction
     {
         private const double NegativeVarianceTolerance = -1e-12;
 
-        public RepeatabilityStatisticsResult Execute(IReadOnlyList<double> values)
+        public RepeatabilityStatisticsResult Execute(
+            IReadOnlyList<double> values,
+            RepeatabilityNegativeVariancePolicy negativeVariancePolicy =
+                RepeatabilityNegativeVariancePolicy.ClampNearZero)
         {
             if (values == null)
             {
@@ -65,6 +74,12 @@ namespace Lib.ThreeD.FeatureExtraction
             if (values.Count < 2)
             {
                 return Error(values.Count, "At least two values are required for sample standard deviation.");
+            }
+
+            if (negativeVariancePolicy != RepeatabilityNegativeVariancePolicy.ClampNearZero
+                && negativeVariancePolicy != RepeatabilityNegativeVariancePolicy.ClampAnyNegative)
+            {
+                return Error(values.Count, "Negative-variance policy is not supported.");
             }
 
             int count = 0;
@@ -88,8 +103,15 @@ namespace Lib.ThreeD.FeatureExtraction
                 maximum = Math.Max(maximum, value);
             }
 
+            if (!IsFinite(sumSquaredDelta))
+            {
+                return Error(values.Count, "Repeatability statistics produced a non-finite value or overflow.");
+            }
+
             double variance = sumSquaredDelta / (count - 1);
-            if (variance < 0.0 && variance > NegativeVarianceTolerance)
+            if (variance < 0.0
+                && (negativeVariancePolicy == RepeatabilityNegativeVariancePolicy.ClampAnyNegative
+                    || variance > NegativeVarianceTolerance))
             {
                 variance = 0.0;
             }
