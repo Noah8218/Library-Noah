@@ -24,9 +24,24 @@ not know a camera, C3D file, recipe, UI, or calibration claim.
 - `LineIntersectionTool` evaluates the closest approach, acute angle, and
   finite-segment support of two normalized full-XYZ line geometries. It does
   not choose lines, attach source/frame identity, or claim a physical corner.
+- `DeterministicSurfaceCoverageTool` visits ordered model samples and assigns
+  each one to the nearest still-unclaimed scene sample inside an inclusive
+  distance limit. It reports one-way matched count, ratio, RMSE, and exact
+  correspondences without applying a product acceptance threshold.
+- `DeterministicRigidSurfacePoseSearchTool` enumerates caller-bounded X/Y/Z
+  Euler candidates, derives translation from the two sample centroids, and
+  ranks candidates by coverage count, RMSE, then stable enumeration order.
+  Candidate and translation bounds are explicit and fail closed.
 
 A host owns source binding, metadata, persistence, identity hashing, and any
 display or inspection lifecycle around these pure results.
+
+The surface-matching tools receive only contiguous ordered finite XYZ samples,
+the source-neutral search domain, and a correspondence distance. They do not
+receive a mesh, C3D file, prepared-scene artifact, unit, coordinate frame,
+recipe, acceptance policy, Viewer state, or published-result lifecycle. Their
+controlled synthetic smoke covers a known `30 degree` yaw with translation,
+one-sample occlusion, translation no-match, and candidate-budget rejection.
 
 ## Height-map contract
 

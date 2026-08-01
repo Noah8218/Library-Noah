@@ -55,6 +55,9 @@ namespace Lib.Inspection.Smoke
                 Run("Height-difference edge skips missing pairs and requires support", TestDeterministicHeightDifferenceEdgeMissingAndSupport, ref passed, ref total);
                 Run("Deterministic line fit preserves full-XYZ inliers and direction", TestDeterministicLineFit, ref passed, ref total);
                 Run("Deterministic line fit rejects insufficient support", TestDeterministicLineFitSupportFailure, ref passed, ref total);
+                Run("Rigid surface pose search recovers known yaw and translation", TestDeterministicRigidSurfacePoseSearch, ref passed, ref total);
+                Run("Surface coverage preserves one-way unique occlusion evidence", TestDeterministicSurfaceCoverageOcclusion, ref passed, ref total);
+                Run("Rigid surface pose search fails closed on bounded domains", TestDeterministicRigidSurfacePoseSearchBounds, ref passed, ref total);
                 Run("Least-squares height-field plane fit preserves analytic coefficients", TestLeastSquaresHeightFieldPlaneFit, ref passed, ref total);
                 Run("Plane flatness measures independent reference and surface samples", TestPlaneFlatnessInspection, ref passed, ref total);
                 Run("Plane flatness rejects degenerate reference geometry", TestPlaneFlatnessDegenerateReference, ref passed, ref total);
@@ -734,6 +737,185 @@ namespace Lib.Inspection.Smoke
                 });
 
             Require(!result.Success && result.Message.IndexOf("support", StringComparison.OrdinalIgnoreCase) >= 0, "Deterministic line fit must reject insufficient taught support.");
+        }
+
+        private static void TestDeterministicRigidSurfacePoseSearch()
+        {
+            IReadOnlyList<SurfaceMatchSample> model = CreateSurfaceMatchModel();
+            RigidSurfacePose knownPose = CreateKnownSurfacePose();
+            IReadOnlyList<SurfaceMatchSample> scene = model
+                .Select(sample => new SurfaceMatchSample(
+                    sample.Order,
+                    knownPose.Transform(sample.Position)))
+                .ToArray();
+            DeterministicRigidSurfacePoseSearchTool tool =
+                new DeterministicRigidSurfacePoseSearchTool();
+            DeterministicRigidSurfacePoseSearchResult first =
+                tool.Execute(model, scene, CreateSurfaceSearchOptions());
+            DeterministicRigidSurfacePoseSearchResult second =
+                tool.Execute(model, scene, CreateSurfaceSearchOptions());
+
+            Require(first.Success && first.Matched && first.Pose != null,
+                "Known surface pose must produce one matched rigid result.");
+            Require(first.EvaluatedCandidateCount == 7
+                && first.Coverage.MatchedModelSampleCount == 5
+                && first.Coverage.Matches.Count == 5,
+                "Known surface pose must preserve the bounded candidate count and full coverage.");
+            RequireApproximately(first.Pose.M11, Math.Sqrt(3.0) / 2.0, 1e-12,
+                "Unexpected known-pose rotation M11.");
+            RequireApproximately(first.Pose.M12, -0.5, 1e-12,
+                "Unexpected known-pose rotation M12.");
+            RequireApproximately(first.Pose.M21, 0.5, 1e-12,
+                "Unexpected known-pose rotation M21.");
+            RequireApproximately(first.Pose.M22, Math.Sqrt(3.0) / 2.0, 1e-12,
+                "Unexpected known-pose rotation M22.");
+            RequireApproximately(first.Pose.TranslationX, 10.0, 1e-12,
+                "Unexpected known-pose translation X.");
+            RequireApproximately(first.Pose.TranslationY, -4.0, 1e-12,
+                "Unexpected known-pose translation Y.");
+            RequireApproximately(first.Pose.TranslationZ, 2.0, 1e-12,
+                "Unexpected known-pose translation Z.");
+            Require(second.Success
+                && second.Matched
+                && second.Pose != null
+                && first.Pose.M11 == second.Pose.M11
+                && first.Pose.TranslationX == second.Pose.TranslationX
+                && first.Coverage.InlierRmse == second.Coverage.InlierRmse,
+                "Repeated rigid surface pose search must be deterministic.");
+        }
+
+        private static void TestDeterministicSurfaceCoverageOcclusion()
+        {
+            IReadOnlyList<SurfaceMatchSample> model = CreateSurfaceMatchModel();
+            RigidSurfacePose knownPose = CreateKnownSurfacePose();
+            IReadOnlyList<SurfaceMatchSample> scene = model
+                .Take(4)
+                .Select(sample => new SurfaceMatchSample(
+                    sample.Order,
+                    knownPose.Transform(sample.Position)))
+                .ToArray();
+            DeterministicSurfaceCoverageResult result =
+                new DeterministicSurfaceCoverageTool().Execute(
+                    model,
+                    scene,
+                    knownPose,
+                    1e-6);
+
+            Require(result.Success
+                && result.MatchedModelSampleCount == 4
+                && result.UnmatchedModelSampleCount == 1
+                && result.Matches.Count == 4,
+                "One removed scene sample must retain four unique matches.");
+            RequireApproximately(result.CoverageRatio, 0.8, 1e-15,
+                "Occluded surface coverage must be four fifths.");
+            Require(result.HasInlierRmse && result.InlierRmse <= 1e-12,
+                "Exact retained scene samples must have near-zero RMSE.");
+            Require(result.Matches.Select(match => match.SceneSampleOrder).Distinct().Count()
+                == result.Matches.Count,
+                "A scene sample must never be claimed more than once.");
+        }
+
+        private static void TestDeterministicRigidSurfacePoseSearchBounds()
+        {
+            IReadOnlyList<SurfaceMatchSample> model = CreateSurfaceMatchModel();
+            RigidSurfacePose knownPose = CreateKnownSurfacePose();
+            IReadOnlyList<SurfaceMatchSample> scene = model
+                .Select(sample => new SurfaceMatchSample(
+                    sample.Order,
+                    knownPose.Transform(sample.Position)))
+                .ToArray();
+            DeterministicRigidSurfacePoseSearchOptions bounded =
+                CreateSurfaceSearchOptions();
+            bounded.MinimumTranslationX = -1.0;
+            bounded.MaximumTranslationX = 1.0;
+            bounded.MinimumTranslationY = -1.0;
+            bounded.MaximumTranslationY = 1.0;
+            bounded.MinimumTranslationZ = -1.0;
+            bounded.MaximumTranslationZ = 1.0;
+            DeterministicRigidSurfacePoseSearchResult noMatch =
+                new DeterministicRigidSurfacePoseSearchTool().Execute(
+                    model,
+                    scene,
+                    bounded);
+
+            DeterministicRigidSurfacePoseSearchOptions insufficientBudget =
+                CreateSurfaceSearchOptions();
+            insufficientBudget.MaximumCandidateCount = 6;
+            DeterministicRigidSurfacePoseSearchResult rejected =
+                new DeterministicRigidSurfacePoseSearchTool().Execute(
+                    model,
+                    scene,
+                    insufficientBudget);
+
+            Require(noMatch.Success
+                && !noMatch.Matched
+                && noMatch.Pose == null
+                && noMatch.EvaluatedCandidateCount == 7
+                && noMatch.RejectionReason.IndexOf(
+                    "bounds",
+                    StringComparison.OrdinalIgnoreCase) >= 0,
+                "Translation bounds must produce a controlled no-match result.");
+            Require(!rejected.Success
+                && rejected.Message.IndexOf(
+                    "exceeds",
+                    StringComparison.OrdinalIgnoreCase) >= 0,
+                "A declared candidate budget must fail closed before search.");
+        }
+
+        private static IReadOnlyList<SurfaceMatchSample> CreateSurfaceMatchModel()
+        {
+            return new[]
+            {
+                new SurfaceMatchSample(0, new ThreeDPoint(0.0, 0.0, 0.0)),
+                new SurfaceMatchSample(1, new ThreeDPoint(2.0, 0.0, 0.0)),
+                new SurfaceMatchSample(2, new ThreeDPoint(0.0, 3.0, 0.0)),
+                new SurfaceMatchSample(3, new ThreeDPoint(4.0, 1.0, 0.0)),
+                new SurfaceMatchSample(4, new ThreeDPoint(1.0, 5.0, 0.0))
+            };
+        }
+
+        private static RigidSurfacePose CreateKnownSurfacePose()
+        {
+            double cosine = Math.Sqrt(3.0) / 2.0;
+            return new RigidSurfacePose(
+                cosine,
+                -0.5,
+                0.0,
+                0.5,
+                cosine,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                10.0,
+                -4.0,
+                2.0);
+        }
+
+        private static DeterministicRigidSurfacePoseSearchOptions
+            CreateSurfaceSearchOptions()
+        {
+            return new DeterministicRigidSurfacePoseSearchOptions
+            {
+                MinimumRotationXDegrees = 0.0,
+                MaximumRotationXDegrees = 0.0,
+                RotationStepXDegrees = 1.0,
+                MinimumRotationYDegrees = 0.0,
+                MaximumRotationYDegrees = 0.0,
+                RotationStepYDegrees = 1.0,
+                MinimumRotationZDegrees = -45.0,
+                MaximumRotationZDegrees = 45.0,
+                RotationStepZDegrees = 15.0,
+                MinimumTranslationX = 8.0,
+                MaximumTranslationX = 12.0,
+                MinimumTranslationY = -6.0,
+                MaximumTranslationY = -2.0,
+                MinimumTranslationZ = 1.0,
+                MaximumTranslationZ = 3.0,
+                MaximumCorrespondenceDistance = 1e-6,
+                MinimumMatchedSampleCount = 3,
+                MaximumCandidateCount = 100
+            };
         }
 
         private static void TestLeastSquaresHeightFieldPlaneFit()
