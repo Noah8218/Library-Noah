@@ -54,6 +54,11 @@ namespace Lib.Inspection.Smoke
                 Run("Local-median outlier filter excludes the center and preserves the strict threshold", TestDeterministicLocalMedianOutlierFilter, ref passed, ref total);
                 Run("Level Surface detrends unique reference cells and preserves region evidence", TestLevelSurfaceDetrend, ref passed, ref total);
                 Run("Level Surface fails closed on insufficient unique reference support", TestLevelSurfaceInsufficientSupport, ref passed, ref total);
+                Run("Height-grid summary preserves missing policy and distribution", TestHeightGridSummary, ref passed, ref total);
+                Run("Height distribution preserves finite statistics and tie order", TestHeightDistributionStatistics, ref passed, ref total);
+                Run("Height-map region statistics preserve row-major aggregation", TestHeightMapRegionStatistics, ref passed, ref total);
+                Run("Completeness Grid preserves reference-relative cell decisions", TestCompletenessGridInspection, ref passed, ref total);
+                Run("Reference-grid reconstruction preserves declared and reference-axis coordinates", TestReferenceGridPointReconstruction, ref passed, ref total);
                 Run("Height-difference edge retains strongest pair and exact-tie order", TestDeterministicHeightDifferenceEdge, ref passed, ref total);
                 Run("Height-difference edge skips missing pairs and requires support", TestDeterministicHeightDifferenceEdgeMissingAndSupport, ref passed, ref total);
                 Run("Deterministic line fit preserves full-XYZ inliers and direction", TestDeterministicLineFit, ref passed, ref total);
@@ -2444,6 +2449,163 @@ namespace Lib.Inspection.Smoke
 
             Require(!result.Success, "An empty combined configuration must not pass.");
             Require(result.Steps.Count == 0, "An empty combined configuration must not create synthetic tool results.");
+        }
+
+        private static void TestHeightGridSummary()
+        {
+            HeightGridSummaryResult result = new HeightGridSummaryTool().Execute(
+                new[] { 0.0f, 1.0f, 2.0f, float.NaN, 3.0f, 4.0f },
+                new HeightGridSummaryOptions
+                {
+                    ZeroIsMissing = true,
+                    DistributionBinCount = 2
+                });
+
+            Require(result.Success, result.Message);
+            Require(result.SampleCount == 6
+                    && result.ValidSampleCount == 4
+                    && result.MissingSampleCount == 2
+                    && result.ZeroSampleCount == 1
+                    && result.NonFiniteSampleCount == 1,
+                "Height-grid missing policy evidence changed.");
+            RequireApproximately(result.Minimum, 1.0, 0.0, "Unexpected height-grid minimum.");
+            RequireApproximately(result.Maximum, 4.0, 0.0, "Unexpected height-grid maximum.");
+            RequireApproximately(result.Mean, 2.5, 0.0, "Unexpected height-grid mean.");
+            Require(result.Bins.Count == 2
+                    && result.Bins[0] == 2
+                    && result.Bins[1] == 2
+                    && result.PeakBinIndex == 0,
+                "Height-grid distribution or exact-tie order changed.");
+            RequireApproximately(result.PeakLowerBound, 1.0, 0.0, "Unexpected peak lower bound.");
+            RequireApproximately(result.PeakUpperBound, 2.5, 0.0, "Unexpected peak upper bound.");
+        }
+
+        private static void TestHeightDistributionStatistics()
+        {
+            HeightDistributionStatisticsResult result =
+                new HeightDistributionStatisticsTool().Execute(
+                    new[] { 1.0, 2.0, double.NaN, 3.0, 4.0 },
+                    new HeightDistributionStatisticsOptions
+                    {
+                        BinCount = 2,
+                        ExpectedValidSampleCount = 4
+                    });
+
+            Require(result.Success, result.Message);
+            Require(result.ValidSampleCount == 4
+                    && result.MissingSampleCount == 1
+                    && result.PeakBinIndex == 0
+                    && result.Bins[0] == 2
+                    && result.Bins[1] == 2,
+                "Height-distribution finite counts, bins, or tie order changed.");
+            RequireApproximately(result.Minimum, 1.0, 0.0, "Unexpected distribution minimum.");
+            RequireApproximately(result.Maximum, 4.0, 0.0, "Unexpected distribution maximum.");
+            RequireApproximately(result.Mean, 2.5, 0.0, "Unexpected distribution mean.");
+        }
+
+        private static void TestHeightMapRegionStatistics()
+        {
+            HeightMapRegionStatisticsResult result =
+                new HeightMapRegionStatisticsTool().Execute(
+                    3,
+                    3,
+                    new[]
+                    {
+                        1.0, 2.0, double.NaN,
+                        4.0, 5.0, 6.0,
+                        7.0, 8.0, 9.0
+                    },
+                    new HeightGridRegion(1, 0, 2, 2));
+
+            Require(result.Success, result.Message);
+            Require(result.TotalCellCount == 4
+                    && result.FiniteCellCount == 4
+                    && result.MissingCellCount == 0,
+                "Height-map region counts changed.");
+            RequireApproximately(result.Sum, 24.0, 0.0, "Unexpected region sum.");
+            RequireApproximately(result.Mean, 6.0, 0.0, "Unexpected region mean.");
+            RequireApproximately(result.FiniteCoverageRatio, 1.0, 0.0, "Unexpected region coverage.");
+        }
+
+        private static void TestCompletenessGridInspection()
+        {
+            CompletenessGridInspectionResult result =
+                new CompletenessGridInspectionTool().Execute(
+                    4,
+                    4,
+                    new[]
+                    {
+                        10.0, 10.0, 10.0, 10.0,
+                        10.0, 10.0, 10.0, 10.0,
+                        11.0, 11.0, double.NaN, double.NaN,
+                        10.0, 10.0, 10.0, 10.0
+                    },
+                    new HeightGridRegion(0, 0, 1, 2),
+                    new HeightGridRegion(2, 0, 1, 4),
+                    new CompletenessGridProfile
+                    {
+                        Rows = 1,
+                        Columns = 2,
+                        XPitchColumns = 2,
+                        ZPitchRows = 1,
+                        CellWidthColumns = 2,
+                        CellHeightRows = 1
+                    },
+                    new CompletenessPresencePolicy
+                    {
+                        MinimumFiniteCoverageRatio = 0.5,
+                        MinimumReferenceRelativeMeanHeight = 0.0,
+                        MaximumReferenceRelativeMeanHeight = 2.0
+                    });
+
+            Require(result.Success, result.Message);
+            Require(result.ReferenceFiniteCellCount == 2
+                    && result.ReferenceMeanHeight == 10.0
+                    && result.Cells.Count == 2
+                    && result.PassedCellCount == 1
+                    && result.FailedCellCount == 1
+                    && result.AggregateDecision == CompletenessCellDecision.Fail,
+                "Completeness-grid aggregate evidence changed.");
+            Require(result.Cells[0].Decision == CompletenessCellDecision.Pass
+                    && result.Cells[0].ReferenceRelativeMeanHeight == 1.0
+                    && result.Cells[1].Decision == CompletenessCellDecision.Fail
+                    && result.Cells[1].HeightDisposition == CompletenessHeightDisposition.Missing,
+                "Completeness-grid cell evidence changed.");
+        }
+
+        private static void TestReferenceGridPointReconstruction()
+        {
+            ReferenceGridDefinition definition = new ReferenceGridDefinition
+            {
+                Origin = new ReferenceGridVector(10.0, -4.0, 2.0),
+                UAxis = new ReferenceGridVector(1.0, 0.0, 0.0),
+                VAxis = new ReferenceGridVector(0.0, 0.0, 1.0),
+                HAxis = new ReferenceGridVector(0.0, 1.0, 0.0),
+                PitchU = 2.0,
+                PitchV = 3.0
+            };
+            ReferenceGridPointReconstructionResult result =
+                new ReferenceGridPointReconstructionTool().Execute(
+                    2,
+                    2,
+                    new[] { 1.0, 2.0, 3.0, double.NaN },
+                    new HeightGridRegion(0, 0, 2, 2),
+                    definition,
+                    new ReferenceGridPointReconstructionOptions
+                    {
+                        CoordinateMode = ReferenceGridCoordinateMode.DeclaredFrame
+                    });
+
+            Require(result.Success, result.Message);
+            Require(result.Samples.Count == 3, "Reference-grid missing-cell handling changed.");
+            ReferenceGridPointSample first = result.Samples[0];
+            RequireApproximately(first.U, 1.0, 0.0, "Unexpected first U coordinate.");
+            RequireApproximately(first.V, 1.5, 0.0, "Unexpected first V coordinate.");
+            RequireApproximately(first.X, 11.0, 0.0, "Unexpected first X coordinate.");
+            RequireApproximately(first.Y, -3.0, 0.0, "Unexpected first Y coordinate.");
+            RequireApproximately(first.Z, 3.5, 0.0, "Unexpected first Z coordinate.");
+            Require(result.Samples[2].Row == 1 && result.Samples[2].Column == 0,
+                "Reference-grid row-major order changed.");
         }
 
         private static HeightMap3D CreateThicknessMap()

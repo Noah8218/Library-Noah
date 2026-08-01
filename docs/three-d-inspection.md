@@ -43,6 +43,20 @@ not know a camera, C3D file, recipe, UI, or calibration claim.
   rotation orthogonality, determinant, translation magnitude, and rotation
   angle of a row-major 4x4 transform. The caller retains scenario limits and
   acceptance order.
+- `HeightGridSummaryTool` computes finite/missing/zero counts, minimum,
+  maximum, mean, and a deterministic fixed-bin distribution from
+  single-precision height samples under an explicit zero-is-missing policy.
+- `HeightDistributionStatisticsTool` computes the corresponding finite-value
+  statistics and bins for double-precision scalar sequences, including an
+  optional expected-valid-count guard.
+- `HeightMapRegionStatisticsTool` owns deterministic finite count, coverage,
+  sum, mean, and extrema for an explicit row-major rectangular region.
+- `CompletenessGridInspectionTool` owns reference-region mean, rectangular
+  cell placement, finite coverage, reference-relative mean, and typed
+  per-cell/aggregate decisions under an optional inclusive policy.
+- `ReferenceGridPointReconstructionTool` maps finite grid cells to both
+  declared-frame XYZ and reference-axis U/H/V coordinates under an explicit
+  supported-coordinate range.
 
 A host owns source binding, metadata, persistence, identity hashing, and any
 display or inspection lifecycle around these pure results.
