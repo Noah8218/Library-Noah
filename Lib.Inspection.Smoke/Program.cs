@@ -74,6 +74,11 @@ namespace Lib.Inspection.Smoke
                 Run("Repeatability statistics preserve sample standard deviation and range", TestRepeatabilityStatistics, ref passed, ref total);
                 Run("Repeatability statistics preserve a zero-spread series", TestRepeatabilityStatisticsZeroSpread, ref passed, ref total);
                 Run("Repeatability statistics reject insufficient and non-finite input", TestRepeatabilityStatisticsInvalidInput, ref passed, ref total);
+                Run("Labeled evidence statistics preserve role groups and population spread", TestLabeledEvidenceStatistics, ref passed, ref total);
+                Run("Labeled evidence statistics preserve empty roles", TestLabeledEvidenceStatisticsEmptyRoles, ref passed, ref total);
+                Run("Labeled evidence statistics reject invalid input", TestLabeledEvidenceStatisticsInvalidInput, ref passed, ref total);
+                Run("Threshold candidate analysis selects deterministic minimum, maximum, and range", TestThresholdCandidateAnalysis, ref passed, ref total);
+                Run("Threshold candidate analysis rejects invalid development evidence", TestThresholdCandidateAnalysisInvalidInput, ref passed, ref total);
                 Run("Height-difference edge retains strongest pair and exact-tie order", TestDeterministicHeightDifferenceEdge, ref passed, ref total);
                 Run("Height-difference edge skips missing pairs and requires support", TestDeterministicHeightDifferenceEdgeMissingAndSupport, ref passed, ref total);
                 Run("Deterministic line fit preserves full-XYZ inliers and direction", TestDeterministicLineFit, ref passed, ref total);
@@ -2914,6 +2919,155 @@ namespace Lib.Inspection.Smoke
                 && double.IsNaN(nonFinite.SampleStandardDeviation)
                 && double.IsNaN(nonFinite.Range),
                 "Invalid repeatability input must not expose partial statistics.");
+        }
+
+        private static void TestLabeledEvidenceStatistics()
+        {
+            LabeledEvidenceStatisticsResult result =
+                new LabeledEvidenceStatisticsTool().Execute(
+                    new[]
+                    {
+                        new LabeledEvidenceStatisticsObservation("good-1", LabeledEvidenceRole.Good, 2.0),
+                        new LabeledEvidenceStatisticsObservation("good-1", LabeledEvidenceRole.Good, 4.0),
+                        new LabeledEvidenceStatisticsObservation("bad-1", LabeledEvidenceRole.Bad, -10.0),
+                        new LabeledEvidenceStatisticsObservation("bad-2", LabeledEvidenceRole.Bad, 20.0)
+                    });
+
+            LabeledEvidenceRoleStatistics good = result.RoleStatistics
+                .Single(item => item.Role == LabeledEvidenceRole.Good);
+            LabeledEvidenceRoleStatistics bad = result.RoleStatistics
+                .Single(item => item.Role == LabeledEvidenceRole.Bad);
+            LabeledEvidenceRoleStatistics heldOut = result.RoleStatistics
+                .Single(item => item.Role == LabeledEvidenceRole.HeldOut);
+            Require(result.Success && result.RoleStatistics.Count == 3,
+                "Every supported evidence role must be reported.");
+            Require(good.SampleCount == 1 && good.ValueCount == 2,
+                "Opaque Good sample identity counting changed.");
+            RequireApproximately(good.Mean.Value, 3.0, 0.0,
+                "Unexpected Good mean.");
+            RequireApproximately(good.PopulationStandardDeviation.Value, 1.0, 0.0,
+                "Unexpected Good population standard deviation.");
+            Require(bad.SampleCount == 2 && bad.ValueCount == 2,
+                "Opaque Bad sample identity counting changed.");
+            RequireApproximately(bad.Minimum.Value, -10.0, 0.0,
+                "Unexpected Bad minimum.");
+            RequireApproximately(bad.Maximum.Value, 20.0, 0.0,
+                "Unexpected Bad maximum.");
+            RequireApproximately(bad.PopulationStandardDeviation.Value, 15.0, 0.0,
+                "Unexpected Bad population standard deviation.");
+            Require(heldOut.SampleCount == 0 && heldOut.ValueCount == 0
+                && !heldOut.Mean.HasValue
+                && !heldOut.PopulationStandardDeviation.HasValue,
+                "An empty Held-out role must remain explicit without fabricated statistics.");
+        }
+
+        private static void TestLabeledEvidenceStatisticsEmptyRoles()
+        {
+            LabeledEvidenceStatisticsResult result =
+                new LabeledEvidenceStatisticsTool().Execute(
+                    new[]
+                    {
+                        new LabeledEvidenceStatisticsObservation("held-1", LabeledEvidenceRole.HeldOut, 7.5)
+                    });
+
+            LabeledEvidenceRoleStatistics heldOut = result.RoleStatistics
+                .Single(item => item.Role == LabeledEvidenceRole.HeldOut);
+            Require(result.Success && heldOut.SampleCount == 1 && heldOut.ValueCount == 1,
+                "A finite Held-out-only series must be accepted.");
+            RequireApproximately(heldOut.Mean.Value, 7.5, 0.0,
+                "Unexpected Held-out mean.");
+            RequireApproximately(heldOut.PopulationStandardDeviation.Value, 0.0, 0.0,
+                "A single Held-out observation must have zero population spread.");
+        }
+
+        private static void TestLabeledEvidenceStatisticsInvalidInput()
+        {
+            LabeledEvidenceStatisticsTool tool = new LabeledEvidenceStatisticsTool();
+            LabeledEvidenceStatisticsResult nonFinite = tool.Execute(
+                new[]
+                {
+                    new LabeledEvidenceStatisticsObservation("good-1", LabeledEvidenceRole.Good, double.NaN)
+                });
+            LabeledEvidenceStatisticsResult invalidRole = tool.Execute(
+                new[]
+                {
+                    new LabeledEvidenceStatisticsObservation("good-1", (LabeledEvidenceRole)99, 1.0)
+                });
+
+            Require(!nonFinite.Success && nonFinite.RoleStatistics.Count == 0,
+                "Non-finite labeled evidence must fail closed.");
+            Require(!invalidRole.Success && invalidRole.RoleStatistics.Count == 0,
+                "An unsupported labeled evidence role must fail closed.");
+        }
+
+        private static void TestThresholdCandidateAnalysis()
+        {
+            ThresholdCandidateAnalysisResult result =
+                new ThresholdCandidateAnalysisTool().Execute(
+                    new[]
+                    {
+                        new ThresholdCandidateObservation(0, ThresholdObservationClass.Accepted, 2.0),
+                        new ThresholdCandidateObservation(1, ThresholdObservationClass.Accepted, 4.0),
+                        new ThresholdCandidateObservation(2, ThresholdObservationClass.Rejected, -10.0),
+                        new ThresholdCandidateObservation(3, ThresholdObservationClass.Rejected, 20.0)
+                    });
+
+            ThresholdCandidateAnalysisCandidate minimum = result.Candidates
+                .Single(item => item.LimitKind == ThresholdCandidateLimitKind.Minimum);
+            ThresholdCandidateAnalysisCandidate maximum = result.Candidates
+                .Single(item => item.LimitKind == ThresholdCandidateLimitKind.Maximum);
+            ThresholdCandidateAnalysisCandidate range = result.Candidates
+                .Single(item => item.LimitKind == ThresholdCandidateLimitKind.Range);
+            Require(result.Success && result.Candidates.Count == 3,
+                "Exactly one candidate per supported threshold kind is required.");
+            RequireApproximately(minimum.Minimum.Value, 2.0, 0.0,
+                "Unexpected deterministic minimum candidate.");
+            Require(minimum.ErrorCount == 1 && minimum.RejectedAcceptedCount == 1,
+                "Minimum candidate decision counts changed.");
+            RequireApproximately(maximum.Maximum.Value, 4.0, 0.0,
+                "Unexpected deterministic maximum candidate.");
+            Require(maximum.ErrorCount == 1 && maximum.RejectedAcceptedCount == 1,
+                "Maximum candidate decision counts changed.");
+            RequireApproximately(range.Minimum.Value, 2.0, 0.0,
+                "Unexpected deterministic range minimum.");
+            RequireApproximately(range.Maximum.Value, 4.0, 0.0,
+                "Unexpected deterministic range maximum.");
+            Require(range.ErrorCount == 0
+                && range.AcceptedAcceptedCount == 2
+                && range.RejectedRejectedCount == 2,
+                "Range candidate classification changed.");
+            Require(range.Decisions.Select(item => item.ObservationIndex)
+                .SequenceEqual(new[] { 0, 1, 2, 3 }),
+                "Threshold decision order must follow the supplied observation order.");
+        }
+
+        private static void TestThresholdCandidateAnalysisInvalidInput()
+        {
+            ThresholdCandidateAnalysisTool tool = new ThresholdCandidateAnalysisTool();
+            ThresholdCandidateAnalysisResult oneClass = tool.Execute(
+                new[]
+                {
+                    new ThresholdCandidateObservation(0, ThresholdObservationClass.Accepted, 1.0)
+                });
+            ThresholdCandidateAnalysisResult duplicateIndex = tool.Execute(
+                new[]
+                {
+                    new ThresholdCandidateObservation(0, ThresholdObservationClass.Accepted, 1.0),
+                    new ThresholdCandidateObservation(0, ThresholdObservationClass.Rejected, 2.0)
+                });
+            ThresholdCandidateAnalysisResult nonFinite = tool.Execute(
+                new[]
+                {
+                    new ThresholdCandidateObservation(0, ThresholdObservationClass.Accepted, 1.0),
+                    new ThresholdCandidateObservation(1, ThresholdObservationClass.Rejected, double.PositiveInfinity)
+                });
+
+            Require(!oneClass.Success && oneClass.Candidates.Count == 0,
+                "Single-class threshold evidence must fail closed.");
+            Require(!duplicateIndex.Success && duplicateIndex.Candidates.Count == 0,
+                "Duplicate threshold observation indices must fail closed.");
+            Require(!nonFinite.Success && nonFinite.Candidates.Count == 0,
+                "Non-finite threshold evidence must fail closed.");
         }
 
         private static ThreeDPoint[] CreateNormalQualitySquare()
