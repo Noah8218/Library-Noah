@@ -61,6 +61,9 @@ namespace Lib.Inspection.Smoke
                 Run("Rigid surface pose search recovers known yaw and translation", TestDeterministicRigidSurfacePoseSearch, ref passed, ref total);
                 Run("Surface coverage preserves one-way unique occlusion evidence", TestDeterministicSurfaceCoverageOcclusion, ref passed, ref total);
                 Run("Rigid surface pose search fails closed on bounded domains", TestDeterministicRigidSurfacePoseSearchBounds, ref passed, ref total);
+                Run("Triangle-mesh distance preserves closest feature and robust sign evidence", TestTriangleMeshDistance, ref passed, ref total);
+                Run("Nominal/actual mesh comparison preserves streaming statistics and sampling", TestNominalActualMeshComparison, ref passed, ref total);
+                Run("Rigid-transform diagnostics preserve plausibility measures", TestRigidTransformDiagnostics, ref passed, ref total);
                 Run("Surface-model preparation preserves even triangle samples", TestDeterministicSurfaceModelPreparation, ref passed, ref total);
                 Run("Prepared-scene preparation preserves even point samples", TestDeterministicPreparedScenePreparation, ref passed, ref total);
                 Run("Model surface-edge extraction preserves boundary topology", TestDeterministicModelSurfaceEdgeExtraction, ref passed, ref total);
@@ -977,6 +980,131 @@ namespace Lib.Inspection.Smoke
                     "exceeds",
                     StringComparison.OrdinalIgnoreCase) >= 0,
                 "A declared candidate budget must fail closed before search.");
+        }
+
+        private static void TestTriangleMeshDistance()
+        {
+            TriangleMeshDistanceTool tool = new TriangleMeshDistanceTool(
+                new[]
+                {
+                    new MeshTriangle(
+                        7,
+                        new ThreeDPoint(0.0, 0.0, 0.0),
+                        new ThreeDPoint(2.0, 0.0, 0.0),
+                        new ThreeDPoint(0.0, 2.0, 0.0))
+                });
+            PointMeshDistance face = tool.Execute(
+                new ThreeDPoint(0.5, 0.5, 1.0));
+            PointMeshDistance boundary = tool.Execute(
+                new ThreeDPoint(1.0, -1.0, 1.0));
+            PointMeshDistance recovered = tool.ExecuteRobustSign(
+                new ThreeDPoint(1.0, -1.0, 1.0),
+                boundary.UnsignedDistance);
+
+            Require(tool.TriangleCount == 1
+                && face.SourceTriangleIndex == 7
+                && face.ClosestFeature == MeshClosestFeature.FaceInterior
+                && face.SignResolved
+                && face.SignedDistance.HasValue,
+                "Face-interior distance must retain direct signed evidence.");
+            RequireApproximately(face.UnsignedDistance, 1.0, 1e-12,
+                "Unexpected face-interior unsigned distance.");
+            RequireApproximately(face.SignedDistance.Value, 1.0, 1e-12,
+                "Unexpected face-interior signed distance.");
+            Require(boundary.ClosestFeature == MeshClosestFeature.Edge
+                && !boundary.SignResolved
+                && !boundary.SignedDistance.HasValue,
+                "Boundary distance must not guess a direct sign.");
+            Require(recovered.SignResolved
+                && recovered.SignedDistance.HasValue,
+                "Robust boundary-sign execution must return explicit evidence.");
+            RequireApproximately(
+                recovered.SignedDistance.Value,
+                Math.Sqrt(2.0),
+                1e-12,
+                "Unexpected robust boundary sign distance.");
+        }
+
+        private static void TestNominalActualMeshComparison()
+        {
+            NominalActualMeshComparisonResult result =
+                new NominalActualMeshComparisonTool().Execute(
+                    new[]
+                    {
+                        new MeshTriangle(
+                            3,
+                            new ThreeDPoint(0.0, 0.0, 0.0),
+                            new ThreeDPoint(2.0, 0.0, 0.0),
+                            new ThreeDPoint(0.0, 2.0, 0.0))
+                    },
+                    new[]
+                    {
+                        new ThreeDPoint(0.5, 0.5, 1.0),
+                        new ThreeDPoint(0.5, 0.5, -2.0)
+                    },
+                    new NominalActualMeshComparisonOptions(
+                        2,
+                        -1.5,
+                        1.5,
+                        2));
+
+            Require(result.Success
+                && result.ProcessedPointCount == 2
+                && result.BelowToleranceCount == 1
+                && result.WithinToleranceCount == 1
+                && result.AboveToleranceCount == 0
+                && result.DirectSignResolvedCount == 2
+                && result.RobustSignRecoveredCount == 0
+                && result.DisplayStride == 1
+                && result.DisplaySamples.Count == 2,
+                "Nominal/actual comparison must retain deterministic counts and display sampling.");
+            RequireApproximately(result.UnsignedStatistics.Mean, 1.5, 1e-12,
+                "Unexpected unsigned-deviation mean.");
+            RequireApproximately(result.SignedStatistics.Mean, -0.5, 1e-12,
+                "Unexpected signed-deviation mean.");
+            Require(result.DisplaySamples[0].SourceTriangleIndex == 3
+                && result.DisplaySamples[0].PointIndex == 0,
+                "Display evidence must retain source triangle and query order.");
+        }
+
+        private static void TestRigidTransformDiagnostics()
+        {
+            RigidTransformDiagnosticsTool tool =
+                new RigidTransformDiagnosticsTool();
+            RigidTransformDiagnosticsResult result = tool.Execute(
+                new[]
+                {
+                    0.0, -1.0, 0.0, 3.0,
+                    1.0, 0.0, 0.0, 4.0,
+                    0.0, 0.0, 1.0, 0.0,
+                    0.0, 0.0, 0.0, 1.0
+                });
+            RigidTransformDiagnosticsResult rejected = tool.Execute(
+                new[]
+                {
+                    double.NaN, 0.0, 0.0, 0.0,
+                    0.0, 1.0, 0.0, 0.0,
+                    0.0, 0.0, 1.0, 0.0,
+                    0.0, 0.0, 0.0, 1.0
+                });
+
+            Require(result.Success,
+                "Finite rigid input must produce transform diagnostics.");
+            RequireApproximately(result.HomogeneousRowMaximumError, 0.0, 0.0,
+                "Unexpected homogeneous-row error.");
+            RequireApproximately(result.RotationOrthogonalityMaximumError, 0.0, 0.0,
+                "Unexpected rotation orthogonality error.");
+            RequireApproximately(result.RotationDeterminant, 1.0, 0.0,
+                "Unexpected rotation determinant.");
+            RequireApproximately(result.RotationDeterminantUnitError, 0.0, 0.0,
+                "Unexpected determinant-unit error.");
+            RequireApproximately(result.TranslationMagnitude, 5.0, 1e-12,
+                "Unexpected translation magnitude.");
+            RequireApproximately(result.RotationAngleDegrees, 90.0, 1e-12,
+                "Unexpected rotation angle.");
+            Require(!rejected.Success
+                && rejected.Message.IndexOf("16 finite", StringComparison.Ordinal) >= 0,
+                "Non-finite transform input must fail closed.");
         }
 
         private static void TestDeterministicSurfaceModelPreparation()

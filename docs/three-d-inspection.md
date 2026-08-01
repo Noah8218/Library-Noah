@@ -32,6 +32,17 @@ not know a camera, C3D file, recipe, UI, or calibration claim.
   Euler candidates, derives translation from the two sample centroids, and
   ranks candidates by coverage count, RMSE, then stable enumeration order.
   Candidate and translation bounds are explicit and fail closed.
+- `TriangleMeshDistanceTool` builds a deterministic triangle BVH and returns
+  closest-point, closest-feature, unsigned-distance, and explicit direct or
+  robust signed-distance evidence for source-neutral XYZ queries.
+- `NominalActualMeshComparisonTool` streams ordered query points through that
+  mesh-distance kernel and returns deterministic tolerance counts, signed and
+  unsigned population statistics, sign-recovery counts, and bounded display
+  samples. It does not own file identity, units, frames, or product lifecycle.
+- `RigidTransformDiagnosticsTool` measures the homogeneous-row error,
+  rotation orthogonality, determinant, translation magnitude, and rotation
+  angle of a row-major 4x4 transform. The caller retains scenario limits and
+  acceptance order.
 
 A host owns source binding, metadata, persistence, identity hashing, and any
 display or inspection lifecycle around these pure results.
