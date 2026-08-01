@@ -58,6 +58,12 @@ namespace Lib.Inspection.Smoke
                 Run("Rigid surface pose search recovers known yaw and translation", TestDeterministicRigidSurfacePoseSearch, ref passed, ref total);
                 Run("Surface coverage preserves one-way unique occlusion evidence", TestDeterministicSurfaceCoverageOcclusion, ref passed, ref total);
                 Run("Rigid surface pose search fails closed on bounded domains", TestDeterministicRigidSurfacePoseSearchBounds, ref passed, ref total);
+                Run("Surface-model preparation preserves even triangle samples", TestDeterministicSurfaceModelPreparation, ref passed, ref total);
+                Run("Prepared-scene preparation preserves even point samples", TestDeterministicPreparedScenePreparation, ref passed, ref total);
+                Run("Model surface-edge extraction preserves boundary topology", TestDeterministicModelSurfaceEdgeExtraction, ref passed, ref total);
+                Run("Organized scene surface-edge extraction anchors height steps", TestDeterministicOrganizedSceneSurfaceEdgeExtraction, ref passed, ref total);
+                Run("Surface-edge coverage reuses unique nearest matching", TestDeterministicSurfaceEdgeCoverage, ref passed, ref total);
+                Run("Surface-edge coverage accepts an empty scene as zero coverage", TestDeterministicSurfaceEdgeCoverageEmptyScene, ref passed, ref total);
                 Run("Least-squares height-field plane fit preserves analytic coefficients", TestLeastSquaresHeightFieldPlaneFit, ref passed, ref total);
                 Run("Plane flatness measures independent reference and surface samples", TestPlaneFlatnessInspection, ref passed, ref total);
                 Run("Plane flatness rejects degenerate reference geometry", TestPlaneFlatnessDegenerateReference, ref passed, ref total);
@@ -860,6 +866,212 @@ namespace Lib.Inspection.Smoke
                     "exceeds",
                     StringComparison.OrdinalIgnoreCase) >= 0,
                 "A declared candidate budget must fail closed before search.");
+        }
+
+        private static void TestDeterministicSurfaceModelPreparation()
+        {
+            ThreeDPoint[] points =
+            {
+                new ThreeDPoint(0.0, 0.0, 0.0),
+                new ThreeDPoint(2.0, 0.0, 0.0),
+                new ThreeDPoint(2.0, 2.0, 0.0),
+                new ThreeDPoint(0.0, 2.0, 0.0)
+            };
+            SurfaceModelTriangleInput[] triangles =
+            {
+                new SurfaceModelTriangleInput(0, 1, 2),
+                new SurfaceModelTriangleInput(0, 2, 3)
+            };
+            ThreeDPoint[] normals = points
+                .Select(_ => new ThreeDPoint(0.0, 0.0, 1.0))
+                .ToArray();
+            DeterministicSurfaceModelPreparationResult result =
+                new DeterministicSurfaceModelPreparationTool().Execute(
+                    points,
+                    triangles,
+                    normals,
+                    new DeterministicSurfaceModelPreparationOptions
+                    {
+                        MaximumSampleCount = 1
+                    });
+
+            Require(result.Success && result.Samples.Count == 1,
+                "Surface-model preparation must return one controlled sample.");
+            PreparedSurfaceModelSample sample = result.Samples[0];
+            Require(sample.Order == 0 && sample.SourceTriangleIndex == 1,
+                "Even triangle selection must preserve the established index schedule.");
+            RequireApproximately(sample.Position.X, 2.0 / 3.0, 0.0,
+                "Unexpected selected triangle centroid X.");
+            RequireApproximately(sample.Position.Y, 4.0 / 3.0, 0.0,
+                "Unexpected selected triangle centroid Y.");
+            RequireApproximately(sample.Normal.Z, 1.0, 0.0,
+                "Declared normal averaging must retain the source orientation.");
+        }
+
+        private static void TestDeterministicPreparedScenePreparation()
+        {
+            ThreeDPoint[] points = Enumerable.Range(0, 5)
+                .Select(index => new ThreeDPoint(index, 0.0, index * 0.5))
+                .ToArray();
+            DeterministicPreparedScenePreparationResult result =
+                new DeterministicPreparedScenePreparationTool().Execute(
+                    points,
+                    new DeterministicPreparedScenePreparationOptions
+                    {
+                        MaximumSampleCount = 2
+                    });
+
+            Require(result.Success && result.Samples.Count == 2,
+                "Prepared-scene preparation must return the requested sample count.");
+            Require(result.Samples[0].SourcePointIndex == 1
+                && result.Samples[1].SourcePointIndex == 3,
+                "Even point selection must preserve stable source locators.");
+            Require(result.Samples[0].Position == points[1]
+                && result.Samples[1].Position == points[3],
+                "Prepared-scene samples must preserve the selected source objects.");
+        }
+
+        private static void TestDeterministicModelSurfaceEdgeExtraction()
+        {
+            ThreeDPoint[] points =
+            {
+                new ThreeDPoint(0.0, 0.0, 0.0),
+                new ThreeDPoint(2.0, 0.0, 0.0),
+                new ThreeDPoint(2.0, 2.0, 0.0),
+                new ThreeDPoint(0.0, 2.0, 0.0)
+            };
+            SurfaceModelTriangleInput[] triangles =
+            {
+                new SurfaceModelTriangleInput(0, 1, 2),
+                new SurfaceModelTriangleInput(0, 2, 3)
+            };
+            DeterministicModelSurfaceEdgeExtractionResult result =
+                new DeterministicModelSurfaceEdgeExtractionTool().Execute(
+                    points,
+                    triangles,
+                    new DeterministicModelSurfaceEdgeExtractionOptions
+                    {
+                        MinimumEdgeLength = 0.1,
+                        MinimumCreaseAngleDegrees = 1.0,
+                        IncludeBoundaryEdges = true
+                    });
+
+            Require(result.Success && result.Edges.Count == 4,
+                "A flat triangulated square must expose four boundary edges only.");
+            Require(result.Edges.All(edge =>
+                    edge.Kind == ExtractedModelSurfaceEdgeKind.Boundary),
+                "The flat internal diagonal must not be classified as a crease.");
+            Require(result.Edges[0].FirstPointIndex == 0
+                && result.Edges[0].SecondPointIndex == 1
+                && result.Edges[1].FirstPointIndex == 0
+                && result.Edges[1].SecondPointIndex == 3,
+                "Model edge ordering must use sorted undirected point locators.");
+        }
+
+        private static void TestDeterministicOrganizedSceneSurfaceEdgeExtraction()
+        {
+            ThreeDPoint[] points =
+            {
+                new ThreeDPoint(0.0, 0.0, 0.0),
+                new ThreeDPoint(1.0, 0.0, 2.0),
+                new ThreeDPoint(2.0, 0.0, 0.0),
+                new ThreeDPoint(0.0, 1.0, 0.0),
+                new ThreeDPoint(1.0, 1.0, 2.0),
+                new ThreeDPoint(2.0, 1.0, 0.0)
+            };
+            DeterministicOrganizedSceneSurfaceEdgeExtractionResult result =
+                new DeterministicOrganizedSceneSurfaceEdgeExtractionTool()
+                    .Execute(
+                        points,
+                        new DeterministicOrganizedSceneSurfaceEdgeExtractionOptions
+                        {
+                            Width = 3,
+                            Height = 2,
+                            MinimumAbsoluteHeightStep = 2.0,
+                            IncludeColumnNeighbors = true,
+                            IncludeRowNeighbors = false
+                        });
+
+            Require(result.Success && result.Edges.Count == 4,
+                "Inclusive height-step extraction must retain four column edges.");
+            Require(result.Edges[0].AnchorPointIndex == 1
+                && result.Edges[1].AnchorPointIndex == 1
+                && result.Edges[2].AnchorPointIndex == 4
+                && result.Edges[3].AnchorPointIndex == 4,
+                "Every organized height step must anchor at its higher endpoint.");
+            Require(result.Edges.All(edge =>
+                    edge.Axis == ExtractedSceneSurfaceEdgeAxis.AcrossColumns
+                    && edge.AbsoluteHeightStep == 2.0),
+                "Scene edge axis and threshold evidence were not preserved.");
+        }
+
+        private static void TestDeterministicSurfaceEdgeCoverage()
+        {
+            SurfaceEdgeAnchorSample[] model =
+            {
+                new SurfaceEdgeAnchorSample(
+                    0, new ThreeDPoint(0.0, 0.0, 0.0)),
+                new SurfaceEdgeAnchorSample(
+                    1, new ThreeDPoint(2.0, 0.0, 0.0))
+            };
+            SurfaceEdgeAnchorSample[] scene =
+            {
+                new SurfaceEdgeAnchorSample(
+                    0, new ThreeDPoint(0.1, 0.0, 0.0)),
+                new SurfaceEdgeAnchorSample(
+                    1, new ThreeDPoint(2.1, 0.0, 0.0))
+            };
+            RigidSurfacePose identity = new RigidSurfacePose(
+                1.0, 0.0, 0.0,
+                0.0, 1.0, 0.0,
+                0.0, 0.0, 1.0,
+                0.0, 0.0, 0.0);
+            DeterministicSurfaceEdgeCoverageResult result =
+                new DeterministicSurfaceEdgeCoverageTool().Execute(
+                    model,
+                    scene,
+                    identity,
+                    0.2);
+
+            Require(result.Success
+                && result.MatchedModelEdgeCount == 2
+                && result.UnmatchedModelEdgeCount == 0
+                && result.Matches.Count == 2,
+                "Surface-edge coverage must retain two unique nearest matches.");
+            RequireApproximately(result.CoverageRatio, 1.0, 0.0,
+                "Surface-edge coverage ratio must remain decision-free and exact.");
+            RequireApproximately(result.InlierRmse, 0.1, 1e-12,
+                "Unexpected surface-edge coverage RMSE.");
+        }
+
+        private static void TestDeterministicSurfaceEdgeCoverageEmptyScene()
+        {
+            SurfaceEdgeAnchorSample[] model =
+            {
+                new SurfaceEdgeAnchorSample(
+                    0, new ThreeDPoint(0.0, 0.0, 0.0))
+            };
+            RigidSurfacePose identity = new RigidSurfacePose(
+                1.0, 0.0, 0.0,
+                0.0, 1.0, 0.0,
+                0.0, 0.0, 1.0,
+                0.0, 0.0, 0.0);
+            DeterministicSurfaceEdgeCoverageResult result =
+                new DeterministicSurfaceEdgeCoverageTool().Execute(
+                    model,
+                    new SurfaceEdgeAnchorSample[0],
+                    identity,
+                    0.2);
+
+            Require(result.Success
+                && result.ModelEdgeCount == 1
+                && result.SceneEdgeCount == 0
+                && result.MatchedModelEdgeCount == 0
+                && result.UnmatchedModelEdgeCount == 1
+                && result.CoverageRatio == 0.0
+                && !result.HasInlierRmse
+                && result.Matches.Count == 0,
+                "An empty scene-edge set must remain valid zero-coverage evidence.");
         }
 
         private static IReadOnlyList<SurfaceMatchSample> CreateSurfaceMatchModel()
