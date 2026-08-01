@@ -59,6 +59,12 @@ namespace Lib.Inspection.Smoke
                 Run("Height-map region statistics preserve row-major aggregation", TestHeightMapRegionStatistics, ref passed, ref total);
                 Run("Completeness Grid preserves reference-relative cell decisions", TestCompletenessGridInspection, ref passed, ref total);
                 Run("Reference-grid reconstruction preserves declared and reference-axis coordinates", TestReferenceGridPointReconstruction, ref passed, ref total);
+                Run("Dual-surface thickness preserves analytic separation statistics", TestDualSurfaceThicknessInspection, ref passed, ref total);
+                Run("Dual-surface thickness preserves independent lower and upper failures", TestDualSurfaceThicknessInspectionFailure, ref passed, ref total);
+                Run("Dual-surface thickness rejects degenerate reference geometry", TestDualSurfaceThicknessInspectionDegenerateReference, ref passed, ref total);
+                Run("Height deviation preserves peak-side selection and pass decision", TestHeightDeviationInspection, ref passed, ref total);
+                Run("Height deviation preserves tolerance failure", TestHeightDeviationInspectionFailure, ref passed, ref total);
+                Run("Height deviation rejects invalid summary evidence", TestHeightDeviationInspectionInvalidInput, ref passed, ref total);
                 Run("Height-difference edge retains strongest pair and exact-tie order", TestDeterministicHeightDifferenceEdge, ref passed, ref total);
                 Run("Height-difference edge skips missing pairs and requires support", TestDeterministicHeightDifferenceEdgeMissingAndSupport, ref passed, ref total);
                 Run("Deterministic line fit preserves full-XYZ inliers and direction", TestDeterministicLineFit, ref passed, ref total);
@@ -2606,6 +2612,110 @@ namespace Lib.Inspection.Smoke
             RequireApproximately(first.Z, 3.5, 0.0, "Unexpected first Z coordinate.");
             Require(result.Samples[2].Row == 1 && result.Samples[2].Column == 0,
                 "Reference-grid row-major order changed.");
+        }
+
+        private static void TestDualSurfaceThicknessInspection()
+        {
+            HeightFieldPlaneFitSample[] reference = CreateThicknessPlaneSamples(10.0, 10.0, 10.0, 10.0);
+            HeightFieldPlaneFitSample[] measurement = CreateThicknessPlaneSamples(15.0, 15.0, 15.0, 15.0);
+            DualSurfaceThicknessInspectionResult result =
+                new DualSurfaceThicknessInspectionTool().Execute(reference, measurement, 4.0, 6.0, 4);
+
+            Require(result.Success && result.Decision == DualSurfaceThicknessDecision.Pass,
+                "Analytic dual-surface thickness must pass.");
+            RequireApproximately(result.Mean, 5.0, 0.0, "Unexpected thickness mean.");
+            RequireApproximately(result.Minimum, 5.0, 0.0, "Unexpected thickness minimum.");
+            RequireApproximately(result.Maximum, 5.0, 0.0, "Unexpected thickness maximum.");
+            RequireApproximately(result.Range, 0.0, 0.0, "Unexpected thickness range.");
+            RequireApproximately(result.RootMeanSquareSpread, 0.0, 0.0, "Unexpected thickness RMS spread.");
+            RequireApproximately(result.ReferenceFitHeightRootMeanSquare, 0.0, 0.0, "Unexpected reference H RMS.");
+            Require(result.ReferenceSampleCount == 4 && result.MeasurementSampleCount == 4,
+                "Dual-surface sample counts changed.");
+        }
+
+        private static void TestDualSurfaceThicknessInspectionFailure()
+        {
+            HeightFieldPlaneFitSample[] reference = CreateThicknessPlaneSamples(10.0, 10.0, 10.0, 10.0);
+            HeightFieldPlaneFitSample[] measurement = CreateThicknessPlaneSamples(13.0, 15.0, 15.0, 17.0);
+            DualSurfaceThicknessInspectionResult result =
+                new DualSurfaceThicknessInspectionTool().Execute(reference, measurement, 4.0, 6.0, 4);
+
+            Require(result.Success && result.Decision == DualSurfaceThicknessDecision.Fail,
+                "Out-of-limit dual-surface thickness must fail.");
+            Require(result.BelowLowerLimitCount == 1 && result.AboveUpperLimitCount == 1,
+                "Dual-surface limit counts changed.");
+            RequireApproximately(result.Mean, 5.0, 0.0, "Unexpected failed thickness mean.");
+            RequireApproximately(result.RootMeanSquareSpread, Math.Sqrt(2.0), 1e-12,
+                "Unexpected failed thickness RMS spread.");
+        }
+
+        private static void TestDualSurfaceThicknessInspectionDegenerateReference()
+        {
+            HeightFieldPlaneFitSample[] reference =
+            {
+                new HeightFieldPlaneFitSample(new ThreeDPoint(0.0, 10.0, 0.0), 10.0),
+                new HeightFieldPlaneFitSample(new ThreeDPoint(1.0, 10.0, 0.0), 10.0),
+                new HeightFieldPlaneFitSample(new ThreeDPoint(2.0, 10.0, 0.0), 10.0)
+            };
+            DualSurfaceThicknessInspectionResult result =
+                new DualSurfaceThicknessInspectionTool().Execute(
+                    reference,
+                    CreateThicknessPlaneSamples(15.0, 15.0, 15.0, 15.0),
+                    4.0,
+                    6.0,
+                    1);
+
+            Require(!result.Success && result.Decision == DualSurfaceThicknessDecision.Error,
+                "Degenerate thickness reference must fail closed.");
+            Require(result.Message.StartsWith("Reference surface fit failed:", StringComparison.Ordinal),
+                "Degenerate thickness reference message changed.");
+        }
+
+        private static void TestHeightDeviationInspection()
+        {
+            HeightDeviationInspectionResult result =
+                new HeightDeviationInspectionTool().Execute(8.0, 13.0, 10.0, 12, 3.0);
+
+            Require(result.Success && result.Decision == HeightDeviationDecision.Pass,
+                "Height deviation at tolerance must pass.");
+            RequireApproximately(result.LowDeviation, 2.0, 0.0, "Unexpected low deviation.");
+            RequireApproximately(result.HighDeviation, 3.0, 0.0, "Unexpected high deviation.");
+            RequireApproximately(result.PeakDeviation, 3.0, 0.0, "Unexpected peak deviation.");
+        }
+
+        private static void TestHeightDeviationInspectionFailure()
+        {
+            HeightDeviationInspectionResult result =
+                new HeightDeviationInspectionTool().Execute(8.0, 13.0, 10.0, 12, 2.5);
+
+            Require(result.Success && result.Decision == HeightDeviationDecision.Fail,
+                "Height deviation above tolerance must fail.");
+            RequireApproximately(result.PeakDeviation, 3.0, 0.0, "Unexpected failed peak deviation.");
+        }
+
+        private static void TestHeightDeviationInspectionInvalidInput()
+        {
+            HeightDeviationInspectionResult result =
+                new HeightDeviationInspectionTool().Execute(double.NaN, 13.0, 10.0, 12, 2.5);
+
+            Require(!result.Success && result.Decision == HeightDeviationDecision.Error,
+                "Invalid height summary must fail closed.");
+            Require(double.IsNaN(result.PeakDeviation), "Invalid height summary must not expose a peak value.");
+        }
+
+        private static HeightFieldPlaneFitSample[] CreateThicknessPlaneSamples(
+            double first,
+            double second,
+            double third,
+            double fourth)
+        {
+            return new[]
+            {
+                new HeightFieldPlaneFitSample(new ThreeDPoint(0.0, 10.0, 0.0), first),
+                new HeightFieldPlaneFitSample(new ThreeDPoint(1.0, 10.0, 0.0), second),
+                new HeightFieldPlaneFitSample(new ThreeDPoint(0.0, 10.0, 1.0), third),
+                new HeightFieldPlaneFitSample(new ThreeDPoint(1.0, 10.0, 1.0), fourth)
+            };
         }
 
         private static HeightMap3D CreateThicknessMap()

@@ -15,6 +15,11 @@ same result separately without making rendering part of the measurement algorith
 `Lib.ThreeD.FeatureExtraction` contains pure full-XYZ geometry tools that do
 not know a camera, C3D file, recipe, UI, or calibration claim.
 
+`DualSurfaceThicknessInspectionTool` and `HeightDeviationInspectionTool`
+own deterministic height-residual/statistical evaluation and typed decisions.
+Source identity, units, frames, recipe lifecycle, and UI evidence remain with
+the consuming application.
+
 - `TwoPointLineTool` constructs an ordered finite full-XYZ segment from two
   explicit points. It does not pick, snap, fit, or measure.
 - `FullXyzAffineSolveTool` solves one source-to-reference affine matrix from
