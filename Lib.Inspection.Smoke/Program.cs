@@ -82,6 +82,7 @@ namespace Lib.Inspection.Smoke
                 Run("Edge matcher accepts one unique candidate", TestEdgeMatcherUniqueSuccess, ref passed, ref total);
                 Run("Edge matcher rejects repeated candidates as ambiguous", TestEdgeMatcherUniqueAmbiguous, ref passed, ref total);
                 Run("Edge matcher reports no match without a candidate", TestEdgeMatcherUniqueNoMatch, ref passed, ref total);
+                Run("Edge matcher global polarity is opt-in and reports the selected state", TestEdgeMatcherGlobalPolarity, ref passed, ref total);
                 Run("Combined runner executes 2D and 3D pass steps", TestCombinedRunnerPass, ref passed, ref total);
                 Run("Combined runner retains later 3D evidence after 2D failure", TestCombinedRunnerContinuesAfterFailure, ref passed, ref total);
                 Run("Combined runner converts a 3D exception to a result", TestCombinedRunnerCatchesThreeDException, ref passed, ref total);
@@ -1690,6 +1691,63 @@ namespace Lib.Inspection.Smoke
             return tool;
         }
 
+        private static void TestEdgeMatcherGlobalPolarity()
+        {
+            using (Mat sameSource = CreateAutoMPointUniqueSource())
+            using (Mat template = new Mat(sameSource, new Rect(60, 60, 64, 64)).Clone())
+            using (Mat reversedSource = new Mat())
+            using (Mat noTargetSource = new Mat(sameSource.Size(), MatType.CV_8UC1, Scalar.All(24)))
+            {
+                Cv2.BitwiseNot(sameSource, reversedSource);
+
+                EdgeBasedTemplateMatchingTool legacyTool = CreateEdgeMatcher(template, false);
+                VisionToolResult legacyReversed = legacyTool.Execute(reversedSource);
+                Require(!legacyReversed.Success && legacyTool.results.Count == 0,
+                    "Missing polarity keys must preserve legacy Same-only rejection.");
+                legacyReversed.ResultImage?.Dispose();
+
+                EdgeBasedTemplateMatchingTool sameTool = CreateEdgeMatcher(template, false, true);
+                VisionToolResult sameResult = sameTool.Execute(sameSource);
+                Require(sameResult.Success
+                    && sameTool.results.Count == 1
+                    && !sameTool.results[0].PolarityReversed
+                    && sameResult.Metrics["GlobalPolarity.AllowReversal"] == 1D
+                    && sameResult.Metrics["GlobalPolarity.Reversed"] == 0D,
+                    "Opt-in same-polarity execution must retain Same state.");
+                sameResult.ResultImage?.Dispose();
+
+                EdgeBasedTemplateMatchingTool reversedTool = CreateEdgeMatcher(template, false, true);
+                VisionToolResult reversedResult = reversedTool.Execute(reversedSource);
+                Require(reversedResult.Success
+                    && reversedTool.results.Count == 1
+                    && reversedTool.results[0].PolarityReversed
+                    && reversedResult.Metrics["GlobalPolarity.Reversed"] == 1D,
+                    "Opt-in globally reversed execution must accept and report Reversed state.");
+                reversedResult.ResultImage?.Dispose();
+
+                EdgeBasedTemplateMatchingTool noTargetTool = CreateEdgeMatcher(template, false, true);
+                VisionToolResult noTargetResult = noTargetTool.Execute(noTargetSource);
+                Require(!noTargetResult.Success && noTargetTool.results.Count == 0,
+                    "Global polarity reversal must not turn a no-target image into a match.");
+                noTargetResult.ResultImage?.Dispose();
+            }
+        }
+
+        private static EdgeBasedTemplateMatchingTool CreateEdgeMatcher(
+            Mat template,
+            bool useUniqueMatchValidation,
+            bool allowGlobalPolarityReversal)
+        {
+            EdgeBasedTemplateMatchingTool tool = new EdgeBasedTemplateMatchingTool();
+            tool.SetProperty(new SmokeEdgeMatcherProperty
+            {
+                USE_UNIQUE_MATCH_VALIDATION = useUniqueMatchValidation,
+                ALLOW_GLOBAL_POLARITY_REVERSAL = allowGlobalPolarityReversal
+            });
+            tool.SetTemplateImage(template);
+            return tool;
+        }
+
         private static void SaveUniqueMatchEvidence(
             string name,
             Mat source,
@@ -1907,6 +1965,7 @@ namespace Lib.Inspection.Smoke
             public int NUM_MATCH { get; set; } = 1;
             public bool USE_UNIQUE_MATCH_VALIDATION { get; set; }
             public double UNIQUE_MATCH_MIN_SCORE_MARGIN { get; set; } = 0.03D;
+            public bool ALLOW_GLOBAL_POLARITY_REVERSAL { get; set; }
             public string PATTERN_PATH { get; set; } = string.Empty;
             public int CANNY_LOW { get; set; } = 30;
             public int CANNY_HIGH { get; set; } = 100;

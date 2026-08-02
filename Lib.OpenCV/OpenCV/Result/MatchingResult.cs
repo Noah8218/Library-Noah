@@ -14,6 +14,7 @@ namespace Lib.OpenCV.Result
         public double ImageScore { get; set; } = double.NaN;
         public double FinalScore { get; set; } = 0.0D;
         public double ScoreMargin { get; set; } = double.NaN;
+        public bool PolarityReversed { get; set; }
         public double Angle { get; set; } = 0.0D;
         public double Scale { get; set; } = 1.0D;
         public OpenCvSharp.Point2f Center { get; set; } = new OpenCvSharp.Point2f();

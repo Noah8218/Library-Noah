@@ -1200,6 +1200,7 @@ namespace Lib.OpenCV.Tool
             public int NUM_MATCH { get; set; } = 2;
             public bool USE_UNIQUE_MATCH_VALIDATION { get; set; }
             public double UNIQUE_MATCH_MIN_SCORE_MARGIN { get; set; } = 0.03d;
+            public bool ALLOW_GLOBAL_POLARITY_REVERSAL { get; set; }
             public string PATTERN_PATH { get; set; } = string.Empty;
             public int CANNY_LOW { get; set; } = 30;
             public int CANNY_HIGH { get; set; } = 90;

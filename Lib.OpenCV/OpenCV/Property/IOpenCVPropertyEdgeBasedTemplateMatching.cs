@@ -8,6 +8,7 @@ namespace Lib.OpenCV.Property
         int NUM_MATCH { get; set; }
         bool USE_UNIQUE_MATCH_VALIDATION { get; set; }
         double UNIQUE_MATCH_MIN_SCORE_MARGIN { get; set; }
+        bool ALLOW_GLOBAL_POLARITY_REVERSAL { get; set; }
         string PATTERN_PATH { get; set; }
         int CANNY_LOW { get; set; }
         int CANNY_HIGH { get; set; }

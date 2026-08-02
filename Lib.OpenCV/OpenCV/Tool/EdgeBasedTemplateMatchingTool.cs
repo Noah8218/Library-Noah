@@ -440,6 +440,7 @@ namespace Lib.OpenCV.Tool
                     }
 
                     candidate = ApplySubpixelRefinement(gradients, modelCache, candidate);
+                    ApplyGlobalPolarityState(gradients, modelCache, candidate);
                     MatchingResult result = CreateResult(candidate, model, roi, useRoi);
                     if (!IsDuplicate(result))
                     {
@@ -576,6 +577,7 @@ namespace Lib.OpenCV.Tool
             }
 
             candidate = ApplySubpixelRefinement(gradients, modelCache, candidate);
+            ApplyGlobalPolarityState(gradients, modelCache, candidate);
             MatchingResult result = CreateResult(candidate, modelCache.Model, roi, useRoi);
             if (!IsDuplicate(result))
             {
@@ -660,6 +662,7 @@ namespace Lib.OpenCV.Tool
             AddSearchSpaceDiagnostics(metrics, templateModelCache?.Model);
             AddCandidateDiagnostics(metrics, candidateDiagnostics, property?.USE_FIND_SCALE == true);
             AddUniqueMatchDiagnostics(metrics);
+            AddGlobalPolarityDiagnostics(metrics);
             lock (phaseElapsedSync)
             {
                 foreach (KeyValuePair<string, double> phase in phaseElapsedMs)
@@ -669,6 +672,19 @@ namespace Lib.OpenCV.Tool
             }
 
             return metrics;
+        }
+
+        private void AddGlobalPolarityDiagnostics(IDictionary<string, double> metrics)
+        {
+            if (metrics == null || property == null)
+            {
+                return;
+            }
+
+            metrics["GlobalPolarity.AllowReversal"] = property.ALLOW_GLOBAL_POLARITY_REVERSAL ? 1D : 0D;
+            metrics["GlobalPolarity.Reversed"] = results.Count == 1 && results[0].PolarityReversed ? 1D : 0D;
+            metrics["GlobalPolarity.SameCount"] = results.Count(result => !result.PolarityReversed);
+            metrics["GlobalPolarity.ReversedCount"] = results.Count(result => result.PolarityReversed);
         }
 
         private void AddUniqueMatchDiagnostics(IDictionary<string, double> metrics)
@@ -2137,6 +2153,7 @@ namespace Lib.OpenCV.Tool
                 ImageVerifyScore = candidate.ImageVerifyScore,
                 DescriptorVerifyScore = candidate.DescriptorVerifyScore,
                 HybridScore = candidate.HybridScore,
+                PolarityReversed = candidate.PolarityReversed,
                 Angle = candidate.Angle,
                 Scale = candidate.Scale,
                 Width = candidate.Width,
@@ -2319,7 +2336,8 @@ namespace Lib.OpenCV.Tool
                 model.UnitDyValues,
                 gradients.UnitDxValues,
                 gradients.UnitDyValues,
-                CreateBreakSumThresholds(model.PointCount));
+                CreateBreakSumThresholds(model.PointCount),
+                property.ALLOW_GLOBAL_POLARITY_REVERSAL);
         }
 
         private double[] CreateBreakSumThresholds(int pointCount)
@@ -2370,13 +2388,62 @@ namespace Lib.OpenCV.Tool
                 partialSum += (sourceUnitDxValues[index] * templateUnitDxValues[i])
                     + (sourceUnitDyValues[index] * templateUnitDyValues[i]);
 
-                if (partialSum < breakSumThresholds[i])
+                if (!context.AllowGlobalPolarityReversal
+                    && partialSum < breakSumThresholds[i])
                 {
                     return partialSum / (i + 1);
                 }
             }
 
-            return partialSum / pointCount;
+            return context.AllowGlobalPolarityReversal
+                ? Math.Abs(partialSum) / pointCount
+                : partialSum / pointCount;
+        }
+
+        private void ApplyGlobalPolarityState(
+            GradientImage gradients,
+            TemplateModelCache modelCache,
+            MatchCandidate candidate)
+        {
+            if (candidate == null)
+            {
+                return;
+            }
+
+            candidate.PolarityReversed = false;
+            if (!property.ALLOW_GLOBAL_POLARITY_REVERSAL)
+            {
+                return;
+            }
+
+            RotatedEdgeTemplateModel model = modelCache.GetRotatedModel(candidate.Angle, candidate.Scale);
+            CandidateScoreContext context = CreateScoreContext(gradients, model);
+            candidate.PolarityReversed = ScoreCandidateSigned(
+                context,
+                (int)Math.Round(candidate.Center.X),
+                (int)Math.Round(candidate.Center.Y)) < 0D;
+        }
+
+        private static double ScoreCandidateSigned(
+            CandidateScoreContext context,
+            int centerX,
+            int centerY)
+        {
+            if (context.PointCount <= 0)
+            {
+                return 0D;
+            }
+
+            double sum = 0D;
+            int centerIndex = (centerY * context.ImageWidth) + centerX;
+            for (int i = 0; i < context.PointCount; i++)
+            {
+                int index = centerIndex + context.IndexOffsets[i];
+                sum += (context.SourceUnitDxValues[index] * context.TemplateUnitDxValues[i])
+                    + (context.SourceUnitDyValues[index] * context.TemplateUnitDyValues[i]);
+            }
+
+            return sum / context.PointCount;
         }
 
         private List<RotatedEdgeTemplateModel> GetSearchModels(TemplateModelCache modelCache, double angleStep)
@@ -2788,7 +2855,8 @@ namespace Lib.OpenCV.Tool
                 FinalScore = Math.Round(GetUniqueMatchSelectionScore(candidate) * 100D, 3),
                 ScoreMargin = property.USE_UNIQUE_MATCH_VALIDATION
                     ? Math.Round(candidateDiagnostics.UniqueMatchScoreMargin * 100D, 3)
-                    : double.NaN
+                    : double.NaN,
+                PolarityReversed = candidate.PolarityReversed
             };
             return result;
         }
@@ -3776,7 +3844,7 @@ namespace Lib.OpenCV.Tool
                     -1);
                 Cv2.PutText(
                     imageResult,
-                    $"#{result.Index} {result.Score:0.0}",
+                    $"#{result.Index} {result.Score:0.0} {(result.PolarityReversed ? "Reversed" : "Same")}",
                     new OpenCvSharp.Point(rect.X, Math.Max(14, rect.Y - 5)),
                     HersheyFonts.HersheySimplex,
                     0.45,
@@ -3951,7 +4019,10 @@ namespace Lib.OpenCV.Tool
             string unique = property.USE_UNIQUE_MATCH_VALIDATION
                 ? $", Unique=Margin{property.UNIQUE_MATCH_MIN_SCORE_MARGIN:0.###}"
                 : string.Empty;
-            return $"ScoreMin={property.SCORE_MIN}, MatchCount={property.NUM_MATCH}, Canny={property.CANNY_LOW}..{property.CANNY_HIGH}, {angle}, {scale}, {position}{pyramid}{hybrid}{unique}, MaxPoints={property.MAX_TEMPLATE_POINTS}, ROI={roi}";
+            string polarity = property.ALLOW_GLOBAL_POLARITY_REVERSAL
+                ? ", Polarity=SameOrGloballyReversed"
+                : ", Polarity=Same";
+            return $"ScoreMin={property.SCORE_MIN}, MatchCount={property.NUM_MATCH}, Canny={property.CANNY_LOW}..{property.CANNY_HIGH}, {angle}, {scale}, {position}{pyramid}{hybrid}{unique}{polarity}, MaxPoints={property.MAX_TEMPLATE_POINTS}, ROI={roi}";
         }
 
         private static string FormatRoi(Rect roi)
@@ -4452,7 +4523,8 @@ namespace Lib.OpenCV.Tool
                 double[] templateUnitDyValues,
                 double[] sourceUnitDxValues,
                 double[] sourceUnitDyValues,
-                double[] breakSumThresholds)
+                double[] breakSumThresholds,
+                bool allowGlobalPolarityReversal)
             {
                 ImageWidth = imageWidth;
                 PointCount = pointCount;
@@ -4462,6 +4534,7 @@ namespace Lib.OpenCV.Tool
                 SourceUnitDxValues = sourceUnitDxValues ?? Array.Empty<double>();
                 SourceUnitDyValues = sourceUnitDyValues ?? Array.Empty<double>();
                 BreakSumThresholds = breakSumThresholds ?? Array.Empty<double>();
+                AllowGlobalPolarityReversal = allowGlobalPolarityReversal;
             }
 
             public int ImageWidth { get; }
@@ -4472,6 +4545,7 @@ namespace Lib.OpenCV.Tool
             public double[] SourceUnitDxValues { get; }
             public double[] SourceUnitDyValues { get; }
             public double[] BreakSumThresholds { get; }
+            public bool AllowGlobalPolarityReversal { get; }
         }
 
         private sealed class CandidateSearchState
@@ -4701,6 +4775,7 @@ namespace Lib.OpenCV.Tool
             public double ImageVerifyScore { get; set; } = double.NaN;
             public double DescriptorVerifyScore { get; set; } = double.NaN;
             public double HybridScore { get; set; } = double.NaN;
+            public bool PolarityReversed { get; set; }
             public double Angle { get; set; }
             public double Scale { get; set; } = 1D;
             public int Width { get; set; }
