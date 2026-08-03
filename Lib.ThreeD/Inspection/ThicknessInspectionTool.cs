@@ -43,17 +43,36 @@ namespace Lib.ThreeD.Inspection
                 if (!ThreeDInspectionMath.IsFinite(Options.MinimumThickness)
                     || !ThreeDInspectionMath.IsFinite(Options.MaximumThickness)
                     || Options.MinimumThickness > Options.MaximumThickness
-                    || Options.MinimumValidSamples <= 0)
+                    || Options.MinimumValidSamples <= 0
+                    || !ThreeDInspectionMath.IsFinite(Options.MinimumValidCoverageRatio)
+                    || Options.MinimumValidCoverageRatio < 0.0
+                    || Options.MinimumValidCoverageRatio > 1.0)
                 {
-                    return Failure(ThreeDInspectionErrorCode.InvalidParameter, "Thickness limits or minimum sample count are invalid.", stopwatch, source);
+                    return Failure(ThreeDInspectionErrorCode.InvalidParameter, "Thickness limits or valid-sample policy are invalid.", stopwatch, source);
                 }
 
-                HeightMapRoi roi = ThreeDInspectionMath.ResolveRoi(source, Options.Roi);
-                if (!roi.IsValidFor(source))
+                if (!ThreeDInspectionMath.TryPrepareHeightMap(
+                    source,
+                    Options.Roi,
+                    Options.InputRequirements,
+                    Options.MinimumValidSamples,
+                    Options.MinimumValidCoverageRatio,
+                    false,
+                    out HeightMapSampleSummary summary,
+                    out ThreeDInspectionErrorCode inputErrorCode,
+                    out string inputErrorMessage))
                 {
-                    return Failure(ThreeDInspectionErrorCode.InvalidRoi, "The thickness ROI is outside the height map.", stopwatch, source, roi);
+                    HeightMapRoi? failureRoi = summary.TotalSampleCount > 0 ? summary.Roi : Options.Roi;
+                    ThreeDInspectionResult failure = Failure(inputErrorCode, inputErrorMessage, stopwatch, source, failureRoi);
+                    if (summary.TotalSampleCount > 0)
+                    {
+                        ThreeDInspectionMath.ApplySampleSummary(failure, summary, Options.MinimumValidSamples, Options.MinimumValidCoverageRatio);
+                    }
+
+                    return failure;
                 }
 
+                HeightMapRoi roi = summary.Roi;
                 long validSampleCount = 0;
                 long belowLowerLimitCount = 0;
                 long aboveUpperLimitCount = 0;
@@ -93,19 +112,9 @@ namespace Lib.ThreeD.Inspection
                     }
                 }
 
-                if (validSampleCount < Options.MinimumValidSamples)
-                {
-                    return Failure(
-                        ThreeDInspectionErrorCode.InsufficientValidSamples,
-                        "The thickness ROI does not contain enough finite samples.",
-                        stopwatch,
-                        source,
-                        roi);
-                }
-
                 stopwatch.Stop();
                 ThreeDInspectionResult result = ThreeDInspectionResult.CreateMeasurement(source, roi, stopwatch.Elapsed);
-                result.Metrics["ValidSampleCount"] = validSampleCount;
+                ThreeDInspectionMath.ApplySampleSummary(result, summary, Options.MinimumValidSamples, Options.MinimumValidCoverageRatio);
                 result.Metrics["Minimum"] = minimum;
                 result.Metrics["Maximum"] = maximum;
                 result.Metrics["Mean"] = mean;
@@ -114,6 +123,14 @@ namespace Lib.ThreeD.Inspection
                 result.Metrics["UpperLimit"] = Options.MaximumThickness;
                 result.Metrics["BelowLowerLimitCount"] = belowLowerLimitCount;
                 result.Metrics["AboveUpperLimitCount"] = aboveUpperLimitCount;
+                result.MetricUnits["Minimum"] = source.HeightUnit;
+                result.MetricUnits["Maximum"] = source.HeightUnit;
+                result.MetricUnits["Mean"] = source.HeightUnit;
+                result.MetricUnits["Range"] = source.HeightUnit;
+                result.MetricUnits["LowerLimit"] = source.HeightUnit;
+                result.MetricUnits["UpperLimit"] = source.HeightUnit;
+                result.MetricUnits["BelowLowerLimitCount"] = "count";
+                result.MetricUnits["AboveUpperLimitCount"] = "count";
 
                 if (belowLowerLimitCount == 0 && aboveUpperLimitCount == 0)
                 {

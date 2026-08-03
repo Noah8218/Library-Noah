@@ -43,18 +43,37 @@ namespace Lib.ThreeD.Inspection
                 if (!ThreeDInspectionMath.IsFinite(Options.MaximumPeakToValley)
                     || Options.MaximumPeakToValley < 0.0
                     || Options.MinimumValidSamples < 3
+                    || !ThreeDInspectionMath.IsFinite(Options.MinimumValidCoverageRatio)
+                    || Options.MinimumValidCoverageRatio < 0.0
+                    || Options.MinimumValidCoverageRatio > 1.0
                     || (Options.MaximumRms.HasValue
                         && (!ThreeDInspectionMath.IsFinite(Options.MaximumRms.Value) || Options.MaximumRms.Value < 0.0)))
                 {
-                    return Failure(ThreeDInspectionErrorCode.InvalidParameter, "Warpage limits or minimum sample count are invalid.", stopwatch, source);
+                    return Failure(ThreeDInspectionErrorCode.InvalidParameter, "Warpage limits or valid-sample policy are invalid.", stopwatch, source);
                 }
 
-                HeightMapRoi roi = ThreeDInspectionMath.ResolveRoi(source, Options.Roi);
-                if (!roi.IsValidFor(source))
+                if (!ThreeDInspectionMath.TryPrepareHeightMap(
+                    source,
+                    Options.Roi,
+                    Options.InputRequirements,
+                    Options.MinimumValidSamples,
+                    Options.MinimumValidCoverageRatio,
+                    false,
+                    out HeightMapSampleSummary summary,
+                    out ThreeDInspectionErrorCode inputErrorCode,
+                    out string inputErrorMessage))
                 {
-                    return Failure(ThreeDInspectionErrorCode.InvalidRoi, "The warpage ROI is outside the height map.", stopwatch, source, roi);
+                    HeightMapRoi? failureRoi = summary.TotalSampleCount > 0 ? summary.Roi : Options.Roi;
+                    ThreeDInspectionResult failure = Failure(inputErrorCode, inputErrorMessage, stopwatch, source, failureRoi);
+                    if (summary.TotalSampleCount > 0)
+                    {
+                        ThreeDInspectionMath.ApplySampleSummary(failure, summary, Options.MinimumValidSamples, Options.MinimumValidCoverageRatio);
+                    }
+
+                    return failure;
                 }
 
+                HeightMapRoi roi = summary.Roi;
                 long validSampleCount = 0;
                 double meanX = 0.0;
                 double meanY = 0.0;
@@ -82,16 +101,6 @@ namespace Lib.ThreeD.Inspection
                         meanY += (y - meanY) / validSampleCount;
                         meanZ += (z - meanZ) / validSampleCount;
                     }
-                }
-
-                if (validSampleCount < Options.MinimumValidSamples)
-                {
-                    return Failure(
-                        ThreeDInspectionErrorCode.InsufficientValidSamples,
-                        "The warpage ROI does not contain enough finite samples.",
-                        stopwatch,
-                        source,
-                        roi);
                 }
 
                 double sumXX = 0.0;
@@ -198,7 +207,7 @@ namespace Lib.ThreeD.Inspection
                 stopwatch.Stop();
                 ThreeDInspectionResult result = ThreeDInspectionResult.CreateMeasurement(source, roi, stopwatch.Elapsed);
                 result.PlaneFit = new ThreeDPlaneFit(slopeX, slopeY, intercept);
-                result.Metrics["ValidSampleCount"] = validSampleCount;
+                ThreeDInspectionMath.ApplySampleSummary(result, summary, Options.MinimumValidSamples, Options.MinimumValidCoverageRatio);
                 result.Metrics["PeakToValley"] = peakToValley;
                 result.Metrics["Rms"] = rms;
                 result.Metrics["MinimumResidual"] = minimumResidual;
@@ -210,6 +219,19 @@ namespace Lib.ThreeD.Inspection
                 if (Options.MaximumRms.HasValue)
                 {
                     result.Metrics["MaximumRms"] = Options.MaximumRms.Value;
+                }
+
+                result.MetricUnits["PeakToValley"] = source.HeightUnit;
+                result.MetricUnits["Rms"] = source.HeightUnit;
+                result.MetricUnits["MinimumResidual"] = source.HeightUnit;
+                result.MetricUnits["MaximumResidual"] = source.HeightUnit;
+                result.MetricUnits["MaximumPeakToValley"] = source.HeightUnit;
+                result.MetricUnits["PlaneSlopeX"] = source.HeightUnit + "/" + source.PlanarUnit;
+                result.MetricUnits["PlaneSlopeY"] = source.HeightUnit + "/" + source.PlanarUnit;
+                result.MetricUnits["PlaneIntercept"] = source.HeightUnit;
+                if (Options.MaximumRms.HasValue)
+                {
+                    result.MetricUnits["MaximumRms"] = source.HeightUnit;
                 }
 
                 bool passed = peakToValley <= Options.MaximumPeakToValley

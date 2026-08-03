@@ -54,14 +54,29 @@ namespace Lib.ThreeD.Inspection
                         source);
                 }
 
-                HeightMapRoi roi = ThreeDInspectionMath.ResolveRoi(source, Options.Roi);
-                if (!roi.IsValidFor(source))
+                if (!ThreeDInspectionMath.TryPrepareHeightMap(
+                    source,
+                    Options.Roi,
+                    Options.InputRequirements,
+                    Options.MinimumValidSamples,
+                    Options.MinimumValidCoverageRatio,
+                    true,
+                    out HeightMapSampleSummary summary,
+                    out ThreeDInspectionErrorCode inputErrorCode,
+                    out string inputErrorMessage))
                 {
-                    return Failure(ThreeDInspectionErrorCode.InvalidRoi, "The datum-plane measurement ROI is outside the height map.", stopwatch, source, roi);
+                    HeightMapRoi? failureRoi = summary.TotalSampleCount > 0 ? summary.Roi : Options.Roi;
+                    ThreeDInspectionResult failure = Failure(inputErrorCode, inputErrorMessage, stopwatch, source, failureRoi);
+                    if (summary.TotalSampleCount > 0)
+                    {
+                        ThreeDInspectionMath.ApplySampleSummary(failure, summary, Options.MinimumValidSamples, Options.MinimumValidCoverageRatio);
+                    }
+
+                    return failure;
                 }
 
+                HeightMapRoi roi = summary.Roi;
                 long validSampleCount = 0;
-                long missingSampleCount = 0;
                 double minimumResidual = double.PositiveInfinity;
                 double maximumResidual = double.NegativeInfinity;
                 int minimumResidualRow = -1;
@@ -78,7 +93,6 @@ namespace Lib.ThreeD.Inspection
                         double rawHeight = source.GetHeight(row, column);
                         if (double.IsNaN(rawHeight))
                         {
-                            missingSampleCount++;
                             continue;
                         }
 
@@ -121,11 +135,6 @@ namespace Lib.ThreeD.Inspection
                     }
                 }
 
-                if (validSampleCount < Options.MinimumValidSamples)
-                {
-                    return Failure(ThreeDInspectionErrorCode.InsufficientValidSamples, "The datum-plane measurement ROI does not contain enough finite samples.", stopwatch, source, roi);
-                }
-
                 double peakToValley = maximumResidual - minimumResidual;
                 double rms = rmsScale == 0.0 ? 0.0 : rmsScale * Math.Sqrt(rmsSum / validSampleCount);
                 if (!ThreeDInspectionMath.IsFinite(peakToValley) || !ThreeDInspectionMath.IsFinite(rms))
@@ -135,6 +144,7 @@ namespace Lib.ThreeD.Inspection
 
                 stopwatch.Stop();
                 ThreeDInspectionResult result = ThreeDInspectionResult.CreateMeasurement(source, roi, stopwatch.Elapsed);
+                ThreeDInspectionMath.ApplySampleSummary(result, summary, Options.MinimumValidSamples, Options.MinimumValidCoverageRatio);
                 result.Metrics["MinimumRawHeightResidual"] = minimumResidual;
                 result.Metrics["MaximumRawHeightResidual"] = maximumResidual;
                 result.Metrics["MinimumResidualRow"] = minimumResidualRow;
@@ -143,14 +153,26 @@ namespace Lib.ThreeD.Inspection
                 result.Metrics["MaximumResidualColumn"] = maximumResidualColumn;
                 result.Metrics["PeakToValleyRawHeight"] = peakToValley;
                 result.Metrics["RmsRawHeightResidual"] = rms;
-                result.Metrics["ValidSampleCount"] = validSampleCount;
-                result.Metrics["MissingSampleCount"] = missingSampleCount;
                 result.Metrics["MaximumPeakToValleyRawHeight"] = Options.MaximumPeakToValleyRawHeight;
                 result.Metrics["MinimumAbsoluteNormalY"] = Options.MinimumAbsoluteNormalY;
                 result.Metrics["PlaneNormalX"] = normalX;
                 result.Metrics["PlaneNormalY"] = normalY;
                 result.Metrics["PlaneNormalZ"] = normalZ;
                 result.Metrics["PlaneOffset"] = offset;
+                result.MetricUnits["MinimumRawHeightResidual"] = source.HeightUnit;
+                result.MetricUnits["MaximumRawHeightResidual"] = source.HeightUnit;
+                result.MetricUnits["MinimumResidualRow"] = "count";
+                result.MetricUnits["MinimumResidualColumn"] = "count";
+                result.MetricUnits["MaximumResidualRow"] = "count";
+                result.MetricUnits["MaximumResidualColumn"] = "count";
+                result.MetricUnits["PeakToValleyRawHeight"] = source.HeightUnit;
+                result.MetricUnits["RmsRawHeightResidual"] = source.HeightUnit;
+                result.MetricUnits["MaximumPeakToValleyRawHeight"] = source.HeightUnit;
+                result.MetricUnits["MinimumAbsoluteNormalY"] = "ratio";
+                result.MetricUnits["PlaneNormalX"] = "ratio";
+                result.MetricUnits["PlaneNormalY"] = "ratio";
+                result.MetricUnits["PlaneNormalZ"] = "ratio";
+                result.MetricUnits["PlaneOffset"] = source.HeightUnit;
                 bool passed = peakToValley <= Options.MaximumPeakToValleyRawHeight;
                 result.Success = passed;
                 result.ResultStatus = passed ? ThreeDInspectionResultStatus.Passed : ThreeDInspectionResultStatus.Failed;
@@ -212,6 +234,9 @@ namespace Lib.ThreeD.Inspection
                 || !ThreeDInspectionMath.IsFinite(Options.MaximumPeakToValleyRawHeight)
                 || Options.MaximumPeakToValleyRawHeight <= 0.0
                 || Options.MinimumValidSamples < 3
+                || !ThreeDInspectionMath.IsFinite(Options.MinimumValidCoverageRatio)
+                || Options.MinimumValidCoverageRatio < 0.0
+                || Options.MinimumValidCoverageRatio > 1.0
                 || !ThreeDInspectionMath.IsFinite(Options.MinimumAbsoluteNormalY)
                 || Options.MinimumAbsoluteNormalY <= 0.0
                 || Options.MinimumAbsoluteNormalY > 1.0)

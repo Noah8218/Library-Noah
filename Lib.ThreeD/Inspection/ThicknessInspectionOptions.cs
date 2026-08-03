@@ -11,5 +11,9 @@ namespace Lib.ThreeD.Inspection
         public double MaximumThickness { get; set; }
 
         public int MinimumValidSamples { get; set; } = 1;
+
+        public double MinimumValidCoverageRatio { get; set; }
+
+        public HeightMapInputRequirements InputRequirements { get; set; }
     }
 }

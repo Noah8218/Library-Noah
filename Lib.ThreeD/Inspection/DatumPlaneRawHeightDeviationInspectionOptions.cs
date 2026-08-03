@@ -24,5 +24,9 @@ namespace Lib.ThreeD.Inspection
         public int MinimumValidSamples { get; set; } = 3;
 
         public double MinimumAbsoluteNormalY { get; set; } = 0.1;
+
+        public double MinimumValidCoverageRatio { get; set; }
+
+        public HeightMapInputRequirements InputRequirements { get; set; }
     }
 }

@@ -21,7 +21,12 @@ namespace Lib.Inspection.Smoke
 
             try
             {
+                Run("Height map keeps legacy unit compatibility", TestHeightMapLegacyUnitCompatibility, ref passed, ref total);
+                Run("Height map rejects infinity and non-finite coordinate extents", TestHeightMapRejectsInvalidValues, ref passed, ref total);
                 Run("Thickness pass preserves declared metadata", TestThicknessPass, ref passed, ref total);
+                Run("Thickness rejects a unit contract mismatch", TestThicknessUnitContractMismatch, ref passed, ref total);
+                Run("Thickness rejects a frame contract mismatch", TestThicknessFrameContractMismatch, ref passed, ref total);
+                Run("Thickness rejects insufficient valid coverage with quality evidence", TestThicknessInsufficientCoverage, ref passed, ref total);
                 Run("Thickness tolerance failure retains measurement", TestThicknessToleranceFailure, ref passed, ref total);
                 Run("Thickness rejects an invalid ROI", TestThicknessInvalidRoi, ref passed, ref total);
                 Run("Thickness rejects insufficient valid samples", TestThicknessInsufficientSamples, ref passed, ref total);
@@ -34,6 +39,7 @@ namespace Lib.Inspection.Smoke
                 Run("Datum plane retains measurement for a local-limit failure", TestDatumPlaneToleranceFailure, ref passed, ref total);
                 Run("Datum plane rejects a near-vertical height-field orientation", TestDatumPlaneNearVertical, ref passed, ref total);
                 Run("Datum plane treats missing cells separately from valid samples", TestDatumPlaneMissingSamples, ref passed, ref total);
+                Run("Datum plane rejects mixed planar and height units", TestDatumPlaneMixedUnits, ref passed, ref total);
                 Run("Two-point line constructs an ordered full-XYZ segment", TestTwoPointLine, ref passed, ref total);
                 Run("Two-point line rejects a zero-length segment", TestTwoPointLineZeroLength, ref passed, ref total);
                 Run("Three-point plane preserves authored normal orientation", TestThreePointPlane, ref passed, ref total);
@@ -164,6 +170,41 @@ namespace Lib.Inspection.Smoke
             Console.WriteLine("PASS | " + name);
         }
 
+        private static void TestHeightMapLegacyUnitCompatibility()
+        {
+            HeightMap3D map = new HeightMap3D(1, 1, 0.0, 0.0, 1.0, 1.0, new[] { 2.0 }, "mm", "legacy-frame", "legacy-source");
+
+            Require(map.Unit == "mm" && map.PlanarUnit == "mm" && map.HeightUnit == "mm", "The legacy unit must populate both explicit units.");
+            Require(map.FrameId == "legacy-frame" && map.SourceId == "legacy-source", "Legacy metadata was not preserved.");
+            Require(map.CoordinateConvention == "GridXGridYScalarHeight", "The fixed height-map coordinate convention was not exposed.");
+        }
+
+        private static void TestHeightMapRejectsInvalidValues()
+        {
+            bool infinityRejected = false;
+            try
+            {
+                _ = new HeightMap3D(1, 1, 0.0, 0.0, 1.0, 1.0, new[] { double.PositiveInfinity });
+            }
+            catch (ArgumentException)
+            {
+                infinityRejected = true;
+            }
+
+            bool extentRejected = false;
+            try
+            {
+                _ = new HeightMap3D(1, 2, double.MaxValue, 0.0, double.MaxValue, 1.0, new[] { 0.0, 0.0 });
+            }
+            catch (ArgumentOutOfRangeException)
+            {
+                extentRejected = true;
+            }
+
+            Require(infinityRejected, "Height-map infinity must be rejected at construction.");
+            Require(extentRejected, "A non-finite height-map coordinate extent must be rejected at construction.");
+        }
+
         private static void TestThicknessPass()
         {
             HeightMap3D map = new HeightMap3D(
@@ -175,23 +216,76 @@ namespace Lib.Inspection.Smoke
                 1.0,
                 new[] { 1.0, 1.1, 1.2, 1.3, double.NaN, 1.4 },
                 "mm",
+                "mm",
                 "sensor-top",
                 "sample-thickness");
             ThicknessInspectionTool tool = new ThicknessInspectionTool(new ThicknessInspectionOptions
             {
                 MinimumThickness = 1.0,
                 MaximumThickness = 1.5,
-                MinimumValidSamples = 5
+                MinimumValidSamples = 5,
+                MinimumValidCoverageRatio = 0.8,
+                InputRequirements = new HeightMapInputRequirements("mm", "mm", "sensor-top")
             });
 
             ThreeDInspectionResult result = tool.Execute(map);
 
             Require(result.Success, "Thickness pass must succeed.");
             Require(result.HasMeasurement, "Thickness pass must contain a measurement.");
-            Require(result.Unit == "mm" && result.FrameId == "sensor-top" && result.SourceId == "sample-thickness", "Declared map metadata was not preserved.");
+            Require(result.Unit == "mm" && result.PlanarUnit == "mm" && result.HeightUnit == "mm", "Declared map units were not preserved.");
+            Require(result.FrameId == "sensor-top" && result.SourceId == "sample-thickness", "Declared map identity was not preserved.");
+            Require(result.CoordinateConvention == "GridXGridYScalarHeight", "The result did not preserve the coordinate convention.");
+            Require(result.TotalSampleCount == 6 && result.ValidSampleCount == 5 && result.MissingSampleCount == 1, "Unexpected typed thickness sample quality.");
+            RequireApproximately(result.ValidCoverageRatio, 5.0 / 6.0, 1e-12, "Unexpected thickness coverage ratio.");
             RequireApproximately(result.Metrics["ValidSampleCount"], 5.0, 0.0, "Unexpected thickness valid sample count.");
             RequireApproximately(result.Metrics["Mean"], 1.2, 1e-12, "Unexpected thickness mean.");
             RequireApproximately(result.Metrics["Range"], 0.4, 1e-12, "Unexpected thickness range.");
+            Require(result.MetricUnits["Mean"] == "mm" && result.MetricUnits["ValidCoverageRatio"] == "ratio", "Thickness metric units are incomplete.");
+        }
+
+        private static void TestThicknessUnitContractMismatch()
+        {
+            HeightMap3D map = new HeightMap3D(1, 2, 0.0, 0.0, 1.0, 1.0, new[] { 1000.0, 1100.0 }, "mm", "um", "fixture", "unit-mismatch");
+            ThreeDInspectionResult result = new ThicknessInspectionTool(new ThicknessInspectionOptions
+            {
+                MinimumThickness = 0.0,
+                MaximumThickness = 2.0,
+                InputRequirements = new HeightMapInputRequirements("mm", "mm", "fixture")
+            }).Execute(map);
+
+            Require(!result.HasMeasurement && result.ErrorCode == ThreeDInspectionErrorCode.InputContractMismatch, "A height-unit mismatch must fail before measurement.");
+            Require(result.ResultStatus == ThreeDInspectionResultStatus.InvalidInput, "A unit mismatch must be an invalid input result.");
+            Require(result.PlanarUnit == "mm" && result.HeightUnit == "um", "The rejected input units were not retained for diagnostics.");
+        }
+
+        private static void TestThicknessFrameContractMismatch()
+        {
+            ThreeDInspectionResult result = new ThicknessInspectionTool(new ThicknessInspectionOptions
+            {
+                MinimumThickness = 0.0,
+                MaximumThickness = 2.0,
+                InputRequirements = new HeightMapInputRequirements("mm", "mm", "fixture-top")
+            }).Execute(CreateThicknessMap());
+
+            Require(!result.HasMeasurement && result.ErrorCode == ThreeDInspectionErrorCode.InputContractMismatch, "A frame mismatch must fail before measurement.");
+            Require(result.FrameId == "sensor-top", "The rejected source frame was not retained for diagnostics.");
+        }
+
+        private static void TestThicknessInsufficientCoverage()
+        {
+            HeightMap3D map = new HeightMap3D(1, 4, 0.0, 0.0, 1.0, 1.0, new[] { 1.0, double.NaN, 1.1, double.NaN }, "mm", "fixture", "coverage");
+            ThreeDInspectionResult result = new ThicknessInspectionTool(new ThicknessInspectionOptions
+            {
+                MinimumThickness = 0.0,
+                MaximumThickness = 2.0,
+                MinimumValidSamples = 1,
+                MinimumValidCoverageRatio = 0.75
+            }).Execute(map);
+
+            Require(!result.HasMeasurement && result.ErrorCode == ThreeDInspectionErrorCode.InsufficientValidCoverage, "Coverage below the configured minimum must fail without a measurement.");
+            Require(result.TotalSampleCount == 4 && result.ValidSampleCount == 2 && result.MissingSampleCount == 2, "Coverage failure must retain sample-quality evidence.");
+            RequireApproximately(result.ValidCoverageRatio, 0.5, 0.0, "Unexpected failed coverage ratio.");
+            Require(result.MetricUnits["ValidCoverageRatio"] == "ratio", "Coverage failure must retain the ratio unit.");
         }
 
         private static void TestThicknessToleranceFailure()
@@ -264,6 +358,7 @@ namespace Lib.Inspection.Smoke
             RequireApproximately(result.PlaneFit.SlopeY, -0.25, 1e-12, "Unexpected warpage Y slope.");
             RequireApproximately(result.PlaneFit.Intercept, 2.0, 1e-12, "Unexpected warpage intercept.");
             RequireApproximately(result.Metrics["PeakToValley"], 0.0, 1e-10, "Unexpected analytic-plane peak-to-valley.");
+            Require(result.MetricUnits["PlaneSlopeX"] == "mm/mm" && result.MetricUnits["PeakToValley"] == "mm", "Warpage metric units are incomplete.");
         }
 
         private static void TestWarpageToleranceFailure()
@@ -436,6 +531,36 @@ namespace Lib.Inspection.Smoke
             Require(result.Success && result.HasMeasurement, "Three finite datum-plane samples must remain measurable.");
             RequireApproximately(result.Metrics["ValidSampleCount"], 3.0, 1e-12, "Unexpected datum-plane valid count.");
             RequireApproximately(result.Metrics["MissingSampleCount"], 1.0, 1e-12, "Unexpected datum-plane missing count.");
+            Require(result.TotalSampleCount == 4 && result.ValidSampleCount == 3 && result.MissingSampleCount == 1, "Unexpected typed datum-plane sample quality.");
+            RequireApproximately(result.ValidCoverageRatio, 0.75, 0.0, "Unexpected datum-plane coverage ratio.");
+            Require(result.MetricUnits["PeakToValleyRawHeight"] == "raw-height", "Datum-plane metric unit was not preserved.");
+        }
+
+        private static void TestDatumPlaneMixedUnits()
+        {
+            HeightMap3D source = new HeightMap3D(
+                2,
+                2,
+                0.0,
+                0.0,
+                1.0,
+                1.0,
+                new[] { 1.0, 1.0, 1.0, 1.0 },
+                "mm",
+                "um",
+                "fixture",
+                "datum-mixed-units");
+            ThreeDInspectionResult result = new DatumPlaneRawHeightDeviationInspectionTool(
+                new DatumPlaneRawHeightDeviationInspectionOptions
+                {
+                    PlaneNormalX = 0.0,
+                    PlaneNormalY = 1.0,
+                    PlaneNormalZ = 0.0,
+                    PlaneOffset = -1.0,
+                    MaximumPeakToValleyRawHeight = 0.1
+                }).Execute(source);
+
+            Require(!result.HasMeasurement && result.ErrorCode == ThreeDInspectionErrorCode.InputContractMismatch, "Datum-plane inspection must reject mixed coordinate units without conversion.");
         }
 
         private static void TestThreePointPlane()

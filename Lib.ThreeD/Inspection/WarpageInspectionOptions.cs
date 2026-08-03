@@ -11,5 +11,9 @@ namespace Lib.ThreeD.Inspection
         public double? MaximumRms { get; set; }
 
         public int MinimumValidSamples { get; set; } = 3;
+
+        public double MinimumValidCoverageRatio { get; set; }
+
+        public HeightMapInputRequirements InputRequirements { get; set; }
     }
 }
