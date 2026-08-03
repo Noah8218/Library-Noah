@@ -1,16 +1,18 @@
 # Library-Noah
 
-OpenCvSharp 기반의 C# 비전 검사 라이브러리입니다.
+OpenCvSharp 기반 2D 검사와 UI 독립적인 height-map/full-XYZ 3D 계산을 제공하는 C# 비전 검사 라이브러리입니다.
 
-Threshold, Filter, Morphology, Edge, Contour, Matching, Line Gauge, Mean, Blob 등 검사 도구를 공통 실행 구조로 묶고, 결과 이미지/검출 결과/에러 코드/메트릭을 애플리케이션에서 사용하기 쉽게 제공합니다.
+2D 영상 처리 도구, 3D 특징 추출과 측정 알고리즘, 공통 결과 상태와 메트릭을 애플리케이션에서 사용하기 쉽게 제공합니다.
 
 ## 1분 요약
 
 - `Lib.Common`은 Bitmap/Mat 변환, 좌표/라인 계산, OpenCV native DLL 패키징을 담당합니다.
 - `Lib.OpenCV`는 Threshold, Filter, Edge, Contour, Matching, LineGauge 등 주요 검사 Tool을 제공합니다.
 - `Lib.OpenCV.Blob`은 Blob 라벨링과 면적 필터링 기능을 제공합니다.
-- 각 Tool은 `Execute(Mat source)`로 실행하고 `VisionToolResult`에서 성공 여부, 결과 이미지, 메트릭, 오버레이를 확인합니다.
-- UI 프레임워크에 직접 의존하지 않으며, 콘솔/데스크톱/검사 프로그램에서 결과 `Mat`과 `Overlays`를 원하는 방식으로 표시할 수 있습니다.
+- `Lib.ThreeD`는 height map, full-XYZ geometry, affine/regrid, thickness, warpage, flatness, gap/flush, volume 등 순수 3D 계약과 알고리즘을 제공합니다.
+- `Lib.Inspection`은 기존 2D Tool과 `IThreeDInspectionTool`을 한 실행 결과로 보존합니다.
+- 2D Tool은 `Execute(Mat source)`, height-map 검사 Tool은 `Execute(HeightMap3D source)`로 실행합니다.
+- UI 프레임워크에 직접 의존하지 않으며, 측정과 렌더링·ROI 편집·레시피 관리는 호스트 애플리케이션이 담당합니다.
 
 ## 설치/참조 방법
 
@@ -20,6 +22,8 @@ Threshold, Filter, Morphology, Edge, Contour, Matching, Line Gauge, Mean, Blob �
 <ItemGroup>
   <ProjectReference Include="..\Library-Noah\Lib.OpenCV\Lib.OpenCV.csproj" />
   <ProjectReference Include="..\Library-Noah\Lib.OpenCV.Blob\Lib.OpenCV.Blob.csproj" />
+  <ProjectReference Include="..\Library-Noah\Lib.ThreeD\Lib.ThreeD.csproj" />
+  <ProjectReference Include="..\Library-Noah\Lib.Inspection\Lib.Inspection.csproj" />
 </ItemGroup>
 ```
 
@@ -29,9 +33,11 @@ Threshold, Filter, Morphology, Edge, Contour, Matching, Line Gauge, Mean, Blob �
 dotnet pack Lib.Common.sln -c Release
 dotnet add package Lib.OpenCV --source .\artifacts\packages
 dotnet add package Lib.OpenCV.Blob --source .\artifacts\packages
+dotnet add package Lib.ThreeD --source .\artifacts\packages
+dotnet add package Lib.Inspection --source .\artifacts\packages
 ```
 
-## Quick Start
+## 2D Quick Start
 
 아래 예제는 샘플 이미지를 읽고 Canny Edge 결과를 `artifacts/smoke_edge.png`로 저장합니다.
 
@@ -66,6 +72,81 @@ using (Mat source = Cv2.ImRead("docs/samples/vision_sample.png", ImreadModes.Gra
 }
 ```
 
+## 3D Quick Start
+
+아래 예제는 X/Y 격자 단위, 높이 단위, 좌표 프레임과 최소 유효 커버리지를 명시하고 thickness를 검사합니다.
+
+```csharp
+using System;
+using Lib.ThreeD.Geometry;
+using Lib.ThreeD.Inspection;
+
+HeightMap3D heightMap = new HeightMap3D(
+    rows: 2,
+    columns: 3,
+    originX: 0.0,
+    originY: 0.0,
+    columnPitch: 0.1,
+    rowPitch: 0.1,
+    values: new[] { 1.00, 1.05, 1.10, 1.15, double.NaN, 1.20 },
+    planarUnit: "mm",
+    heightUnit: "mm",
+    frameId: "fixture-top",
+    sourceId: "scan-001");
+
+ThicknessInspectionTool tool = new ThicknessInspectionTool(
+    new ThicknessInspectionOptions
+    {
+        MinimumThickness = 0.95,
+        MaximumThickness = 1.25,
+        MinimumValidSamples = 5,
+        MinimumValidCoverageRatio = 0.8,
+        InputRequirements = new HeightMapInputRequirements("mm", "mm", "fixture-top")
+    });
+
+ThreeDInspectionResult result = tool.Execute(heightMap);
+if (!result.HasMeasurement)
+{
+    throw new InvalidOperationException($"{result.ErrorName}: {result.Message}");
+}
+
+Console.WriteLine($"{result.ResultStatusName}, Mean={result.Metrics["Mean"]} {result.MetricUnits["Mean"]}");
+```
+
+`Success=false`이면서 `HasMeasurement=true`이면 계산은 완료됐지만 허용 공차를 벗어난 결과입니다. 단위·프레임 불일치, 잘못된 ROI, 샘플 수나 커버리지 부족은 `HasMeasurement=false`입니다. 상세 계약은 [3D inspection](docs/three-d-inspection.md)을 참고하세요.
+
+## 동반 검증 애플리케이션
+
+Library-Noah는 UI를 포함하지 않습니다. 다음 공개 애플리케이션에서 실제 편집·실행·검토 흐름을 개발하고 검증합니다.
+
+| 애플리케이션 | Library-Noah 사용 경계 |
+| --- | --- |
+| [OpenVisionLab](https://github.com/Noah8218/OpenVisionLab) | OpenCvSharp 4 기반 2D rule-based 검사 워크벤치. `Lib.Common`, `Lib.OpenCV`, `Lib.OpenCV.Blob`의 Tool, 레이어, 파이프라인과 결과 표시 흐름을 검증합니다. |
+| [OpenVisionLab 3D Studio](https://github.com/Noah8218/OpenVisionLab-3D-Studio) | C3D/mesh/point-cloud/height-map용 3D 검사 워크벤치. 고정된 `Lib.ThreeD` NuGet 패키지와 명시적 어댑터를 통해 ROI, Preview/Run, 메트릭, 오버레이와 레시피 replay를 검증합니다. |
+
+두 애플리케이션은 Library-Noah 소스 체크아웃에 암묵적으로 연결되지 않습니다. 특히 3D Studio는 검증된 패키지 버전을 고정하므로 새 API는 패키지·해시·어댑터를 명시적으로 갱신한 뒤 사용해야 합니다.
+
+## 3D 입력 계약
+
+`HeightMap3D`의 좌표 규칙은 고정되어 있습니다.
+
+```text
+X = OriginX + Column * ColumnPitch
+Y = OriginY + Row * RowPitch
+H = Values[Row * Columns + Column]
+```
+
+| 항목 | 계약 |
+| --- | --- |
+| `PlanarUnit` | `OriginX`, `OriginY`, `ColumnPitch`, `RowPitch`의 단위 |
+| `HeightUnit` | scalar height `H`와 높이 기반 허용값의 단위 |
+| `FrameId` | X/Y/H 데이터가 선언된 좌표 프레임 ID |
+| `SourceId` | 입력 추적용 ID. 좌표 호환성을 증명하지는 않음 |
+| `double.NaN` | 결측 샘플. 보간하거나 이웃을 연결하지 않고 제외 |
+| `±Infinity` | 손상된 입력. `HeightMap3D` 생성 시 거부 |
+
+`HeightMapInputRequirements`가 있으면 단위와 프레임을 대소문자까지 정확히 비교하며 자동 단위 변환, 별칭 추론 또는 좌표 변환을 수행하지 않습니다. `MinimumValidSamples`와 `MinimumValidCoverageRatio`를 모두 만족해야 측정이 시작됩니다. 기존 단일 `Unit` 생성자는 호환성을 위해 평면과 높이에 같은 단위를 선언합니다.
+
 ## 샘플 데이터
 
 - 입력 샘플: `docs/samples/vision_sample.png`
@@ -85,6 +166,7 @@ using (Mat source = Cv2.ImRead("docs/samples/vision_sample.png", ImreadModes.Gra
 ```powershell
 dotnet restore Lib.Common.sln
 dotnet build Lib.Common.sln -c Debug
+dotnet run --project Lib.Inspection.Smoke\Lib.Inspection.Smoke.csproj -c Debug --no-build
 ```
 
 패키징까지 포함한 smoke check:
@@ -92,10 +174,11 @@ dotnet build Lib.Common.sln -c Debug
 ```powershell
 dotnet restore Lib.Common.sln
 dotnet build Lib.Common.sln -c Debug
+dotnet run --project Lib.Inspection.Smoke\Lib.Inspection.Smoke.csproj -c Debug --no-build
 dotnet pack Lib.Common.sln -c Debug --no-build
 ```
 
-현재 별도 테스트 프로젝트는 없으므로 smoke check는 전체 솔루션 빌드와 패키지 생성 성공 여부를 기준으로 합니다.
+`Lib.Inspection.Smoke`는 합성 2D/3D 입력으로 결정론적 계약과 회귀를 검사합니다. 실제 센서 데이터, 교정, Gauge R&amp;R 또는 생산 승인 시험을 대체하지 않습니다.
 
 ## CI
 
@@ -104,7 +187,8 @@ GitHub Actions workflow는 `.github/workflows/build.yml`에 있습니다. `main`
 1. .NET SDK 설치
 2. `dotnet restore Lib.Common.sln`
 3. `dotnet build Lib.Common.sln -c Debug --no-restore`
-4. `dotnet pack Lib.Common.sln -c Debug --no-build`
+4. `dotnet run --project Lib.Inspection.Smoke/Lib.Inspection.Smoke.csproj -c Debug --no-build`
+5. `dotnet pack Lib.Common.sln -c Debug --no-build`
 
 ## 라이선스
 
@@ -147,7 +231,10 @@ Library-Noah
 |     |- Property
 |     |- Result
 |     `- Tool
-`- Lib.OpenCV.Blob
+|- Lib.OpenCV.Blob
+|- Lib.ThreeD
+|- Lib.Inspection
+`- Lib.Inspection.Smoke
 ```
 
 | 프로젝트 | 역할 |
@@ -155,13 +242,20 @@ Library-Noah
 | `Lib.Common` | 공통 유틸리티, Bitmap/Mat 변환, 좌표/ROI 변환, 라인 계산, 디렉터리/COM 포트 보조 기능 |
 | `Lib.OpenCV` | 주요 OpenCV 검사 도구, 속성 인터페이스, 결과 모델, 파이프라인 실행 구조 |
 | `Lib.OpenCV.Blob` | Blob 라벨링/면적 필터링 도구 |
+| `Lib.ThreeD` | UI 독립적인 height-map/full-XYZ 계약, 특징 추출과 3D 검사 알고리즘 |
+| `Lib.Inspection` | 2D와 3D Tool을 순서대로 실행하고 각 원래 결과를 보존하는 실행 계약 |
+| `Lib.Inspection.Smoke` | 합성 입력을 사용하는 실행형 계약·회귀 검증 |
 
 참조 관계:
 
 ```text
 Lib.Common
-`- Lib.OpenCV
-   `- Lib.OpenCV.Blob
+|- Lib.OpenCV
+|  `- Lib.OpenCV.Blob
+|- Lib.ThreeD
+`- Lib.Inspection
+   |- Lib.OpenCV
+   `- Lib.ThreeD
 ```
 
 ## 코드 구조
@@ -188,9 +282,20 @@ Lib.Common
 - `BlobResult`: Blob 결과 모델
 - `CVBlob`, `CResultBlob`: 기존 코드 호환을 위한 레거시 API
 
-## Tool 실행 구조
+### Lib.ThreeD
 
-새 도구들은 대부분 `OpenCvAlgorithmBase`를 상속합니다.
+- `Geometry`: immutable `HeightMap3D`, X/Y/H 격자와 ROI 계약
+- `FeatureExtraction`: source-neutral full-XYZ 선/평면/affine, reference-grid regrid, median/edge/line-fit 알고리즘
+- `Inspection`: thickness, warpage, datum deviation과 독립적인 3D 치수 검사
+
+### Lib.Inspection
+
+- `CombinedInspectionRunner`: 2D `IVisionTool`과 3D `IThreeDInspectionTool`을 독립적으로 실행
+- `CombinedInspectionRunResult`: 실패 이후 단계의 증거를 포함해 원래 결과 형식을 보존
+
+## 2D Tool 실행 구조
+
+새 2D 이미지 Tool은 대부분 `OpenCvAlgorithmBase`를 상속합니다.
 
 ```text
 IVisionTool
@@ -230,7 +335,7 @@ else
 
 `Execute`는 입력 이미지 검증, 파라미터 검증, 예외 처리, 결과 이미지 복사, 메트릭 수집을 공통으로 처리합니다. 기존 코드와 호환되는 `CV*` 계열 클래스는 `Run()` 호출 후 `results` 또는 `resultList`를 직접 읽는 구조입니다.
 
-## 지원 Tool 요약
+## 지원 2D Tool 요약
 
 | Tool | 주요 용도 | Property |
 | --- | --- | --- |
@@ -250,6 +355,16 @@ else
 | `MeanTool` | ROI 평균/표준편차 계산 | `IOpenCVPropertyMean` 구현체 |
 
 `MeanTool`의 multi-ROI 실행은 `CvROIS` 순서대로 각 영역을 측정하고 같은 순서의 `MeanResult.index`를 제공합니다. `CornerTool`은 sub-pixel 보정된 각 점을 전역 이미지 좌표의 `CornerResult`로 제공하며, 검출점이 없으면 `CornerNoResult`를 반환합니다.
+
+## 지원 3D 기능 요약
+
+| 영역 | 주요 타입 | 역할 |
+| --- | --- | --- |
+| Height-map 검사 | `ThicknessInspectionTool`, `WarpageInspectionTool`, `DatumPlaneRawHeightDeviationInspectionTool` | 단위·프레임·ROI·결측 커버리지 계약을 확인한 뒤 scalar map 측정 |
+| 기하/정합 | `TwoPointLineTool`, `ThreePointPlaneTool`, `LineIntersectionTool`, `FullXyzAffineSolveTool`, `AffinePointCloudApplyTool` | 명시적 full-XYZ 입력의 순수 기하 계산과 affine solve/apply |
+| 정규 격자화 | `ReferenceGridRegridTool` | 명시적 오른손 U/V/H 축으로 nearest-cell regrid, hole 보존과 커버리지 보고 |
+| 특징 추출 | `DeterministicMedianFilterTool`, `DeterministicHeightDifferenceEdgeTool`, `DeterministicLineFitTool`, `LeastSquaresHeightFieldPlaneFitTool` | 결정론적 필터·edge·line/plane fit |
+| 치수 검사 | `PlaneFlatnessInspectionTool`, `PointPairDimensionsInspectionTool`, `GapFlushInspectionTool`, `VolumeInspectionTool`, `CrossSectionDimensionsInspectionTool` | caller가 준비한 점·영역·평면을 이용한 독립 측정 |
 
 ## 기본 사용 예제
 
@@ -787,7 +902,8 @@ ROI의 폭 또는 높이가 0인 경우 Tool에 따라 전체 이미지로 대�
 - Windows x64 환경을 우선 지원합니다. `OpenCvSharpExtern.dll`은 `runtimes/win-x64/native` 경로로 패키징됩니다.
 - UI 프레임워크는 포함하지 않습니다. 화면 표시는 `VisionToolResult.ResultImage`와 `VisionToolResult.Overlays`를 애플리케이션에서 렌더링해야 합니다.
 - 일부 `CV*`, `C*` 계열 레거시 API가 호환성을 위해 남아 있습니다. 신규 코드는 `*Tool`과 `VisionToolResult` 기반 API를 권장합니다.
-- 현재 별도 단위 테스트 프로젝트는 없습니다. 기본 검증은 `dotnet build`와 `dotnet pack` smoke check를 사용합니다.
+- `Lib.Inspection.Smoke`는 합성 데이터 기반 계약 회귀이며 실제 센서·교정·생산 metrology를 증명하지 않습니다.
+- `HeightMapInputRequirements`를 생략하면 2.x 호환 모드로 수치/ROI만 검사합니다. 생산 recipe는 기대 단위와 프레임을 명시해야 합니다.
 - OpenCvSharp DLL은 저장소에 포함된 버전을 기준으로 동작합니다. DLL 버전을 교체할 때는 native DLL 호환성과 패키징 결과를 함께 확인해야 합니다.
 
 ## 패키징 참고
@@ -804,6 +920,8 @@ ROI의 폭 또는 높이가 0인 경우 Tool에 따라 전체 이미지로 대�
 dotnet pack Lib.Common\Lib.Common.csproj -c Release
 dotnet pack Lib.OpenCV\Lib.OpenCV.csproj -c Release
 dotnet pack Lib.OpenCV.Blob\Lib.OpenCV.Blob.csproj -c Release
+dotnet pack Lib.ThreeD\Lib.ThreeD.csproj -c Release
+dotnet pack Lib.Inspection\Lib.Inspection.csproj -c Release
 ```
 
 `Lib.Common`은 `OpenCvSharpExtern.dll`을 `runtimes/win-x64/native` 경로로 패키징하고, `buildTransitive/Lib.Common.targets`를 통해 출력 폴더로 복사합니다.

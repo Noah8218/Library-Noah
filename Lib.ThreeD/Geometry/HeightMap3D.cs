@@ -3,8 +3,9 @@ using System;
 namespace Lib.ThreeD.Geometry
 {
     /// <summary>
-    /// Immutable regular-grid scalar map. NaN represents a missing sample; infinity is rejected.
-    /// Unit and frame are declared metadata and are not calibration evidence.
+    /// Immutable regular-grid scalar map. Columns increase X, rows increase Y, and each cell stores
+    /// scalar height H. NaN represents a missing sample; infinity is rejected. Units and frame are
+    /// declared metadata and are not calibration evidence.
     /// </summary>
     public sealed class HeightMap3D
     {
@@ -21,6 +22,33 @@ namespace Lib.ThreeD.Geometry
             string unit = "model",
             string frameId = "unspecified",
             string sourceId = "")
+            : this(
+                rows,
+                columns,
+                originX,
+                originY,
+                columnPitch,
+                rowPitch,
+                values,
+                NormalizeLegacyUnit(unit),
+                NormalizeLegacyUnit(unit),
+                NormalizeLegacyFrameId(frameId),
+                sourceId ?? string.Empty)
+        {
+        }
+
+        public HeightMap3D(
+            int rows,
+            int columns,
+            double originX,
+            double originY,
+            double columnPitch,
+            double rowPitch,
+            double[] values,
+            string planarUnit,
+            string heightUnit,
+            string frameId,
+            string sourceId)
         {
             if (rows <= 0)
             {
@@ -53,6 +81,13 @@ namespace Lib.ThreeD.Geometry
                 throw new ArgumentOutOfRangeException(nameof(rowPitch), "Row pitch must be finite and positive.");
             }
 
+            double maximumX = originX + ((columns - 1) * columnPitch);
+            double maximumY = originY + ((rows - 1) * rowPitch);
+            if (!IsFinite(maximumX) || !IsFinite(maximumY))
+            {
+                throw new ArgumentOutOfRangeException(nameof(columnPitch), "The height-map coordinate extent must remain finite.");
+            }
+
             if (values == null)
             {
                 throw new ArgumentNullException(nameof(values));
@@ -71,14 +106,31 @@ namespace Lib.ThreeD.Geometry
                 }
             }
 
+            if (string.IsNullOrWhiteSpace(planarUnit))
+            {
+                throw new ArgumentException("A planar unit is required.", nameof(planarUnit));
+            }
+
+            if (string.IsNullOrWhiteSpace(heightUnit))
+            {
+                throw new ArgumentException("A height unit is required.", nameof(heightUnit));
+            }
+
+            if (string.IsNullOrWhiteSpace(frameId))
+            {
+                throw new ArgumentException("A frame ID is required.", nameof(frameId));
+            }
+
             Rows = rows;
             Columns = columns;
             OriginX = originX;
             OriginY = originY;
             ColumnPitch = columnPitch;
             RowPitch = rowPitch;
-            Unit = string.IsNullOrWhiteSpace(unit) ? "model" : unit.Trim();
-            FrameId = string.IsNullOrWhiteSpace(frameId) ? "unspecified" : frameId.Trim();
+            PlanarUnit = planarUnit.Trim();
+            HeightUnit = heightUnit.Trim();
+            Unit = HeightUnit;
+            FrameId = frameId.Trim();
             SourceId = sourceId ?? string.Empty;
             _values = (double[])values.Clone();
         }
@@ -95,11 +147,20 @@ namespace Lib.ThreeD.Geometry
 
         public double RowPitch { get; }
 
+        public string PlanarUnit { get; }
+
+        public string HeightUnit { get; }
+
+        /// <summary>
+        /// Legacy scalar-unit alias. New code should use <see cref="HeightUnit"/>.
+        /// </summary>
         public string Unit { get; }
 
         public string FrameId { get; }
 
         public string SourceId { get; }
+
+        public string CoordinateConvention => "GridXGridYScalarHeight";
 
         public double GetHeight(int row, int column)
         {
@@ -148,6 +209,16 @@ namespace Lib.ThreeD.Geometry
         private static bool IsFinite(double value)
         {
             return !double.IsNaN(value) && !double.IsInfinity(value);
+        }
+
+        private static string NormalizeLegacyUnit(string unit)
+        {
+            return string.IsNullOrWhiteSpace(unit) ? "model" : unit.Trim();
+        }
+
+        private static string NormalizeLegacyFrameId(string frameId)
+        {
+            return string.IsNullOrWhiteSpace(frameId) ? "unspecified" : frameId.Trim();
         }
     }
 }

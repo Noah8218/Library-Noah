@@ -9,9 +9,11 @@ namespace Lib.ThreeD.Inspection
         None = 0,
         Unknown = 1,
         InputHeightMapInvalid = 100,
+        InputContractMismatch = 105,
         InvalidRoi = 110,
         InvalidParameter = 120,
         InsufficientValidSamples = 130,
+        InsufficientValidCoverage = 131,
         DegenerateGeometry = 140,
         ToolNotConfigured = 200,
         ToolExecutionException = 210
@@ -80,13 +82,33 @@ namespace Lib.ThreeD.Inspection
 
         public string Unit { get; set; } = string.Empty;
 
+        public string PlanarUnit { get; set; } = string.Empty;
+
+        public string HeightUnit { get; set; } = string.Empty;
+
         public string FrameId { get; set; } = string.Empty;
+
+        public string CoordinateConvention { get; set; } = string.Empty;
 
         public HeightMapRoi? Roi { get; set; }
 
         public ThreeDPlaneFit PlaneFit { get; set; }
 
+        public long TotalSampleCount { get; set; }
+
+        public long ValidSampleCount { get; set; }
+
+        public long MissingSampleCount { get; set; }
+
+        public double ValidCoverageRatio { get; set; }
+
+        public int MinimumValidSamples { get; set; }
+
+        public double MinimumValidCoverageRatio { get; set; }
+
         public Dictionary<string, double> Metrics { get; } = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+
+        public Dictionary<string, string> MetricUnits { get; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         public static ThreeDInspectionResult CreateMeasurement(HeightMap3D source, HeightMapRoi roi, TimeSpan elapsed)
         {
@@ -96,7 +118,10 @@ namespace Lib.ThreeD.Inspection
                 Elapsed = elapsed,
                 SourceId = source == null ? string.Empty : source.SourceId,
                 Unit = source == null ? string.Empty : source.Unit,
+                PlanarUnit = source == null ? string.Empty : source.PlanarUnit,
+                HeightUnit = source == null ? string.Empty : source.HeightUnit,
                 FrameId = source == null ? string.Empty : source.FrameId,
+                CoordinateConvention = source == null ? string.Empty : source.CoordinateConvention,
                 Roi = roi
             };
         }
@@ -124,7 +149,10 @@ namespace Lib.ThreeD.Inspection
                 ResultStatus = ResolveStatus(resolvedErrorCode),
                 SourceId = source == null ? string.Empty : source.SourceId,
                 Unit = source == null ? string.Empty : source.Unit,
+                PlanarUnit = source == null ? string.Empty : source.PlanarUnit,
+                HeightUnit = source == null ? string.Empty : source.HeightUnit,
                 FrameId = source == null ? string.Empty : source.FrameId,
+                CoordinateConvention = source == null ? string.Empty : source.CoordinateConvention,
                 Roi = roi
             };
         }
@@ -136,12 +164,14 @@ namespace Lib.ThreeD.Inspection
                 case ThreeDInspectionErrorCode.None:
                     return ThreeDInspectionResultStatus.Passed;
                 case ThreeDInspectionErrorCode.InputHeightMapInvalid:
+                case ThreeDInspectionErrorCode.InputContractMismatch:
                     return ThreeDInspectionResultStatus.InvalidInput;
                 case ThreeDInspectionErrorCode.InvalidRoi:
                     return ThreeDInspectionResultStatus.InvalidRoi;
                 case ThreeDInspectionErrorCode.InvalidParameter:
                     return ThreeDInspectionResultStatus.InvalidParameter;
                 case ThreeDInspectionErrorCode.InsufficientValidSamples:
+                case ThreeDInspectionErrorCode.InsufficientValidCoverage:
                     return ThreeDInspectionResultStatus.InsufficientData;
                 case ThreeDInspectionErrorCode.DegenerateGeometry:
                     return ThreeDInspectionResultStatus.DegenerateGeometry;
