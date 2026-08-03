@@ -1,4 +1,5 @@
 using Lib.Inspection;
+using Lib.OpenCV;
 using Lib.OpenCV.Pipeline;
 using Lib.OpenCV.Property;
 using Lib.OpenCV.Tool;
@@ -74,6 +75,8 @@ namespace Lib.Inspection.Smoke
                 Run("2D affine transform recovers a known matrix and drawings", TestAffineTransformKnownMatrix, ref passed, ref total);
                 Run("2D affine transform rejects collinear source teaching", TestAffineTransformDegenerateSource, ref passed, ref total);
                 Run("2D affine transform retains evidence on coverage failure", TestAffineTransformCoverageFailure, ref passed, ref total);
+                Run("Mean multi ROI measures each region and preserves result identity", TestMeanMultiRoi, ref passed, ref total);
+                Run("Corner detection publishes global points and handles no result", TestCornerResultContract, ref passed, ref total);
                 Run("Auto MPoint suggests a unique pattern deterministically", TestAutoMPointUniquePattern, ref passed, ref total);
                 Run("Auto MPoint rejects a repeated ambiguous pattern", TestAutoMPointRepeatedPattern, ref passed, ref total);
                 Run("Auto MPoint rejects invalid ROI and pattern size", TestAutoMPointInvalidDefinition, ref passed, ref total);
@@ -1828,6 +1831,109 @@ namespace Lib.Inspection.Smoke
             }
         }
 
+        private static void TestMeanMultiRoi()
+        {
+            using (Mat source = new Mat(4, 8, MatType.CV_8UC1, Scalar.All(0d)))
+            {
+                using (Mat left = source.SubMat(new Rect(0, 0, 4, 4)))
+                using (Mat right = source.SubMat(new Rect(4, 0, 4, 4)))
+                {
+                    left.SetTo(Scalar.All(10d));
+                    right.SetTo(Scalar.All(100d));
+                }
+
+                SmokeMeanProperty multiProperty = new SmokeMeanProperty
+                {
+                    USE_MULTI_ROI = true,
+                    USE_ROI = false,
+                    MEAN_TYPES = MeanType.Mean,
+                    CvROIS = new List<Rect>
+                    {
+                        new Rect(0, 0, 4, 4),
+                        new Rect(4, 0, 4, 4)
+                    }
+                };
+
+                using (MeanTool multiTool = new MeanTool())
+                {
+                    multiTool.SetProperty(multiProperty);
+                    using (VisionToolResult result = multiTool.Execute(source))
+                    {
+                        Require(result.Success, "The mean multi-ROI fixture must pass.");
+                        Require(multiTool.results.Count == 2, "Mean multi ROI did not produce one result per region.");
+                        RequireApproximately(multiTool.results[0].meanValue, 10d, 0d, "Unexpected first ROI mean.");
+                        RequireApproximately(multiTool.results[1].meanValue, 100d, 0d, "Unexpected second ROI mean.");
+                        Require(multiTool.results[0].index == 0 && multiTool.results[1].index == 1, "Mean multi ROI did not preserve result identity.");
+                        Require(multiTool.results[0].Bounding.X == 0 && multiTool.results[1].Bounding.X == 4, "Mean multi ROI did not preserve result bounds.");
+                    }
+                }
+
+                SmokeMeanProperty deviationProperty = new SmokeMeanProperty
+                {
+                    MEAN_TYPES = MeanType.MeanStdDev
+                };
+
+                using (MeanTool deviationTool = new MeanTool())
+                {
+                    deviationTool.SetProperty(deviationProperty);
+                    using (VisionToolResult result = deviationTool.Execute(source))
+                    {
+                        Require(result.Success, "The standard-deviation fixture must pass.");
+                        RequireApproximately(deviationTool.results[0].meanValue, 45d, 0d, "Unexpected standard deviation.");
+                    }
+                }
+            }
+        }
+
+        private static void TestCornerResultContract()
+        {
+            SmokeCornerProperty property = new SmokeCornerProperty
+            {
+                USE_MULTI_ROI = true,
+                USE_ROI = false,
+                CvROIS = new List<Rect>
+                {
+                    new Rect(0, 0, 40, 40),
+                    new Rect(40, 0, 40, 40)
+                }
+            };
+
+            using (CornerTool tool = new CornerTool())
+            using (Mat source = new Mat(40, 80, MatType.CV_8UC1, Scalar.All(0d)))
+            {
+                tool.SetProperty(property);
+                Cv2.Rectangle(source, new Rect(10, 10, 20, 20), Scalar.White, Cv2.FILLED);
+                Cv2.Rectangle(source, new Rect(50, 10, 20, 20), Scalar.White, Cv2.FILLED);
+
+                using (VisionToolResult result = tool.Execute(source))
+                {
+                    Require(result.Success, "The corner fixture must pass.");
+                    Require(tool.results.Count == 8, "Corner detection did not publish all detected points.");
+                    Require(tool.results.Count(item => item.Center.X < 40d) == 4, "Left ROI corner coordinates are incorrect.");
+                    Require(tool.results.Count(item => item.Center.X >= 40d) == 4, "Right ROI corner coordinates are not global.");
+                    Require(tool.results.All(item => item.Bounding.Width == 1 && item.Bounding.Height == 1), "Corner point bounds are not stable.");
+                }
+
+                using (Mat blank = new Mat(source.Size(), source.Type(), Scalar.All(0d)))
+                using (VisionToolResult result = tool.Execute(blank))
+                {
+                    Require(!result.Success, "A blank corner image must return a controlled no-result failure.");
+                    Require(result.Exception == null, "A blank corner image must not fail through an exception.");
+                    Require(result.ErrorCode == VisionToolErrorCode.CornerNoResult, "A blank corner image returned the wrong error code.");
+                    Require(tool.results.Count == 0, "A blank corner image retained stale points.");
+                }
+
+                property.CvROIS = new List<Rect> { new Rect(70, 0, 20, 20) };
+                using (VisionToolResult result = tool.Execute(source))
+                {
+                    Require(!result.Success, "An out-of-bounds corner ROI must fail.");
+                    Require(result.ErrorCode == VisionToolErrorCode.CornerRoiInvalid, "An invalid corner ROI returned the wrong error code.");
+                    Require(result.ResultStatus == VisionToolResultStatus.InvalidRoi, "An invalid corner ROI returned the wrong result status.");
+                    Require(result.Exception == null, "An invalid corner ROI must fail through validation.");
+                }
+            }
+        }
+
         private static void TestVisionPipelineResourceOwnership()
         {
             VisionPipeline pipeline = new VisionPipeline { Name = "Ownership fixture" };
@@ -2186,6 +2292,48 @@ namespace Lib.Inspection.Smoke
             public int MAX_TEMPLATE_POINTS { get; set; } = 500;
             public double MIN_GRADIENT_MAGNITUDE { get; set; } = 5D;
             public bool USE_DRAW_IMAGE { get; set; } = true;
+        }
+
+        private abstract class SmokeOpenCvPropertyBase : IOpenCVPropertyBase
+        {
+            public string NAME { get; set; } = "Smoke property";
+            public double PIXELPERMM { get; set; } = 1d;
+            public bool USE_THRESHOLD { get; set; }
+            public bool USE_BITWISENOT { get; set; }
+            public ThresholdTypes THRESHOLD_TYPES { get; set; } = ThresholdTypes.Binary;
+            public double THRESHOLD { get; set; } = 128d;
+            public bool USE_ADAPTIVE_THRESHOLD { get; set; }
+            public double ADAPTIVE_THRESHOLD { get; set; } = 255d;
+            public ThresholdTypes ADAPTIVE_THRESHOLD_TYPES { get; set; } = ThresholdTypes.Binary;
+            public AdaptiveThresholdTypes ADAPTIVE_THRESHOLD_ALGORITHM { get; set; } = AdaptiveThresholdTypes.MeanC;
+            public int BlockSize { get; set; } = 11;
+            public int Weight { get; set; } = 2;
+            public bool USE_ROI { get; set; }
+            public bool USE_MULTI_ROI { get; set; }
+            public Rect CvROI { get; set; }
+            public List<Rect> CvROIS { get; set; } = new List<Rect>();
+            public List<Rect> CvMASKS { get; set; } = new List<Rect>();
+        }
+
+        private sealed class SmokeMeanProperty : SmokeOpenCvPropertyBase, IOpenCVPropertyMean
+        {
+            public int MEAN_MAX { get; set; } = 255;
+            public int MEAN_MIN { get; set; }
+            public MeanType MEAN_TYPES { get; set; } = MeanType.Mean;
+        }
+
+        private sealed class SmokeCornerProperty : SmokeOpenCvPropertyBase, IOpenCVPropertyContour
+        {
+            public bool USE_APPROXPOLYDP { get; set; }
+            public bool USE_DRAW_IMAGE { get; set; } = true;
+            public ContourApproximationModes ApproximationModes { get; set; } = ContourApproximationModes.ApproxSimple;
+            public RetrievalModes DetectMode { get; set; } = RetrievalModes.External;
+            public double EPSILON { get; set; }
+            public int MIN_AREA { get; set; }
+            public int MAX_AREA { get; set; } = int.MaxValue;
+            public System.Drawing.Color DrawColor { get; set; } = System.Drawing.Color.Red;
+            public int DrawThickness { get; set; } = 1;
+            public string ClrGridHtml { get; set; } = string.Empty;
         }
 
         private sealed class ThrowingThreeDTool : IThreeDInspectionTool

@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Reflection;
 using Lib.Common;
 using Lib.OpenCV.Property;
 using Lib.OpenCV.Result;
@@ -17,72 +16,125 @@ namespace Lib.OpenCV.Tool
 
         public void SetProperty(IOpenCVPropertyContour property) => this.property = property;
 
+        protected override bool TryValidateBeforeRun(out VisionToolErrorCode errorCode, out string message)
+        {
+            if (!base.TryValidateBeforeRun(out errorCode, out message))
+            {
+                return false;
+            }
+
+            if (!TryValidateAdaptiveThreshold(
+                property,
+                VisionToolErrorCode.CornerInvalidAdaptiveBlockSize,
+                out errorCode,
+                out message))
+            {
+                return false;
+            }
+
+            if (!TryValidateRoiSet(
+                property,
+                property.USE_ROI,
+                true,
+                VisionToolErrorCode.CornerRoiInvalid,
+                "Corner",
+                out errorCode,
+                out message))
+            {
+                return false;
+            }
+
+            errorCode = VisionToolErrorCode.None;
+            message = string.Empty;
+            return true;
+        }
+
+        protected override bool TryValidateAfterRun(out VisionToolErrorCode errorCode, out string message)
+        {
+            if (results.Count == 0)
+            {
+                errorCode = VisionToolErrorCode.CornerNoResult;
+                message = "Corner found no result.";
+                return false;
+            }
+
+            errorCode = VisionToolErrorCode.None;
+            message = string.Empty;
+            return true;
+        }
+
         public override void Run()
         {
-                        results.Clear();
+            results.Clear();
 
             if (OpenCvHelper.IsImageEmpty(imageSource))
             {
-
                 return;
             }
 
-            if (property.CvROI.Width == 0 || property.CvROI.Height == 0)
-            {
-                property.CvROI = new OpenCvSharp.Rect(0, 0, imageSource.Width, imageSource.Height);
-            }
+            ReplaceResultImage(imageSource.Clone());
+            OpenCvHelper.SetImageChannel3(imageResult);
 
-            using (Mat ImageSrc = imageSource.Clone())
+            if (property.USE_MULTI_ROI)
             {
-                if (OpenCvHelper.IsImageEmpty(imageSource)) return;
-                ReplaceResultImage(ImageSrc.Clone());
-
-                Lib.OpenCV.OpenCvHelper.SetImageChannel1(ImageSrc);
-                Lib.OpenCV.OpenCvHelper.SetImageChannel3(imageResult);
-                
-                using (Mat ImageCorner = property.USE_ROI ? ImageSrc.SubMat(property.CvROI) : ImageSrc.Clone())
+                foreach (Rect configuredRoi in property.CvROIS)
                 {
-
-                    if (property.USE_THRESHOLD) { Cv2.Threshold(ImageCorner, ImageCorner, property.THRESHOLD, 255, property.THRESHOLD_TYPES); }
-                    else if (property.USE_ADAPTIVE_THRESHOLD) { Cv2.AdaptiveThreshold(ImageCorner, ImageCorner, property.ADAPTIVE_THRESHOLD, property.ADAPTIVE_THRESHOLD_ALGORITHM, property.ADAPTIVE_THRESHOLD_TYPES, property.BlockSize, property.Weight); }
-
-                // 컨투어 자체가 검은색 영역에서 흰색영역을 검출하는 알고리즘 
-                // 검출하려고 하는 물체가 검은색이면 반전으로 검출해야함
-                    if (property.USE_BITWISENOT) Cv2.BitwiseNot(ImageCorner, ImageCorner);
-
-                    Point2f[] corners = Cv2.GoodFeaturesToTrack(ImageCorner, 1000, 0.1, 5, null, 3, true, 0);
-                    Point2f[] sub_corners = Cv2.CornerSubPix(ImageCorner, corners, new OpenCvSharp.Size(3, 3), new OpenCvSharp.Size(-1, -1), TermCriteria.Both(10, 0.03));
-
-                    if (property.USE_ROI)
-                    {
-                        for (int i = 0; i < corners.Length; i++)
-                        {
-                            corners[i].X = corners[i].X + property.CvROI.X;
-                            corners[i].Y = corners[i].Y + property.CvROI.Y;
-                        }
-
-                        for (int i = 0; i < sub_corners.Length; i++)
-                        {
-                            sub_corners[i].X = sub_corners[i].X + property.CvROI.X;
-                            sub_corners[i].Y = sub_corners[i].Y + property.CvROI.Y;
-                        }
-                    }
-
-                    for (int i = 0; i < corners.Length; i++)
-                    {
-                        OpenCvSharp.Point pt = new OpenCvSharp.Point((int)corners[i].X, (int)corners[i].Y);
-                        Cv2.Circle(imageResult, pt, 5, Scalar.Yellow, Cv2.FILLED);
-                    }
-
-                    for (int i = 0; i < sub_corners.Length; i++)
-                    {
-                        OpenCvSharp.Point pt = new OpenCvSharp.Point((int)sub_corners[i].X, (int)sub_corners[i].Y);
-                        Cv2.Circle(imageResult, pt, 5, Scalar.Red, Cv2.FILLED);
-                    }
+                    DetectCorners(NormalizeCornerRoi(configuredRoi), true);
                 }
             }
+            else
+            {
+                DetectCorners(NormalizeCornerRoi(property.CvROI), property.USE_ROI);
+            }
+        }
 
-        
+        private Rect NormalizeCornerRoi(Rect roi)
+        {
+            return roi.Width == 0 || roi.Height == 0
+                ? new Rect(0, 0, imageSource.Width, imageSource.Height)
+                : roi;
+        }
+
+        private void DetectCorners(Rect roi, bool useRoi)
+        {
+            using (Mat imageCorner = CreatePreprocessedImage(roi, useRoi, property))
+            {
+                Point2f[] corners = Cv2.GoodFeaturesToTrack(imageCorner, 1000, 0.1, 5, null, 3, true, 0);
+                if (corners == null || corners.Length == 0)
+                {
+                    return;
+                }
+
+                Point2f[] refinedCorners = Cv2.CornerSubPix(
+                    imageCorner,
+                    corners,
+                    new OpenCvSharp.Size(3, 3),
+                    new OpenCvSharp.Size(-1, -1),
+                    TermCriteria.Both(10, 0.03));
+
+                foreach (Point2f corner in corners)
+                {
+                    Point2f global = ToGlobalPoint(corner, roi, useRoi);
+                    Cv2.Circle(imageResult, new OpenCvSharp.Point((int)global.X, (int)global.Y), 5, Scalar.Yellow, Cv2.FILLED);
+                }
+
+                foreach (Point2f corner in refinedCorners ?? corners)
+                {
+                    Point2f global = ToGlobalPoint(corner, roi, useRoi);
+                    int x = Math.Max(0, Math.Min(imageSource.Width - 1, (int)Math.Round(global.X)));
+                    int y = Math.Max(0, Math.Min(imageSource.Height - 1, (int)Math.Round(global.Y)));
+
+                    Cv2.Circle(imageResult, new OpenCvSharp.Point((int)global.X, (int)global.Y), 5, Scalar.Red, Cv2.FILLED);
+                    results.Add(new CornerResult(0d, new Point2d(global.X, global.Y), new Rect(x, y, 1, 1)));
+                }
+            }
+        }
+
+        private static Point2f ToGlobalPoint(Point2f point, Rect roi, bool useRoi)
+        {
+            return useRoi
+                ? new Point2f(point.X + roi.X, point.Y + roi.Y)
+                : point;
         }
     }
 }

@@ -74,9 +74,9 @@ namespace Lib.OpenCV.Tool
             for (int i = 0; i < property.CvROIS.Count; i++)
             {
                 Rect roi = NormalizeMeanRoi(property.CvROIS[i]);
-                using (Mat imageMean = CreatePreprocessedImage(roi, property.USE_ROI, property))
+                using (Mat imageMean = CreatePreprocessedImage(roi, true, property))
                 {
-                    AddMeanResult(imageMean, roi);
+                    AddMeanResult(imageMean, roi, i);
                 }
             }
         }
@@ -93,7 +93,7 @@ namespace Lib.OpenCV.Tool
             Rect roi = NormalizeMeanRoi(property.CvROI);
             using (Mat imageMean = CreatePreprocessedImage(roi, property.USE_ROI, property))
             {
-                AddMeanResult(imageMean, roi);
+                AddMeanResult(imageMean, roi, 0);
             }
         }
 
@@ -104,18 +104,18 @@ namespace Lib.OpenCV.Tool
                 : roi;
         }
 
-        private void AddMeanResult(Mat imageMean, OpenCvSharp.Rect resultBounds)
+        private void AddMeanResult(Mat imageMean, OpenCvSharp.Rect resultBounds, int index)
         {
             switch (property.MEAN_TYPES)
             {
                 case MeanType.Mean:
                     double meanValue = Math.Round(Cv2.Mean(imageMean).Val0, 1);
-                    results.Add(new MeanResult(0, meanValue, Lib.Common.CommonConverter.RectToRectangle(resultBounds)));
+                    results.Add(new MeanResult(index, meanValue, Lib.Common.CommonConverter.RectToRectangle(resultBounds)));
                     break;
                 case MeanType.MeanStdDev:
-                    Cv2.MeanStdDev(imageMean, out Scalar mean, out Scalar stddev);
-                    double meanStdDev = double.Parse(stddev[0].ToString("F1"));
-                    results.Add(new MeanResult(0, meanStdDev, Lib.Common.CommonConverter.RectToRectangle(resultBounds)));
+                    Cv2.MeanStdDev(imageMean, out _, out Scalar stddev);
+                    double meanStdDev = Math.Round(stddev[0], 1);
+                    results.Add(new MeanResult(index, meanStdDev, Lib.Common.CommonConverter.RectToRectangle(resultBounds)));
                     break;
             }
         }

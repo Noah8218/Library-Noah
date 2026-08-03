@@ -201,6 +201,7 @@ IVisionTool
    |- EdgeDetectionTool
    |- RotateScaleTool
    |- ContourTool
+   |- CornerTool
    |- MatchingTool
    |- LineGaugeTool
    |- MeanTool
@@ -239,6 +240,7 @@ else
 | `EdgeDetectionTool` | Canny, Sobel, Scharr, Laplacian 엣지 검출 | `EdgeDetectionToolProperty` |
 | `RotateScaleTool` | 이미지 회전/스케일 변환 | `RotateScaleToolProperty` |
 | `ContourTool` | Contour 검출과 면적 필터링 | `IOpenCVPropertyContour` 구현체 |
+| `CornerTool` | sub-pixel corner 검출과 전역 좌표 결과 | `IOpenCVPropertyContour` 구현체 |
 | `BlobTool` | Blob 라벨링과 면적 필터링 | `IOpenCVPropertyBlob` 구현체 |
 | `MatchingTool` | Template Matching, Scale/Angle 탐색 | `IOpenCVPropertyMatching` 구현체 |
 | `EdgeBasedTemplateMatchingTool` | 엣지 기반 템플릿 매칭 | `IOpenCVPropertyEdgeBasedTemplateMatching` 구현체 |
@@ -246,6 +248,8 @@ else
 | `SiftTool` | SIFT 특징점 기반 매칭 | `IOpenCVPropertyFeatureSIFT` 구현체 |
 | `LineGaugeTool` | ROI 내 엣지 검출 후 직선 피팅 | `IOpenCvPropertyLineGauge` 구현체 |
 | `MeanTool` | ROI 평균/표준편차 계산 | `IOpenCVPropertyMean` 구현체 |
+
+`MeanTool`의 multi-ROI 실행은 `CvROIS` 순서대로 각 영역을 측정하고 같은 순서의 `MeanResult.index`를 제공합니다. `CornerTool`은 sub-pixel 보정된 각 점을 전역 이미지 좌표의 `CornerResult`로 제공하며, 검출점이 없으면 `CornerNoResult`를 반환합니다.
 
 ## 기본 사용 예제
 

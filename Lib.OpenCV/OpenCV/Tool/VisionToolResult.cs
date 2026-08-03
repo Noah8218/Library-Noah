@@ -56,6 +56,9 @@ namespace Lib.OpenCV.Tool
         LineGaugeFitFailed = 704,
         MeanRoiInvalid = 800,
         MeanInvalidAdaptiveBlockSize = 801,
+        CornerRoiInvalid = 850,
+        CornerInvalidAdaptiveBlockSize = 851,
+        CornerNoResult = 852,
         FeatureTemplateMissing = 900,
         FeatureRoiInvalid = 901,
         FeatureTemplateInvalid = 902,
@@ -185,6 +188,7 @@ namespace Lib.OpenCV.Tool
                 case VisionToolErrorCode.MatchingRoiInvalid:
                 case VisionToolErrorCode.LineGaugeRoiInvalid:
                 case VisionToolErrorCode.MeanRoiInvalid:
+                case VisionToolErrorCode.CornerRoiInvalid:
                 case VisionToolErrorCode.FeatureRoiInvalid:
                 case VisionToolErrorCode.AutoMPointInvalidRoi:
                     return VisionToolResultStatus.InvalidRoi;
@@ -209,6 +213,7 @@ namespace Lib.OpenCV.Tool
                 case VisionToolErrorCode.LineGaugeInvalidSampling:
                 case VisionToolErrorCode.LineGaugeInvalidAdaptiveBlockSize:
                 case VisionToolErrorCode.MeanInvalidAdaptiveBlockSize:
+                case VisionToolErrorCode.CornerInvalidAdaptiveBlockSize:
                 case VisionToolErrorCode.FeatureInvalidAdaptiveBlockSize:
                 case VisionToolErrorCode.RotateScaleInvalidScale:
                 case VisionToolErrorCode.AffineInvalidPoint:
