@@ -93,6 +93,11 @@ namespace Lib.Inspection.Smoke
                 Run("Pose symmetry equivalence supports X and Y cyclic groups", TestRigidPoseSymmetryEquivalenceAxes, ref passed, ref total);
                 Run("Pose symmetry equivalence preserves thresholds and tie order", TestRigidPoseSymmetryEquivalenceThresholds, ref passed, ref total);
                 Run("Pose symmetry equivalence rejects invalid contracts", TestRigidPoseSymmetryEquivalenceInvalid, ref passed, ref total);
+                Run("Model surface selection preserves source order when disabled", TestModelSurfaceSelectionDisabled, ref passed, ref total);
+                Run("Model surface selection applies explicit exclusions", TestModelSurfaceSelectionExplicit, ref passed, ref total);
+                Run("Model surface selection removes exact geometric duplicates", TestModelSurfaceSelectionExactDuplicate, ref passed, ref total);
+                Run("Model surface selection canonicalizes authored order", TestModelSurfaceSelectionDeterministic, ref passed, ref total);
+                Run("Model surface selection rejects invalid contracts", TestModelSurfaceSelectionInvalid, ref passed, ref total);
                 Run("Triangle-mesh distance preserves closest feature and robust sign evidence", TestTriangleMeshDistance, ref passed, ref total);
                 Run("Nominal/actual mesh comparison preserves streaming statistics and sampling", TestNominalActualMeshComparison, ref passed, ref total);
                 Run("Rigid-transform diagnostics preserve plausibility measures", TestRigidTransformDiagnostics, ref passed, ref total);
@@ -1339,6 +1344,193 @@ namespace Lib.Inspection.Smoke
                     "rigid",
                     StringComparison.OrdinalIgnoreCase) >= 0,
                 "A non-rigid candidate pose must fail closed.");
+        }
+
+        private static void TestModelSurfaceSelectionDisabled()
+        {
+            ThreeDPoint[] points;
+            SurfaceModelTriangleInput[] triangles;
+            CreateModelSurfaceSelectionFixture(out points, out triangles);
+            DeterministicModelSurfaceSelectionResult result =
+                new DeterministicModelSurfaceSelectionTool().Execute(
+                    points,
+                    triangles,
+                    new DeterministicModelSurfaceSelectionOptions());
+
+            Require(result.Success
+                && result.RetainedSourceTriangleIndices.SequenceEqual(
+                    new[] { 0, 1, 2, 3 })
+                && result.RemovedSurfaces.Count == 0,
+                "Disabled cleanup must preserve every source triangle in source order.");
+        }
+
+        private static void TestModelSurfaceSelectionExplicit()
+        {
+            ThreeDPoint[] points;
+            SurfaceModelTriangleInput[] triangles;
+            CreateModelSurfaceSelectionFixture(out points, out triangles);
+            DeterministicModelSurfaceSelectionResult result =
+                new DeterministicModelSurfaceSelectionTool().Execute(
+                    points,
+                    triangles,
+                    new DeterministicModelSurfaceSelectionOptions
+                    {
+                        ExplicitInternalSourceTriangleIndices =
+                            new[] { 1 },
+                        ExplicitUnobservableSourceTriangleIndices =
+                            new[] { 2 }
+                    });
+
+            Require(result.Success
+                && result.RetainedSourceTriangleIndices.SequenceEqual(
+                    new[] { 0, 3 })
+                && result.RemovedSurfaces.Count == 2
+                && result.RemovedSurfaces[0].SourceTriangleIndex == 1
+                && result.RemovedSurfaces[0].Reason
+                    == ModelSurfaceRemovalReason.ExplicitInternal
+                && result.RemovedSurfaces[1].SourceTriangleIndex == 2
+                && result.RemovedSurfaces[1].Reason
+                    == ModelSurfaceRemovalReason.ExplicitUnobservable,
+                "Explicit internal and unobservable exclusions must retain typed evidence.");
+        }
+
+        private static void TestModelSurfaceSelectionExactDuplicate()
+        {
+            ThreeDPoint[] points;
+            SurfaceModelTriangleInput[] triangles;
+            CreateModelSurfaceSelectionFixture(out points, out triangles);
+            DeterministicModelSurfaceSelectionResult result =
+                new DeterministicModelSurfaceSelectionTool().Execute(
+                    points,
+                    triangles,
+                    new DeterministicModelSurfaceSelectionOptions
+                    {
+                        RemoveExactDuplicateTriangles = true
+                    });
+
+            RemovedModelSurface duplicate = result.RemovedSurfaces.Single();
+            Require(result.Success
+                && result.RetainedSourceTriangleIndices.SequenceEqual(
+                    new[] { 0, 1, 2 })
+                && duplicate.SourceTriangleIndex == 3
+                && duplicate.Reason
+                    == ModelSurfaceRemovalReason.ExactDuplicate
+                && duplicate.DuplicateOfSourceTriangleIndex == 0,
+                "Exact-coordinate duplicates must retain the lowest source-triangle index.");
+        }
+
+        private static void TestModelSurfaceSelectionDeterministic()
+        {
+            ThreeDPoint[] points;
+            SurfaceModelTriangleInput[] triangles;
+            CreateModelSurfaceSelectionFixture(out points, out triangles);
+            DeterministicModelSurfaceSelectionTool tool =
+                new DeterministicModelSurfaceSelectionTool();
+            DeterministicModelSurfaceSelectionResult first = tool.Execute(
+                points,
+                triangles,
+                new DeterministicModelSurfaceSelectionOptions
+                {
+                    ExplicitInternalSourceTriangleIndices =
+                        new[] { 2, 1 },
+                    RemoveExactDuplicateTriangles = true
+                });
+            DeterministicModelSurfaceSelectionResult second = tool.Execute(
+                points,
+                triangles,
+                new DeterministicModelSurfaceSelectionOptions
+                {
+                    ExplicitInternalSourceTriangleIndices =
+                        new[] { 1, 2 },
+                    RemoveExactDuplicateTriangles = true
+                });
+
+            Require(first.Success
+                && second.Success
+                && first.ExplicitInternalSourceTriangleIndices.SequenceEqual(
+                    new[] { 1, 2 })
+                && first.RetainedSourceTriangleIndices.SequenceEqual(
+                    second.RetainedSourceTriangleIndices)
+                && first.RemovedSurfaces.Select(item => item.SourceTriangleIndex)
+                    .SequenceEqual(second.RemovedSurfaces.Select(
+                        item => item.SourceTriangleIndex)),
+                "Authored exclusion order must not change canonical selection evidence.");
+        }
+
+        private static void TestModelSurfaceSelectionInvalid()
+        {
+            ThreeDPoint[] points;
+            SurfaceModelTriangleInput[] triangles;
+            CreateModelSurfaceSelectionFixture(out points, out triangles);
+            DeterministicModelSurfaceSelectionTool tool =
+                new DeterministicModelSurfaceSelectionTool();
+            DeterministicModelSurfaceSelectionResult overlap = tool.Execute(
+                points,
+                triangles,
+                new DeterministicModelSurfaceSelectionOptions
+                {
+                    ExplicitInternalSourceTriangleIndices = new[] { 1 },
+                    ExplicitUnobservableSourceTriangleIndices = new[] { 1 }
+                });
+            DeterministicModelSurfaceSelectionResult outside = tool.Execute(
+                points,
+                triangles,
+                new DeterministicModelSurfaceSelectionOptions
+                {
+                    ExplicitInternalSourceTriangleIndices = new[] { 4 }
+                });
+            DeterministicModelSurfaceSelectionResult empty = tool.Execute(
+                points,
+                triangles,
+                new DeterministicModelSurfaceSelectionOptions
+                {
+                    ExplicitInternalSourceTriangleIndices =
+                        new[] { 0, 1, 2, 3 }
+                });
+
+            Require(!overlap.Success
+                && overlap.Message.IndexOf(
+                    "both explicitly",
+                    StringComparison.OrdinalIgnoreCase) >= 0,
+                "Overlapping authored roles must fail closed.");
+            Require(!outside.Success
+                && outside.Message.IndexOf(
+                    "must exist",
+                    StringComparison.OrdinalIgnoreCase) >= 0,
+                "Out-of-range authored exclusions must fail closed.");
+            Require(!empty.Success
+                && empty.Message.IndexOf(
+                    "retain at least one",
+                    StringComparison.OrdinalIgnoreCase) >= 0,
+                "A selection that removes every surface must fail closed.");
+        }
+
+        private static void CreateModelSurfaceSelectionFixture(
+            out ThreeDPoint[] points,
+            out SurfaceModelTriangleInput[] triangles)
+        {
+            points = new[]
+            {
+                new ThreeDPoint(0.0, 0.0, 0.0),
+                new ThreeDPoint(1.0, 0.0, 0.0),
+                new ThreeDPoint(0.0, 1.0, 0.0),
+                new ThreeDPoint(0.0, 0.0, -1.0),
+                new ThreeDPoint(1.0, 0.0, -1.0),
+                new ThreeDPoint(0.0, 1.0, -1.0),
+                new ThreeDPoint(2.0, 0.0, 0.0),
+                new ThreeDPoint(3.0, 0.0, 0.0),
+                new ThreeDPoint(2.0, 1.0, 0.0),
+                new ThreeDPoint(0.0, 0.0, 0.0),
+                new ThreeDPoint(1.0, 0.0, 0.0),
+                new ThreeDPoint(0.0, 1.0, 0.0)
+            };
+            triangles = new[]
+            {
+                new SurfaceModelTriangleInput(0, 1, 2),
+                new SurfaceModelTriangleInput(3, 4, 5),
+                new SurfaceModelTriangleInput(6, 7, 8),
+                new SurfaceModelTriangleInput(9, 10, 11)
+            };
         }
 
         private static void TestTriangleMeshDistance()
