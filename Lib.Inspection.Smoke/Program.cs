@@ -102,6 +102,10 @@ namespace Lib.Inspection.Smoke
                 Run("Nominal/actual mesh comparison preserves streaming statistics and sampling", TestNominalActualMeshComparison, ref passed, ref total);
                 Run("Rigid-transform diagnostics preserve plausibility measures", TestRigidTransformDiagnostics, ref passed, ref total);
                 Run("Surface-model preparation preserves even triangle samples", TestDeterministicSurfaceModelPreparation, ref passed, ref total);
+                Run("Model key-point extraction preserves deterministic spatial coverage", TestDeterministicModelKeyPointExtraction, ref passed, ref total);
+                Run("Model key-point extraction is independent of input order", TestDeterministicModelKeyPointExtractionOrder, ref passed, ref total);
+                Run("Model key-point extraction honors minimum separation", TestDeterministicModelKeyPointExtractionSeparation, ref passed, ref total);
+                Run("Model key-point extraction rejects invalid contracts", TestDeterministicModelKeyPointExtractionInvalid, ref passed, ref total);
                 Run("Prepared-scene preparation preserves even point samples", TestDeterministicPreparedScenePreparation, ref passed, ref total);
                 Run("Model surface-edge extraction preserves boundary topology", TestDeterministicModelSurfaceEdgeExtraction, ref passed, ref total);
                 Run("Organized scene surface-edge extraction anchors height steps", TestDeterministicOrganizedSceneSurfaceEdgeExtraction, ref passed, ref total);
@@ -1892,6 +1896,144 @@ namespace Lib.Inspection.Smoke
                 10.0,
                 -4.0,
                 2.0);
+        }
+
+        private static void TestDeterministicModelKeyPointExtraction()
+        {
+            ModelKeyPointInput[] samples = CreateModelKeyPointFixture();
+            DeterministicModelKeyPointExtractionResult result =
+                new DeterministicModelKeyPointExtractionTool().Execute(
+                    samples,
+                    new DeterministicModelKeyPointExtractionOptions
+                    {
+                        MaximumKeyPointCount = 3,
+                        MinimumSeparation = 0.0
+                    });
+
+            Require(result.Success, result.Message);
+            Require(
+                result.KeyPoints.Select(point => point.SourceSampleOrder)
+                    .SequenceEqual(new[] { 0, 3, 2 }),
+                "Model key-point farthest-point order changed.");
+            RequireApproximately(
+                result.KeyPoints[1].NearestSelectedDistance,
+                5.0,
+                0.0,
+                "Unexpected second key-point separation.");
+            RequireApproximately(
+                result.KeyPoints[2].NearestSelectedDistance,
+                2.0,
+                0.0,
+                "Unexpected third key-point separation.");
+        }
+
+        private static void TestDeterministicModelKeyPointExtractionOrder()
+        {
+            ModelKeyPointInput[] samples = CreateModelKeyPointFixture();
+            DeterministicModelKeyPointExtractionTool tool =
+                new DeterministicModelKeyPointExtractionTool();
+            DeterministicModelKeyPointExtractionOptions options =
+                new DeterministicModelKeyPointExtractionOptions
+                {
+                    MaximumKeyPointCount = 4,
+                    MinimumSeparation = 0.0
+                };
+            DeterministicModelKeyPointExtractionResult first =
+                tool.Execute(samples, options);
+            DeterministicModelKeyPointExtractionResult second =
+                tool.Execute(samples.Reverse().ToArray(), options);
+
+            Require(first.Success && second.Success,
+                first.Message + second.Message);
+            Require(
+                first.KeyPoints.Select(point => point.SourceSampleOrder)
+                    .SequenceEqual(second.KeyPoints.Select(
+                        point => point.SourceSampleOrder)),
+                "Input order changed model key-point identities.");
+        }
+
+        private static void TestDeterministicModelKeyPointExtractionSeparation()
+        {
+            DeterministicModelKeyPointExtractionResult result =
+                new DeterministicModelKeyPointExtractionTool().Execute(
+                    CreateModelKeyPointFixture(),
+                    new DeterministicModelKeyPointExtractionOptions
+                    {
+                        MaximumKeyPointCount = 4,
+                        MinimumSeparation = 2.0
+                    });
+
+            Require(result.Success, result.Message);
+            Require(
+                result.KeyPoints.Select(point => point.SourceSampleOrder)
+                    .SequenceEqual(new[] { 0, 3 }),
+                "Minimum separation must exclude points on the boundary.");
+        }
+
+        private static void TestDeterministicModelKeyPointExtractionInvalid()
+        {
+            DeterministicModelKeyPointExtractionTool tool =
+                new DeterministicModelKeyPointExtractionTool();
+            ModelKeyPointInput[] duplicateOrders =
+            {
+                new ModelKeyPointInput(
+                    0,
+                    new ThreeDPoint(0.0, 0.0, 0.0),
+                    new ThreeDPoint(0.0, 0.0, 1.0)),
+                new ModelKeyPointInput(
+                    0,
+                    new ThreeDPoint(1.0, 0.0, 0.0),
+                    new ThreeDPoint(0.0, 0.0, 1.0))
+            };
+            DeterministicModelKeyPointExtractionResult duplicate =
+                tool.Execute(
+                    duplicateOrders,
+                    new DeterministicModelKeyPointExtractionOptions
+                    {
+                        MaximumKeyPointCount = 1
+                    });
+            DeterministicModelKeyPointExtractionResult invalidNormal =
+                tool.Execute(
+                    new[]
+                    {
+                        new ModelKeyPointInput(
+                            0,
+                            new ThreeDPoint(0.0, 0.0, 0.0),
+                            new ThreeDPoint(0.0, 0.0, 2.0))
+                    },
+                    new DeterministicModelKeyPointExtractionOptions
+                    {
+                        MaximumKeyPointCount = 1
+                    });
+
+            Require(!duplicate.Success,
+                "Duplicate source sample orders must fail closed.");
+            Require(!invalidNormal.Success,
+                "Non-unit source sample normals must fail closed.");
+        }
+
+        private static ModelKeyPointInput[] CreateModelKeyPointFixture()
+        {
+            ThreeDPoint normal = new ThreeDPoint(0.0, 0.0, 1.0);
+            return new[]
+            {
+                new ModelKeyPointInput(
+                    2,
+                    new ThreeDPoint(0.0, 2.0, 0.0),
+                    normal),
+                new ModelKeyPointInput(
+                    0,
+                    new ThreeDPoint(0.0, 0.0, 0.0),
+                    normal),
+                new ModelKeyPointInput(
+                    3,
+                    new ThreeDPoint(5.0, 0.0, 0.0),
+                    normal),
+                new ModelKeyPointInput(
+                    1,
+                    new ThreeDPoint(1.0, 0.0, 0.0),
+                    normal)
+            };
         }
 
         private static RigidPoseSymmetryEquivalenceOptions
