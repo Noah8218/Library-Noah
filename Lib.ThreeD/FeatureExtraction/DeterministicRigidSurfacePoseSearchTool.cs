@@ -257,7 +257,7 @@ namespace Lib.ThreeD.FeatureExtraction
             }
         }
 
-        private static int AxisCandidateCount(
+        internal static int AxisCandidateCount(
             double minimum,
             double maximum,
             double step,
@@ -299,7 +299,7 @@ namespace Lib.ThreeD.FeatureExtraction
             return checked((int)candidateCount);
         }
 
-        private static double[] AxisCandidates(
+        internal static double[] AxisCandidates(
             double minimum,
             double step,
             int count)
@@ -332,7 +332,7 @@ namespace Lib.ThreeD.FeatureExtraction
                 z / samples.Count);
         }
 
-        private static Rotation3 Rotation(
+        internal static Rotation3 Rotation(
             double xDegrees,
             double yDegrees,
             double zDegrees)
@@ -358,7 +358,7 @@ namespace Lib.ThreeD.FeatureExtraction
                 cy * cx);
         }
 
-        private static bool InsideTranslationBounds(
+        internal static bool InsideTranslationBounds(
             ThreeDPoint translation,
             DeterministicRigidSurfacePoseSearchOptions options)
         {
@@ -415,7 +415,7 @@ namespace Lib.ThreeD.FeatureExtraction
             }
         }
 
-        private sealed class Rotation3
+        internal sealed class Rotation3
         {
             public Rotation3(
                 double m11,

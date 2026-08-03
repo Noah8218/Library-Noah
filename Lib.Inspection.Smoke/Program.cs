@@ -86,6 +86,8 @@ namespace Lib.Inspection.Smoke
                 Run("Rigid surface pose search recovers known yaw and translation", TestDeterministicRigidSurfacePoseSearch, ref passed, ref total);
                 Run("Surface coverage preserves one-way unique occlusion evidence", TestDeterministicSurfaceCoverageOcclusion, ref passed, ref total);
                 Run("Rigid surface pose search fails closed on bounded domains", TestDeterministicRigidSurfacePoseSearchBounds, ref passed, ref total);
+                Run("Multiple surface match returns stable disjoint two-object results", TestDeterministicMultipleSurfaceMatch, ref passed, ref total);
+                Run("Multiple surface match fails closed on expanded candidate budget", TestDeterministicMultipleSurfaceMatchBudget, ref passed, ref total);
                 Run("Triangle-mesh distance preserves closest feature and robust sign evidence", TestTriangleMeshDistance, ref passed, ref total);
                 Run("Nominal/actual mesh comparison preserves streaming statistics and sampling", TestNominalActualMeshComparison, ref passed, ref total);
                 Run("Rigid-transform diagnostics preserve plausibility measures", TestRigidTransformDiagnostics, ref passed, ref total);
@@ -1007,6 +1009,92 @@ namespace Lib.Inspection.Smoke
                 "A declared candidate budget must fail closed before search.");
         }
 
+        private static void TestDeterministicMultipleSurfaceMatch()
+        {
+            IReadOnlyList<SurfaceMatchSample> model = CreateSurfaceMatchModel();
+            RigidSurfacePose firstPose = CreateKnownSurfacePose();
+            RigidSurfacePose secondPose = new RigidSurfacePose(
+                firstPose.M11,
+                firstPose.M12,
+                firstPose.M13,
+                firstPose.M21,
+                firstPose.M22,
+                firstPose.M23,
+                firstPose.M31,
+                firstPose.M32,
+                firstPose.M33,
+                -12.0,
+                7.0,
+                1.0);
+            IReadOnlyList<SurfaceMatchSample> scene = model
+                .Select(sample => firstPose.Transform(sample.Position))
+                .Concat(model.Select(sample => secondPose.Transform(sample.Position)))
+                .Select((point, order) => new SurfaceMatchSample(order, point))
+                .ToArray();
+            DeterministicMultipleSurfaceMatchOptions options =
+                CreateMultipleSurfaceSearchOptions();
+            DeterministicMultipleSurfaceMatchTool tool =
+                new DeterministicMultipleSurfaceMatchTool();
+            DeterministicMultipleSurfaceMatchResult first =
+                tool.Execute(model, scene, options);
+            DeterministicMultipleSurfaceMatchResult repeated =
+                tool.Execute(model, scene, options);
+
+            Require(first.Success
+                && first.Matches.Count == 2
+                && first.Matches[0].Order == 0
+                && first.Matches[1].Order == 1,
+                "The two-object fixture must return two ordered results.");
+            RequireApproximately(first.Matches[0].Pose.TranslationX, 10.0, 1e-12,
+                "Unexpected first multiple-match translation X.");
+            RequireApproximately(first.Matches[1].Pose.TranslationX, -12.0, 1e-12,
+                "Unexpected second multiple-match translation X.");
+            Require(first.Matches.All(match =>
+                    match.Coverage.MatchedModelSampleCount == 5
+                    && match.Coverage.HasInlierRmse
+                    && match.Coverage.InlierRmse <= 1e-12),
+                "Each multiple-match result must retain full exact coverage.");
+            Require(first.Matches
+                    .SelectMany(match => match.Coverage.Matches)
+                    .Select(match => match.SceneSampleOrder)
+                    .Distinct()
+                    .Count() == 10,
+                "Multiple-match results must not share scene samples.");
+            Require(repeated.Success
+                && repeated.Matches.Count == 2
+                && first.EvaluatedCandidateCount == repeated.EvaluatedCandidateCount
+                && first.Matches[0].Pose.TranslationX
+                    == repeated.Matches[0].Pose.TranslationX
+                && first.Matches[1].Pose.TranslationX
+                    == repeated.Matches[1].Pose.TranslationX,
+                "Repeated multiple-match search must preserve order and poses.");
+        }
+
+        private static void TestDeterministicMultipleSurfaceMatchBudget()
+        {
+            IReadOnlyList<SurfaceMatchSample> model = CreateSurfaceMatchModel();
+            RigidSurfacePose knownPose = CreateKnownSurfacePose();
+            IReadOnlyList<SurfaceMatchSample> scene = model
+                .Select(sample => new SurfaceMatchSample(
+                    sample.Order,
+                    knownPose.Transform(sample.Position)))
+                .ToArray();
+            DeterministicMultipleSurfaceMatchOptions options =
+                CreateMultipleSurfaceSearchOptions();
+            options.MaximumExpandedCandidateCount = 1;
+            DeterministicMultipleSurfaceMatchResult result =
+                new DeterministicMultipleSurfaceMatchTool().Execute(
+                    model,
+                    scene,
+                    options);
+
+            Require(!result.Success
+                && result.Message.IndexOf(
+                    "expanded candidate count",
+                    StringComparison.OrdinalIgnoreCase) >= 0,
+                "Multiple-match search must reject an insufficient expanded candidate budget before execution.");
+        }
+
         private static void TestTriangleMeshDistance()
         {
             TriangleMeshDistanceTool tool = new TriangleMeshDistanceTool(
@@ -1391,6 +1479,27 @@ namespace Lib.Inspection.Smoke
                 MaximumCorrespondenceDistance = 1e-6,
                 MinimumMatchedSampleCount = 3,
                 MaximumCandidateCount = 100
+            };
+        }
+
+        private static DeterministicMultipleSurfaceMatchOptions
+            CreateMultipleSurfaceSearchOptions()
+        {
+            DeterministicRigidSurfacePoseSearchOptions pose =
+                CreateSurfaceSearchOptions();
+            pose.MinimumRotationZDegrees = 30.0;
+            pose.MaximumRotationZDegrees = 30.0;
+            pose.MinimumTranslationX = -15.0;
+            pose.MaximumTranslationX = 15.0;
+            pose.MinimumTranslationY = -8.0;
+            pose.MaximumTranslationY = 9.0;
+            pose.MinimumTranslationZ = 0.0;
+            pose.MaximumTranslationZ = 3.0;
+            return new DeterministicMultipleSurfaceMatchOptions
+            {
+                PoseSearchOptions = pose,
+                MaximumMatchCount = 2,
+                MaximumExpandedCandidateCount = 1000
             };
         }
 
