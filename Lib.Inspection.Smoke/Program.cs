@@ -88,6 +88,11 @@ namespace Lib.Inspection.Smoke
                 Run("Rigid surface pose search fails closed on bounded domains", TestDeterministicRigidSurfacePoseSearchBounds, ref passed, ref total);
                 Run("Multiple surface match returns stable disjoint two-object results", TestDeterministicMultipleSurfaceMatch, ref passed, ref total);
                 Run("Multiple surface match fails closed on expanded candidate budget", TestDeterministicMultipleSurfaceMatchBudget, ref passed, ref total);
+                Run("Pose symmetry equivalence uses model-space post-multiplication", TestRigidPoseSymmetryEquivalencePostMultiply, ref passed, ref total);
+                Run("Pose symmetry equivalence preserves direct comparison for none", TestRigidPoseSymmetryEquivalenceNone, ref passed, ref total);
+                Run("Pose symmetry equivalence supports X and Y cyclic groups", TestRigidPoseSymmetryEquivalenceAxes, ref passed, ref total);
+                Run("Pose symmetry equivalence preserves thresholds and tie order", TestRigidPoseSymmetryEquivalenceThresholds, ref passed, ref total);
+                Run("Pose symmetry equivalence rejects invalid contracts", TestRigidPoseSymmetryEquivalenceInvalid, ref passed, ref total);
                 Run("Triangle-mesh distance preserves closest feature and robust sign evidence", TestTriangleMeshDistance, ref passed, ref total);
                 Run("Nominal/actual mesh comparison preserves streaming statistics and sampling", TestNominalActualMeshComparison, ref passed, ref total);
                 Run("Rigid-transform diagnostics preserve plausibility measures", TestRigidTransformDiagnostics, ref passed, ref total);
@@ -1095,6 +1100,247 @@ namespace Lib.Inspection.Smoke
                 "Multiple-match search must reject an insufficient expanded candidate budget before execution.");
         }
 
+        private static void TestRigidPoseSymmetryEquivalencePostMultiply()
+        {
+            double cosine = Math.Sqrt(3.0) / 2.0;
+            RigidSurfacePose reference = new RigidSurfacePose(
+                1.0, 0.0, 0.0,
+                0.0, cosine, -0.5,
+                0.0, 0.5, cosine,
+                10.0, -4.0, 2.0);
+            RigidSurfacePose candidate = new RigidSurfacePose(
+                0.0, -1.0, 0.0,
+                cosine, 0.0, -0.5,
+                0.5, 0.0, cosine,
+                10.0, -4.0, 2.0);
+            RigidPoseSymmetryEquivalenceResult result =
+                new RigidPoseSymmetryEquivalenceTool().Execute(
+                    reference,
+                    candidate,
+                    CreateSymmetryOptions(
+                        RigidPoseSymmetryKind.DiscreteRotation,
+                        RigidPoseSymmetryAxis.Z,
+                        4,
+                        1e-9,
+                        1e-6));
+
+            Require(result.Success
+                && result.Equivalent
+                && result.SymmetryOperationIndex == 1,
+                "A candidate equal to reference * Rz(90) must be symmetry-equivalent.");
+            RequireApproximately(
+                result.SymmetryOperationAngleDegrees,
+                90.0,
+                1e-12,
+                "Unexpected winning symmetry angle.");
+            Require(result.TranslationDifference <= 1e-12
+                && result.RotationDifferenceDegrees <= 1e-6,
+                "Exact symmetry-equivalent poses must have near-zero residuals.");
+        }
+
+        private static void TestRigidPoseSymmetryEquivalenceNone()
+        {
+            RigidSurfacePose reference = CreateRotationPose(
+                RigidPoseSymmetryAxis.Z,
+                0.0,
+                1.0,
+                2.0,
+                3.0);
+            RigidSurfacePose rotated = CreateRotationPose(
+                RigidPoseSymmetryAxis.Z,
+                90.0,
+                1.0,
+                2.0,
+                3.0);
+            RigidPoseSymmetryEquivalenceOptions options =
+                CreateSymmetryOptions(
+                    RigidPoseSymmetryKind.None,
+                    RigidPoseSymmetryAxis.None,
+                    1,
+                    1e-9,
+                    1e-6);
+            RigidPoseSymmetryEquivalenceTool tool =
+                new RigidPoseSymmetryEquivalenceTool();
+            RigidPoseSymmetryEquivalenceResult identical =
+                tool.Execute(reference, reference, options);
+            RigidPoseSymmetryEquivalenceResult different =
+                tool.Execute(reference, rotated, options);
+
+            Require(identical.Success
+                && identical.Equivalent
+                && identical.SymmetryOperationIndex == 0,
+                "None symmetry must accept identical poses through operation zero.");
+            Require(different.Success
+                && !different.Equivalent
+                && different.SymmetryOperationIndex == 0
+                && different.RotationDifferenceDegrees > 89.999,
+                "None symmetry must preserve direct rotation comparison.");
+        }
+
+        private static void TestRigidPoseSymmetryEquivalenceAxes()
+        {
+            RigidSurfacePose identity = CreateRotationPose(
+                RigidPoseSymmetryAxis.Z,
+                0.0,
+                0.0,
+                0.0,
+                0.0);
+            RigidPoseSymmetryEquivalenceTool tool =
+                new RigidPoseSymmetryEquivalenceTool();
+            RigidPoseSymmetryEquivalenceResult x = tool.Execute(
+                identity,
+                CreateRotationPose(
+                    RigidPoseSymmetryAxis.X,
+                    180.0,
+                    0.0,
+                    0.0,
+                    0.0),
+                CreateSymmetryOptions(
+                    RigidPoseSymmetryKind.DiscreteRotation,
+                    RigidPoseSymmetryAxis.X,
+                    2,
+                    1e-9,
+                    1e-6));
+            RigidPoseSymmetryEquivalenceResult y = tool.Execute(
+                identity,
+                CreateRotationPose(
+                    RigidPoseSymmetryAxis.Y,
+                    120.0,
+                    0.0,
+                    0.0,
+                    0.0),
+                CreateSymmetryOptions(
+                    RigidPoseSymmetryKind.DiscreteRotation,
+                    RigidPoseSymmetryAxis.Y,
+                    3,
+                    1e-9,
+                    1e-6));
+
+            Require(x.Success && x.Equivalent
+                && x.SymmetryOperationIndex == 1,
+                "Order-two X symmetry must recognize 180 degrees.");
+            Require(y.Success && y.Equivalent
+                && y.SymmetryOperationIndex == 1,
+                "Order-three Y symmetry must recognize 120 degrees.");
+        }
+
+        private static void TestRigidPoseSymmetryEquivalenceThresholds()
+        {
+            RigidSurfacePose identity = CreateRotationPose(
+                RigidPoseSymmetryAxis.Z,
+                0.0,
+                0.0,
+                0.0,
+                0.0);
+            RigidSurfacePose near = CreateRotationPose(
+                RigidPoseSymmetryAxis.Z,
+                90.2,
+                0.05,
+                0.0,
+                0.0);
+            RigidPoseSymmetryEquivalenceTool tool =
+                new RigidPoseSymmetryEquivalenceTool();
+            RigidPoseSymmetryEquivalenceResult accepted = tool.Execute(
+                identity,
+                near,
+                CreateSymmetryOptions(
+                    RigidPoseSymmetryKind.DiscreteRotation,
+                    RigidPoseSymmetryAxis.Z,
+                    4,
+                    0.05,
+                    0.2));
+            RigidPoseSymmetryEquivalenceResult rejected = tool.Execute(
+                identity,
+                near,
+                CreateSymmetryOptions(
+                    RigidPoseSymmetryKind.DiscreteRotation,
+                    RigidPoseSymmetryAxis.Z,
+                    4,
+                    0.049,
+                    0.19));
+            RigidPoseSymmetryEquivalenceResult tie = tool.Execute(
+                identity,
+                CreateRotationPose(
+                    RigidPoseSymmetryAxis.Z,
+                    90.0,
+                    0.0,
+                    0.0,
+                    0.0),
+                CreateSymmetryOptions(
+                    RigidPoseSymmetryKind.DiscreteRotation,
+                    RigidPoseSymmetryAxis.Z,
+                    2,
+                    0.0,
+                    90.0));
+
+            Require(accepted.Success
+                && accepted.Equivalent
+                && accepted.SymmetryOperationIndex == 1,
+                "Residuals on the authored inclusive limits must pass.");
+            RequireApproximately(
+                accepted.TranslationDifference,
+                0.05,
+                1e-12,
+                "Unexpected translation residual.");
+            RequireApproximately(
+                accepted.RotationDifferenceDegrees,
+                0.2,
+                1e-9,
+                "Unexpected rotation residual.");
+            Require(rejected.Success && !rejected.Equivalent,
+                "Residuals outside either authored limit must fail.");
+            Require(tie.Success
+                && tie.Equivalent
+                && tie.SymmetryOperationIndex == 0,
+                "An exact discrete tie must choose the lowest operation index.");
+        }
+
+        private static void TestRigidPoseSymmetryEquivalenceInvalid()
+        {
+            RigidSurfacePose identity = CreateRotationPose(
+                RigidPoseSymmetryAxis.Z,
+                0.0,
+                0.0,
+                0.0,
+                0.0);
+            RigidPoseSymmetryEquivalenceTool tool =
+                new RigidPoseSymmetryEquivalenceTool();
+            RigidPoseSymmetryEquivalenceResult invalidSymmetry = tool.Execute(
+                identity,
+                identity,
+                CreateSymmetryOptions(
+                    RigidPoseSymmetryKind.None,
+                    RigidPoseSymmetryAxis.Z,
+                    1,
+                    0.0,
+                    0.0));
+            RigidSurfacePose nonRigid = new RigidSurfacePose(
+                2.0, 0.0, 0.0,
+                0.0, 1.0, 0.0,
+                0.0, 0.0, 1.0,
+                0.0, 0.0, 0.0);
+            RigidPoseSymmetryEquivalenceResult invalidPose = tool.Execute(
+                identity,
+                nonRigid,
+                CreateSymmetryOptions(
+                    RigidPoseSymmetryKind.None,
+                    RigidPoseSymmetryAxis.None,
+                    1,
+                    0.0,
+                    0.0));
+
+            Require(!invalidSymmetry.Success
+                && invalidSymmetry.Message.IndexOf(
+                    "None symmetry",
+                    StringComparison.OrdinalIgnoreCase) >= 0,
+                "A malformed none declaration must fail closed.");
+            Require(!invalidPose.Success
+                && invalidPose.Message.IndexOf(
+                    "rigid",
+                    StringComparison.OrdinalIgnoreCase) >= 0,
+                "A non-rigid candidate pose must fail closed.");
+        }
+
         private static void TestTriangleMeshDistance()
         {
             TriangleMeshDistanceTool tool = new TriangleMeshDistanceTool(
@@ -1454,6 +1700,57 @@ namespace Lib.Inspection.Smoke
                 10.0,
                 -4.0,
                 2.0);
+        }
+
+        private static RigidPoseSymmetryEquivalenceOptions
+            CreateSymmetryOptions(
+                RigidPoseSymmetryKind kind,
+                RigidPoseSymmetryAxis axis,
+                int order,
+                double maximumTranslationDifference,
+                double maximumRotationDifferenceDegrees)
+        {
+            return new RigidPoseSymmetryEquivalenceOptions
+            {
+                Symmetry = new RigidPoseSymmetry(kind, axis, order),
+                MaximumTranslationDifference = maximumTranslationDifference,
+                MaximumRotationDifferenceDegrees =
+                    maximumRotationDifferenceDegrees,
+                RigidTransformTolerance = 1e-9
+            };
+        }
+
+        private static RigidSurfacePose CreateRotationPose(
+            RigidPoseSymmetryAxis axis,
+            double angleDegrees,
+            double translationX,
+            double translationY,
+            double translationZ)
+        {
+            double radians = angleDegrees * Math.PI / 180.0;
+            double cosine = Math.Cos(radians);
+            double sine = Math.Sin(radians);
+            switch (axis)
+            {
+                case RigidPoseSymmetryAxis.X:
+                    return new RigidSurfacePose(
+                        1.0, 0.0, 0.0,
+                        0.0, cosine, -sine,
+                        0.0, sine, cosine,
+                        translationX, translationY, translationZ);
+                case RigidPoseSymmetryAxis.Y:
+                    return new RigidSurfacePose(
+                        cosine, 0.0, sine,
+                        0.0, 1.0, 0.0,
+                        -sine, 0.0, cosine,
+                        translationX, translationY, translationZ);
+                default:
+                    return new RigidSurfacePose(
+                        cosine, -sine, 0.0,
+                        sine, cosine, 0.0,
+                        0.0, 0.0, 1.0,
+                        translationX, translationY, translationZ);
+            }
         }
 
         private static DeterministicRigidSurfacePoseSearchOptions
