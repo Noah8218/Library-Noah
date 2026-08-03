@@ -11,7 +11,7 @@ using System.Reflection;
 
 namespace Lib.OpenCV.Property
 {
-    public abstract class OpenCvAlgorithmBase : IVisionTool
+    public abstract class OpenCvAlgorithmBase : IVisionTool, IDisposable
     {
         public OpenCvAlgorithmBase() { }
         public Mat imageSource { get; set; } = new Mat();
@@ -30,8 +30,33 @@ namespace Lib.OpenCV.Property
 
         public virtual void SetSourceImage(Bitmap Image)
         {
-            imageSource = BitmapImageConverter.ToMat(Image);
+            Mat converted = BitmapImageConverter.ToMat(Image);
+            imageSource?.Dispose();
+            imageSource = converted;
             size = imageSource.Size();
+        }
+
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!disposing)
+            {
+                return;
+            }
+
+            imageSource?.Dispose();
+            imageSource = null;
+
+            imageResult?.Dispose();
+            imageResult = null;
+
+            imageTemplate?.Dispose();
+            imageTemplate = null;
         }
 
         public abstract void Run();

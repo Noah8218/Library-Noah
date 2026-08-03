@@ -74,6 +74,18 @@ namespace Lib.OpenCV.Tool
             templateRevision++;
         }
 
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                ClearTemplateModelCache();
+                originalTemplate?.Dispose();
+                originalTemplate = null;
+            }
+
+            base.Dispose(disposing);
+        }
+
         public override VisionToolResult Execute(Mat source)
         {
             VisionToolResult result = base.Execute(source);

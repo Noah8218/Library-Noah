@@ -40,6 +40,17 @@ namespace Lib.OpenCV.Tool
        
         public void SetProperty(IOpenCVPropertyMatching property) => this.property = property;
 
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                originalTemplate?.Dispose();
+                originalTemplate = null;
+            }
+
+            base.Dispose(disposing);
+        }
+
         protected override bool TryValidateBeforeRun(out VisionToolErrorCode errorCode, out string message)
         {
             if (!base.TryValidateBeforeRun(out errorCode, out message))

@@ -54,7 +54,10 @@ namespace Lib.Inspection
         }
     }
 
-    public sealed class CombinedInspectionRunResult
+    /// <summary>
+    /// Owns the 2D VisionResult instances collected by the combined runner.
+    /// </summary>
+    public sealed class CombinedInspectionRunResult : IDisposable
     {
         public bool Success { get; internal set; }
 
@@ -78,6 +81,14 @@ namespace Lib.Inspection
                 }
 
                 return failedStepCount;
+            }
+        }
+
+        public void Dispose()
+        {
+            foreach (CombinedInspectionStepResult step in Steps)
+            {
+                step?.VisionResult?.Dispose();
             }
         }
     }

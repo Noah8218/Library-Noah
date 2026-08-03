@@ -41,13 +41,13 @@ namespace Lib.OpenCV.Tool
                 throw new InvalidOperationException("Source image is not loaded.");
             }
 
-            imageResult = Transform(
+            ReplaceResultImage(Transform(
                 imageSource,
                 property.Angle,
                 property.ScaleXPercent,
                 property.ScaleYPercent,
                 property.Interpolation,
-                property.BorderType);
+                property.BorderType));
         }
 
         public static Mat Transform(

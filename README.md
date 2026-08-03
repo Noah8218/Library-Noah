@@ -47,7 +47,7 @@ Directory.CreateDirectory("artifacts");
 
 using (Mat source = Cv2.ImRead("docs/samples/vision_sample.png", ImreadModes.Grayscale))
 {
-    EdgeDetectionTool tool = new EdgeDetectionTool();
+    using EdgeDetectionTool tool = new EdgeDetectionTool();
     tool.SetProperty(new EdgeDetectionToolProperty
     {
         EdgeType = EdgeDetectionToolType.Canny,
@@ -56,14 +56,13 @@ using (Mat source = Cv2.ImRead("docs/samples/vision_sample.png", ImreadModes.Gra
         CannyApertureSize = 3
     });
 
-    VisionToolResult result = tool.Execute(source);
+    using VisionToolResult result = tool.Execute(source);
     if (!result.Success)
     {
         throw new InvalidOperationException($"{result.ErrorName}: {result.Message}");
     }
 
     Cv2.ImWrite("artifacts/smoke_edge.png", result.ResultImage);
-    result.ResultImage?.Dispose();
 }
 ```
 
@@ -216,7 +215,7 @@ IVisionTool
 4. `VisionToolResult`에서 성공 여부, 결과 이미지, 에러 코드, 메트릭, 오버레이를 확인합니다.
 
 ```csharp
-VisionToolResult result = tool.Execute(source);
+using VisionToolResult result = tool.Execute(source);
 
 if (result.Success)
 {
@@ -415,6 +414,7 @@ using (Mat source = Cv2.ImRead("docs/samples/vision_sample.png", ImreadModes.Gra
 - `filter`
 - `edge` 또는 `edgedetection`
 - `rotatescale`
+- `affine`, `affinematrix` 또는 `affinetransform`
 
 예제:
 
@@ -448,7 +448,7 @@ using (VisionPipelineContext context = new VisionPipelineContext())
     context.SetLayer("input", source);
 
     VisionPipelineRuntime runtime = new VisionPipelineRuntime();
-    VisionPipelineRunResult runResult = runtime.Run(pipeline, context);
+    using VisionPipelineRunResult runResult = runtime.Run(pipeline, context);
 
     if (!runResult.Success)
     {
@@ -462,6 +462,16 @@ using (VisionPipelineContext context = new VisionPipelineContext())
     }
 }
 ```
+
+## 네이티브 이미지 리소스 소유권
+
+- 호출자는 `Execute(Mat source)`에 전달한 입력 `Mat`을 계속 소유합니다. Tool이나 Runner는 이 입력을 해제하지 않습니다.
+- `OpenCvAlgorithmBase` 기반 Tool은 내부 source/result/template 복사본을 소유하므로 사용 후 Tool을 `Dispose()`해야 합니다.
+- `VisionToolResult`는 `ResultImage`를 소유합니다. 결과를 다 사용한 뒤 `VisionToolResult.Dispose()`를 호출하며, 그 이후에는 기존 `ResultImage` 참조를 사용하지 않습니다.
+- `VisionPipelineContext.SetLayer`는 입력 이미지를 복제해 보관하고, `GetLayer`는 호출자가 해제해야 하는 새 복사본을 반환합니다.
+- `VisionPipelineRunResult.Dispose()`는 모든 step의 `VisionToolResult`와 결과 이미지를 해제합니다. 기본 Runtime은 기본 팩터리가 생성한 Tool도 해제합니다.
+- 사용자 팩터리를 받는 `VisionPipelineRuntime(factory)`는 호환성을 위해 Tool을 호출자 소유로 유지합니다. Runtime이 팩터리 생성 Tool을 소유하게 하려면 `VisionPipelineRuntime(factory, true)`를 사용합니다.
+- `CombinedInspectionRunResult.Dispose()`는 포함된 2D 결과 이미지만 해제합니다. 입력 `Image`, `HeightMap`, 전달한 Tool은 호출자 소유입니다.
 
 ## 결과 확인
 

@@ -1,4 +1,5 @@
 using Lib.Inspection;
+using Lib.OpenCV.Pipeline;
 using Lib.OpenCV.Property;
 using Lib.OpenCV.Tool;
 using Lib.ThreeD.FeatureExtraction;
@@ -83,6 +84,9 @@ namespace Lib.Inspection.Smoke
                 Run("Edge matcher rejects repeated candidates as ambiguous", TestEdgeMatcherUniqueAmbiguous, ref passed, ref total);
                 Run("Edge matcher reports no match without a candidate", TestEdgeMatcherUniqueNoMatch, ref passed, ref total);
                 Run("Edge matcher global polarity is opt-in and reports the selected state", TestEdgeMatcherGlobalPolarity, ref passed, ref total);
+                Run("2D tool and result disposal release only owned images", TestVisionToolResourceOwnership, ref passed, ref total);
+                Run("Pipeline runtime honors tool, input, result, and layer ownership", TestVisionPipelineResourceOwnership, ref passed, ref total);
+                Run("Combined result disposal releases owned 2D result images", TestCombinedResultResourceOwnership, ref passed, ref total);
                 Run("Combined runner executes 2D and 3D pass steps", TestCombinedRunnerPass, ref passed, ref total);
                 Run("Combined runner retains later 3D evidence after 2D failure", TestCombinedRunnerContinuesAfterFailure, ref passed, ref total);
                 Run("Combined runner converts a 3D exception to a result", TestCombinedRunnerCatchesThreeDException, ref passed, ref total);
@@ -1792,6 +1796,138 @@ namespace Lib.Inspection.Smoke
             File.WriteAllLines(Path.Combine(directory, name + "_summary.txt"), summary);
         }
 
+        private static void TestVisionToolResourceOwnership()
+        {
+            using (Mat source = new Mat(4, 4, MatType.CV_8UC1, new Scalar(10)))
+            {
+                ThresholdTool tool = new ThresholdTool();
+                tool.SetProperty(new ThresholdToolProperty { Threshold = 5 });
+
+                VisionToolResult result = tool.Execute(source);
+                Require(result.Success, "The ownership fixture must produce a passing result.");
+
+                Mat ownedSource = tool.imageSource;
+                Mat ownedResult = tool.imageResult;
+                Mat ownedTemplate = tool.imageTemplate;
+                Mat resultSnapshot = result.ResultImage;
+
+                tool.Dispose();
+
+                Require(ownedSource.IsDisposed, "Disposing a 2D tool did not release its source image.");
+                Require(ownedResult.IsDisposed, "Disposing a 2D tool did not release its result image.");
+                Require(ownedTemplate.IsDisposed, "Disposing a 2D tool did not release its template image.");
+                Require(!resultSnapshot.IsDisposed, "Disposing a tool released the caller-owned result snapshot.");
+                Require(!source.IsDisposed, "Disposing a tool released the caller-owned source image.");
+
+                result.Dispose();
+                Require(resultSnapshot.IsDisposed, "Disposing a tool result did not release its result snapshot.");
+                Require(result.ResultImage == null, "A disposed tool result retained its released image reference.");
+
+                tool.Dispose();
+                result.Dispose();
+            }
+        }
+
+        private static void TestVisionPipelineResourceOwnership()
+        {
+            VisionPipeline pipeline = new VisionPipeline { Name = "Ownership fixture" };
+            pipeline.Steps.Add(new VisionPipelineStep
+            {
+                Name = "Clone input",
+                ToolType = "tracking",
+                InputLayer = "input",
+                OutputLayer = "output"
+            });
+
+            using (Mat source = new Mat(4, 4, MatType.CV_8UC1, new Scalar(7)))
+            using (VisionPipelineContext context = new VisionPipelineContext())
+            {
+                context.SetLayer("input", source);
+                TrackingDisposableVisionTool ownedTool = new TrackingDisposableVisionTool();
+                VisionPipelineRuntime runtime = new VisionPipelineRuntime(_ => ownedTool, true);
+                VisionPipelineRunResult result = runtime.Run(pipeline, context);
+
+                Require(result.Success, "The ownership pipeline must pass.");
+                Require(ownedTool.WasDisposed, "The runtime did not dispose a factory-created owned tool.");
+                Require(ownedTool.LastSource != null && ownedTool.LastSource.IsDisposed, "The runtime did not dispose the cloned input layer.");
+
+                Mat resultSnapshot = result.StepResults[0].ToolResult.ResultImage;
+                Require(!resultSnapshot.IsDisposed, "The runtime released a returned result before its owner disposed it.");
+                using (Mat output = context.GetLayer("output"))
+                {
+                    Require(output != null && !output.Empty(), "The output layer was not retained independently.");
+                }
+
+                result.Dispose();
+                Require(resultSnapshot.IsDisposed, "Disposing a pipeline result did not release its step image.");
+                using (Mat output = context.GetLayer("output"))
+                {
+                    Require(output != null && !output.Empty(), "Disposing a pipeline result invalidated the context-owned output layer.");
+                }
+
+                TrackingDisposableVisionTool sharedTool = new TrackingDisposableVisionTool();
+                VisionPipelineRunResult sharedResult = new VisionPipelineRuntime(_ => sharedTool).Run(pipeline, context);
+                Require(!sharedTool.WasDisposed, "The compatibility factory overload disposed a caller-owned shared tool.");
+                sharedResult.Dispose();
+                sharedTool.Dispose();
+
+                VisionPipeline failingPipeline = new VisionPipeline { Name = "Exception ownership fixture" };
+                failingPipeline.Steps.Add(new VisionPipelineStep
+                {
+                    Name = "Produce intermediate",
+                    ToolType = "tracking",
+                    InputLayer = "input",
+                    OutputLayer = "intermediate"
+                });
+                failingPipeline.Steps.Add(new VisionPipelineStep
+                {
+                    Name = "Throw",
+                    ToolType = "throwing",
+                    InputLayer = "intermediate",
+                    OutputLayer = "unused"
+                });
+
+                TrackingDisposableVisionTool firstTool = new TrackingDisposableVisionTool();
+                ThrowingDisposableVisionTool throwingTool = new ThrowingDisposableVisionTool();
+                bool exceptionObserved = false;
+                try
+                {
+                    new VisionPipelineRuntime(
+                        step => step.ToolType == "tracking" ? (IVisionTool)firstTool : throwingTool,
+                        true).Run(failingPipeline, context);
+                }
+                catch (InvalidOperationException exception)
+                {
+                    exceptionObserved = exception.Message == "Controlled pipeline exception.";
+                }
+
+                Require(exceptionObserved, "The controlled pipeline exception was not propagated.");
+                Require(firstTool.WasDisposed && throwingTool.WasDisposed, "The exception path did not dispose every factory-owned tool.");
+                Require(firstTool.ResultSnapshot != null && firstTool.ResultSnapshot.IsDisposed, "The exception path did not dispose a completed step result.");
+                Require(throwingTool.LastSource != null && throwingTool.LastSource.IsDisposed, "The exception path did not dispose the active input layer clone.");
+            }
+        }
+
+        private static void TestCombinedResultResourceOwnership()
+        {
+            using (Mat source = new Mat(3, 3, MatType.CV_8UC1, new Scalar(4)))
+            {
+                CombinedInspectionRunResult result = new CombinedInspectionRunner().Run(
+                    new CombinedInspectionInput { Image = source },
+                    new IVisionTool[] { new ImageReturningVisionTool() },
+                    null);
+
+                Require(result.Success, "The combined ownership fixture must pass.");
+                Mat resultSnapshot = result.Steps[0].VisionResult.ResultImage;
+                Require(resultSnapshot != null && !resultSnapshot.IsDisposed, "The combined runner did not retain its 2D result image.");
+
+                result.Dispose();
+                Require(resultSnapshot.IsDisposed, "Disposing a combined result did not release its 2D result image.");
+                Require(!source.IsDisposed, "Disposing a combined result released the caller-owned input image.");
+                result.Dispose();
+            }
+        }
+
         private static void TestCombinedRunnerPass()
         {
             PassThroughVisionTool twoDTool = new PassThroughVisionTool();
@@ -1939,6 +2075,59 @@ namespace Lib.Inspection.Smoke
             {
                 WasExecuted = true;
                 return VisionToolResult.Failed(VisionToolErrorCode.Unknown, "Controlled 2D failure.", TimeSpan.Zero);
+            }
+        }
+
+        private sealed class TrackingDisposableVisionTool : IVisionTool, IDisposable
+        {
+            public string Name => "Tracking disposable 2D";
+
+            public Mat LastSource { get; private set; }
+
+            public Mat ResultSnapshot { get; private set; }
+
+            public bool WasDisposed { get; private set; }
+
+            public VisionToolResult Execute(Mat source)
+            {
+                LastSource = source;
+                ResultSnapshot = source?.Clone();
+                return VisionToolResult.Passed(ResultSnapshot, TimeSpan.Zero);
+            }
+
+            public void Dispose()
+            {
+                WasDisposed = true;
+            }
+        }
+
+        private sealed class ThrowingDisposableVisionTool : IVisionTool, IDisposable
+        {
+            public string Name => "Throwing disposable 2D";
+
+            public Mat LastSource { get; private set; }
+
+            public bool WasDisposed { get; private set; }
+
+            public VisionToolResult Execute(Mat source)
+            {
+                LastSource = source;
+                throw new InvalidOperationException("Controlled pipeline exception.");
+            }
+
+            public void Dispose()
+            {
+                WasDisposed = true;
+            }
+        }
+
+        private sealed class ImageReturningVisionTool : IVisionTool
+        {
+            public string Name => "Image-returning 2D";
+
+            public VisionToolResult Execute(Mat source)
+            {
+                return VisionToolResult.Passed(source?.Clone(), TimeSpan.Zero);
             }
         }
 

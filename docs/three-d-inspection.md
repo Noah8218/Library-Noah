@@ -82,7 +82,7 @@ type for each step, and continues after individual failures so an operator can s
 available 2D and 3D evidence from one acquisition.
 
 ```csharp
-var run = new CombinedInspectionRunner().Run(
+using CombinedInspectionRunResult run = new CombinedInspectionRunner().Run(
     new CombinedInspectionInput
     {
         Image = image,
@@ -104,7 +104,10 @@ var run = new CombinedInspectionRunner().Run(
     });
 ```
 
-The caller owns `Image` and `HeightMap`; the combined runner never disposes them.
+The caller owns `Image`, `HeightMap`, and the supplied tools; the combined runner
+never disposes them. `CombinedInspectionRunResult` owns any 2D
+`VisionToolResult.ResultImage` snapshots it contains, so dispose the run result after
+all result inspection and rendering is complete.
 
 ## Verification commands
 

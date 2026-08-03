@@ -92,7 +92,10 @@ namespace Lib.OpenCV.Tool
         Exception
     }
 
-    public class VisionToolResult
+    /// <summary>
+    /// Owns ResultImage. Dispose the result after its image is no longer needed.
+    /// </summary>
+    public class VisionToolResult : IDisposable
     {
         public bool Success { get; set; }
         public string Message { get; set; } = string.Empty;
@@ -237,6 +240,12 @@ namespace Lib.OpenCV.Tool
                 default:
                     return VisionToolResultStatus.Failed;
             }
+        }
+
+        public void Dispose()
+        {
+            ResultImage?.Dispose();
+            ResultImage = null;
         }
     }
 }

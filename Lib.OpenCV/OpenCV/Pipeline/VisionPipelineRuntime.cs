@@ -7,15 +7,28 @@ namespace Lib.OpenCV.Pipeline
     public class VisionPipelineRuntime
     {
         private readonly Func<VisionPipelineStep, IVisionTool> toolFactory;
+        private readonly bool disposeCreatedTools;
 
         public VisionPipelineRuntime()
-            : this(VisionPipelineToolFactory.Create)
+            : this(VisionPipelineToolFactory.Create, true)
         {
         }
 
+        /// <summary>
+        /// Uses caller-owned tools. The runtime does not dispose tools returned by this factory.
+        /// </summary>
         public VisionPipelineRuntime(Func<VisionPipelineStep, IVisionTool> toolFactory)
+            : this(toolFactory, false)
+        {
+        }
+
+        /// <summary>
+        /// Configures whether the runtime owns and disposes tools returned by the factory.
+        /// </summary>
+        public VisionPipelineRuntime(Func<VisionPipelineStep, IVisionTool> toolFactory, bool disposeCreatedTools)
         {
             this.toolFactory = toolFactory ?? throw new ArgumentNullException(nameof(toolFactory));
+            this.disposeCreatedTools = disposeCreatedTools;
         }
 
         public VisionPipelineRunResult Run(VisionPipeline pipeline, VisionPipelineContext context)
@@ -32,44 +45,64 @@ namespace Lib.OpenCV.Pipeline
 
             VisionPipelineRunResult runResult = new VisionPipelineRunResult();
 
-            foreach (VisionPipelineStep step in pipeline.Steps)
+            try
             {
-                if (step == null || !step.Enabled)
+                foreach (VisionPipelineStep step in pipeline.Steps)
                 {
-                    runResult.StepResults.Add(new VisionPipelineStepResult
+                    if (step == null || !step.Enabled)
                     {
-                        Step = step,
-                        Skipped = true,
-                        AcceptancePassed = true,
-                        AcceptanceMessage = "Step is disabled."
-                    });
-                    continue;
+                        runResult.StepResults.Add(new VisionPipelineStepResult
+                        {
+                            Step = step,
+                            Skipped = true,
+                            AcceptancePassed = true,
+                            AcceptanceMessage = "Step is disabled."
+                        });
+                        continue;
+                    }
+
+                    IVisionTool tool = toolFactory(step);
+                    if (tool == null)
+                    {
+                        throw new InvalidOperationException($"Vision tool factory returned null for step '{step?.Name}'.");
+                    }
+
+                    try
+                    {
+                        using (Mat input = context.GetLayer(step.InputLayer))
+                        {
+                            VisionToolResult toolResult = tool.Execute(input);
+                            VisionPipelineAcceptanceResult acceptance = VisionPipelineAcceptanceEvaluator.Evaluate(step, toolResult);
+
+                            runResult.StepResults.Add(new VisionPipelineStepResult
+                            {
+                                Step = step,
+                                ToolResult = toolResult,
+                                AcceptancePassed = acceptance.Passed,
+                                AcceptanceMessage = acceptance.Message
+                            });
+
+                            if (!toolResult.Success || !acceptance.Passed)
+                            {
+                                break;
+                            }
+
+                            context.SetLayer(step.OutputLayer, toolResult.ResultImage);
+                        }
+                    }
+                    finally
+                    {
+                        if (disposeCreatedTools && tool is IDisposable disposableTool)
+                        {
+                            disposableTool.Dispose();
+                        }
+                    }
                 }
-
-                IVisionTool tool = toolFactory(step);
-                if (tool == null)
-                {
-                    throw new InvalidOperationException($"Vision tool factory returned null for step '{step?.Name}'.");
-                }
-
-                Mat input = context.GetLayer(step.InputLayer);
-                VisionToolResult toolResult = tool.Execute(input);
-                VisionPipelineAcceptanceResult acceptance = VisionPipelineAcceptanceEvaluator.Evaluate(step, toolResult);
-
-                runResult.StepResults.Add(new VisionPipelineStepResult
-                {
-                    Step = step,
-                    ToolResult = toolResult,
-                    AcceptancePassed = acceptance.Passed,
-                    AcceptanceMessage = acceptance.Message
-                });
-
-                if (!toolResult.Success || !acceptance.Passed)
-                {
-                    break;
-                }
-
-                context.SetLayer(step.OutputLayer, toolResult.ResultImage);
+            }
+            catch
+            {
+                runResult.Dispose();
+                throw;
             }
 
             return runResult;

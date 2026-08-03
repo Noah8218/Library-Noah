@@ -484,7 +484,7 @@ namespace Lib.OpenCV.Tool
                 }
                 finally
                 {
-                    selfExecution.ResultImage?.Dispose();
+                    selfExecution.Dispose();
                 }
 
                 if (candidate.UniquenessMargin < property.MinimumUniquenessMargin)
@@ -542,7 +542,7 @@ namespace Lib.OpenCV.Tool
                         }
                         finally
                         {
-                            execution.ResultImage?.Dispose();
+                            execution.Dispose();
                         }
                     }
                 }
@@ -675,7 +675,7 @@ namespace Lib.OpenCV.Tool
                         }
                         finally
                         {
-                            execution.ResultImage?.Dispose();
+                            execution.Dispose();
                         }
                     }
                 }
@@ -729,19 +729,7 @@ namespace Lib.OpenCV.Tool
 
         private static void ReleaseMatcher(EdgeBasedTemplateMatchingTool matcher)
         {
-            if (matcher == null)
-            {
-                return;
-            }
-
-            using (Mat empty = new Mat())
-            {
-                matcher.SetTemplateImage(empty);
-            }
-
-            matcher.imageSource?.Dispose();
-            matcher.imageResult?.Dispose();
-            matcher.imageTemplate?.Dispose();
+            matcher?.Dispose();
         }
 
         private EdgeMatcherProperty CreateMatcherProperty()
