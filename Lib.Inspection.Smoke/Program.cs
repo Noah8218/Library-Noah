@@ -115,6 +115,9 @@ namespace Lib.Inspection.Smoke
                 Run("Model key-point extraction is independent of input order", TestDeterministicModelKeyPointExtractionOrder, ref passed, ref total);
                 Run("Model key-point extraction honors minimum separation", TestDeterministicModelKeyPointExtractionSeparation, ref passed, ref total);
                 Run("Model key-point extraction rejects invalid contracts", TestDeterministicModelKeyPointExtractionInvalid, ref passed, ref total);
+                Run("Acquisition direction classifies facing, away, and grazing normals", TestAcquisitionDirectionOrientation, ref passed, ref total);
+                Run("Acquisition direction preserves canonical order and grazing boundary", TestAcquisitionDirectionOrientationOrderAndBoundary, ref passed, ref total);
+                Run("Acquisition direction rejects invalid contracts", TestAcquisitionDirectionOrientationInvalid, ref passed, ref total);
                 Run("Prepared-scene preparation preserves even point samples", TestDeterministicPreparedScenePreparation, ref passed, ref total);
                 Run("Model surface-edge extraction preserves boundary topology", TestDeterministicModelSurfaceEdgeExtraction, ref passed, ref total);
                 Run("Organized scene surface-edge extraction anchors height steps", TestDeterministicOrganizedSceneSurfaceEdgeExtraction, ref passed, ref total);
@@ -2202,6 +2205,144 @@ namespace Lib.Inspection.Smoke
                     new ThreeDPoint(1.0, 0.0, 0.0),
                     normal)
             };
+        }
+
+        private static void TestAcquisitionDirectionOrientation()
+        {
+            AcquisitionDirectionOrientationResult result =
+                new AcquisitionDirectionOrientationTool().Execute(
+                    new ThreeDPoint(0.0, 0.0, -2.0),
+                    new[]
+                    {
+                        new AcquisitionDirectionNormalInput(
+                            0,
+                            new ThreeDPoint(0.0, 0.0, 3.0)),
+                        new AcquisitionDirectionNormalInput(
+                            1,
+                            new ThreeDPoint(0.0, 0.0, -4.0)),
+                        new AcquisitionDirectionNormalInput(
+                            2,
+                            new ThreeDPoint(5.0, 0.0, 0.0))
+                    },
+                    new AcquisitionDirectionOrientationOptions
+                    {
+                        GrazingAbsoluteCosineMaximum = 0.05
+                    });
+
+            Require(result.Success, result.Message);
+            RequireApproximately(
+                result.NormalizedSensorToSceneDirection.Z,
+                -1.0,
+                0.0,
+                "Sensor-to-scene direction was not normalized.");
+            Require(
+                result.Items.Select(item => item.Orientation).SequenceEqual(
+                    new[]
+                    {
+                        AcquisitionDirectionOrientation.SensorFacing,
+                        AcquisitionDirectionOrientation.AwayFromSensor,
+                        AcquisitionDirectionOrientation.Grazing
+                    }),
+                "Acquisition direction orientation changed.");
+            RequireApproximately(result.Items[0].AlignmentCosine, -1.0, 0.0,
+                "Unexpected sensor-facing alignment.");
+            RequireApproximately(result.Items[1].AlignmentCosine, 1.0, 0.0,
+                "Unexpected away-from-sensor alignment.");
+            RequireApproximately(result.Items[2].AlignmentCosine, 0.0, 0.0,
+                "Unexpected grazing alignment.");
+        }
+
+        private static void TestAcquisitionDirectionOrientationOrderAndBoundary()
+        {
+            double z = Math.Sqrt(1.0 - 0.05 * 0.05);
+            AcquisitionDirectionOrientationResult result =
+                new AcquisitionDirectionOrientationTool().Execute(
+                    new ThreeDPoint(1.0, 0.0, 0.0),
+                    new[]
+                    {
+                        new AcquisitionDirectionNormalInput(
+                            4,
+                            new ThreeDPoint(-1.0, 0.0, 0.0)),
+                        new AcquisitionDirectionNormalInput(
+                            2,
+                            new ThreeDPoint(0.05, 0.0, z))
+                    },
+                    new AcquisitionDirectionOrientationOptions
+                    {
+                        GrazingAbsoluteCosineMaximum = 0.05
+                    });
+
+            Require(result.Success, result.Message);
+            Require(
+                result.Items.Select(item => item.SourceOrder)
+                    .SequenceEqual(new[] { 2, 4 }),
+                "Acquisition direction output order must be canonical.");
+            Require(
+                result.Items[0].Orientation
+                    == AcquisitionDirectionOrientation.Grazing,
+                "The inclusive grazing boundary changed.");
+        }
+
+        private static void TestAcquisitionDirectionOrientationInvalid()
+        {
+            AcquisitionDirectionOrientationTool tool =
+                new AcquisitionDirectionOrientationTool();
+            AcquisitionDirectionOrientationOptions options =
+                new AcquisitionDirectionOrientationOptions
+                {
+                    GrazingAbsoluteCosineMaximum = 0.05
+                };
+            AcquisitionDirectionOrientationResult zeroDirection = tool.Execute(
+                new ThreeDPoint(0.0, 0.0, 0.0),
+                new[]
+                {
+                    new AcquisitionDirectionNormalInput(
+                        0,
+                        new ThreeDPoint(0.0, 0.0, 1.0))
+                },
+                options);
+            AcquisitionDirectionOrientationResult duplicateOrders = tool.Execute(
+                new ThreeDPoint(0.0, 0.0, -1.0),
+                new[]
+                {
+                    new AcquisitionDirectionNormalInput(
+                        0,
+                        new ThreeDPoint(0.0, 0.0, 1.0)),
+                    new AcquisitionDirectionNormalInput(
+                        0,
+                        new ThreeDPoint(0.0, 1.0, 0.0))
+                },
+                options);
+            AcquisitionDirectionOrientationResult nonFiniteNormal = tool.Execute(
+                new ThreeDPoint(0.0, 0.0, -1.0),
+                new[]
+                {
+                    new AcquisitionDirectionNormalInput(
+                        0,
+                        new ThreeDPoint(double.NaN, 0.0, 1.0))
+                },
+                options);
+            AcquisitionDirectionOrientationResult invalidThreshold = tool.Execute(
+                new ThreeDPoint(0.0, 0.0, -1.0),
+                new[]
+                {
+                    new AcquisitionDirectionNormalInput(
+                        0,
+                        new ThreeDPoint(0.0, 0.0, 1.0))
+                },
+                new AcquisitionDirectionOrientationOptions
+                {
+                    GrazingAbsoluteCosineMaximum = 1.0
+                });
+
+            Require(!zeroDirection.Success,
+                "A zero acquisition direction must fail closed.");
+            Require(!duplicateOrders.Success,
+                "Duplicate normal source orders must fail closed.");
+            Require(!nonFiniteNormal.Success,
+                "A non-finite normal must fail closed.");
+            Require(!invalidThreshold.Success,
+                "An invalid grazing threshold must fail closed.");
         }
 
         private static RigidPoseSymmetryEquivalenceOptions
