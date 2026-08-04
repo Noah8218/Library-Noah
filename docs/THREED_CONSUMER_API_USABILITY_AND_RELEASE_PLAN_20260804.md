@@ -1,6 +1,6 @@
 # 3D 소비자 API 사용성 및 정식 배포 통합 계획
 
-Status: In Progress
+Status: Complete
 
 ## 목적
 
@@ -130,18 +130,20 @@ identity, 교정 증거, 레시피, UI lifecycle과 표시 결과는 소비 애�
 
 - 합성 Smoke는 실제 센서, 교정, Gauge R&R 또는 생산 승인 증거가 아니다.
 - 이번 작업은 OpenVisionLab 3D Studio UI의 사람 대상 사용성 시험을 대체하지 않는다.
-- Studio의 고정 패키지 갱신은 Studio 저장소의 현재 사용자 변경과 충돌하지 않는 별도
-  승인된 작업에서 수행한다.
+- Studio의 고정 패키지 갱신은 패키지 경계 파일에만 적용했으며 UI와 Viewer 코드는
+  변경하지 않았다.
 
 ## 완료 기록
 
-작업 완료 시 이 절을 실제 버전, 커밋, 명령 결과와 패키지 경로로 갱신한다.
+`2.9.0`은 최신 2D mainline과 검증된 3D 입력 계약을 하나의 배포 기준으로 통합한다.
+패키지 소스 커밋은 `9fdce9b2d4714d7cb7aa082a10b7afe217896e71`, SHA-256은
+`2D8DCF71B9200289D67C27EFF2A7508CE7A5A3FD377C8E4891B467FC3CA1DF23`이다.
 
 ```text
-Status: In Progress
-Scope: 3D 소비자 API 평가 기록과 정식 배포/사용성 개선
-Acceptance criteria: 위 1~3 우선순위와 검증 계획
-Verification: 진행 중
-Evidence: 이 문서와 이후 생성되는 패키지/로그
-Boundary / next dependency: OpenVisionLab 3D Studio 패키지 승격은 별도 소비자 저장소 작업
+Status: Complete
+Scope: 2D/3D 배포 기준 통합, Lib.ThreeD 2.9.0 소비자 API·문서 개선, Studio 고정 패키지 승격
+Acceptance criteria: 2.8.13 공개 API 호환 -> pass; 간편 배열 입력/명시적 결과/안전한 metric 접근 -> pass; README·3D 가이드·XML 문서 패키징 -> pass; Studio 고정 버전·소스·해시 일치 -> pass
+Verification: Library Release 0/0, Smoke 135/135, package-only 2D/3D consumer pass, 2.8.13 대비 missing public types 0/members 0; Studio package verifier pass, Release 0/0, bridge 25/25, Thickness/Warpage/Datum 5/5 each, structure 29/29, NuGet 12/0/0
+Evidence: D:\OpenVisionLab-TestData\Library-Noah\final-2.9.0; D:\OpenVisionLab-TestData\OpenVisionLab-3D-Studio\20260804-library-noah-2.9.0; OpenVisionLab-3D-Studio/docs/OPENVISIONLAB_3D_LIBRARY_NOAH_PACKAGE_BOUNDARY_20260717.md
+Boundary / next dependency: 합성·패키지 검증은 물리 교정, 센서 획득 매핑, Gauge R&R, 생산 승인 또는 사람 대상 Studio UX 증거가 아니다. Studio의 다음 제품 우선순위는 B-12 획득/source provenance와 제한 문구다.
 ```
