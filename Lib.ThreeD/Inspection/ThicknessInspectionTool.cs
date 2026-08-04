@@ -115,22 +115,22 @@ namespace Lib.ThreeD.Inspection
                 stopwatch.Stop();
                 ThreeDInspectionResult result = ThreeDInspectionResult.CreateMeasurement(source, roi, stopwatch.Elapsed);
                 ThreeDInspectionMath.ApplySampleSummary(result, summary, Options.MinimumValidSamples, Options.MinimumValidCoverageRatio);
-                result.Metrics["Minimum"] = minimum;
-                result.Metrics["Maximum"] = maximum;
-                result.Metrics["Mean"] = mean;
-                result.Metrics["Range"] = maximum - minimum;
-                result.Metrics["LowerLimit"] = Options.MinimumThickness;
-                result.Metrics["UpperLimit"] = Options.MaximumThickness;
-                result.Metrics["BelowLowerLimitCount"] = belowLowerLimitCount;
-                result.Metrics["AboveUpperLimitCount"] = aboveUpperLimitCount;
-                result.MetricUnits["Minimum"] = source.HeightUnit;
-                result.MetricUnits["Maximum"] = source.HeightUnit;
-                result.MetricUnits["Mean"] = source.HeightUnit;
-                result.MetricUnits["Range"] = source.HeightUnit;
-                result.MetricUnits["LowerLimit"] = source.HeightUnit;
-                result.MetricUnits["UpperLimit"] = source.HeightUnit;
-                result.MetricUnits["BelowLowerLimitCount"] = "count";
-                result.MetricUnits["AboveUpperLimitCount"] = "count";
+                result.Metrics[ThreeDInspectionMetricNames.Thickness.Minimum] = minimum;
+                result.Metrics[ThreeDInspectionMetricNames.Thickness.Maximum] = maximum;
+                result.Metrics[ThreeDInspectionMetricNames.Thickness.Mean] = mean;
+                result.Metrics[ThreeDInspectionMetricNames.Thickness.Range] = maximum - minimum;
+                result.Metrics[ThreeDInspectionMetricNames.Thickness.LowerLimit] = Options.MinimumThickness;
+                result.Metrics[ThreeDInspectionMetricNames.Thickness.UpperLimit] = Options.MaximumThickness;
+                result.Metrics[ThreeDInspectionMetricNames.Thickness.BelowLowerLimitCount] = belowLowerLimitCount;
+                result.Metrics[ThreeDInspectionMetricNames.Thickness.AboveUpperLimitCount] = aboveUpperLimitCount;
+                result.MetricUnits[ThreeDInspectionMetricNames.Thickness.Minimum] = source.HeightUnit;
+                result.MetricUnits[ThreeDInspectionMetricNames.Thickness.Maximum] = source.HeightUnit;
+                result.MetricUnits[ThreeDInspectionMetricNames.Thickness.Mean] = source.HeightUnit;
+                result.MetricUnits[ThreeDInspectionMetricNames.Thickness.Range] = source.HeightUnit;
+                result.MetricUnits[ThreeDInspectionMetricNames.Thickness.LowerLimit] = source.HeightUnit;
+                result.MetricUnits[ThreeDInspectionMetricNames.Thickness.UpperLimit] = source.HeightUnit;
+                result.MetricUnits[ThreeDInspectionMetricNames.Thickness.BelowLowerLimitCount] = "count";
+                result.MetricUnits[ThreeDInspectionMetricNames.Thickness.AboveUpperLimitCount] = "count";
 
                 if (belowLowerLimitCount == 0 && aboveUpperLimitCount == 0)
                 {

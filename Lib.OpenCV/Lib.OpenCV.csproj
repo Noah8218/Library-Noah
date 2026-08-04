@@ -5,7 +5,7 @@
     <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
     <!-- AffineTransform is an additive API; retain the deployed 2.1 assembly identity. -->
     <AssemblyVersion>2.1.0.0</AssemblyVersion>
-    <FileVersion>2.8.0.0</FileVersion>
+    <FileVersion>2.9.0.0</FileVersion>
   </PropertyGroup>
 
   <ItemGroup>

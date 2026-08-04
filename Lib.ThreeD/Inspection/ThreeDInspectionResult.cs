@@ -32,6 +32,17 @@ namespace Lib.ThreeD.Inspection
         Exception
     }
 
+    /// <summary>
+    /// Derived measurement outcome that distinguishes an out-of-tolerance measurement from a
+    /// result where no valid measurement could be produced.
+    /// </summary>
+    public enum ThreeDMeasurementOutcome
+    {
+        NotMeasured,
+        Passed,
+        OutOfTolerance
+    }
+
     public sealed class ThreeDPlaneFit
     {
         public ThreeDPlaneFit(double slopeX, double slopeY, double intercept)
@@ -61,6 +72,12 @@ namespace Lib.ThreeD.Inspection
         /// True when measurement values were computed, including an out-of-tolerance result.
         /// </summary>
         public bool HasMeasurement { get; set; }
+
+        public ThreeDMeasurementOutcome MeasurementOutcome => !HasMeasurement
+            ? ThreeDMeasurementOutcome.NotMeasured
+            : Success
+                ? ThreeDMeasurementOutcome.Passed
+                : ThreeDMeasurementOutcome.OutOfTolerance;
 
         public string Message { get; set; } = string.Empty;
 
@@ -109,6 +126,27 @@ namespace Lib.ThreeD.Inspection
         public Dictionary<string, double> Metrics { get; } = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
 
         public Dictionary<string, string> MetricUnits { get; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// Reads a metric and its declared unit in one operation. Returns false when the metric is
+        /// absent; a metric without a declared unit returns an empty unit string.
+        /// </summary>
+        public bool TryGetMetric(string name, out double value, out string unit)
+        {
+            value = 0.0;
+            unit = string.Empty;
+            if (string.IsNullOrWhiteSpace(name) || !Metrics.TryGetValue(name, out value))
+            {
+                return false;
+            }
+
+            if (!MetricUnits.TryGetValue(name, out unit) || unit == null)
+            {
+                unit = string.Empty;
+            }
+
+            return true;
+        }
 
         public static ThreeDInspectionResult CreateMeasurement(HeightMap3D source, HeightMapRoi roi, TimeSpan elapsed)
         {

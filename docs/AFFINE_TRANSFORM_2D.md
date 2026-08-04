@@ -21,7 +21,7 @@ Compatibility aliases: `Affine`, `AffineMatrix`.
 
 ## Version and compatibility
 
-The package and file version is `2.8.0`. `Lib.Common` and `Lib.OpenCV` retain
+The package and file version is `2.9.0`. `Lib.Common` and `Lib.OpenCV` retain
 assembly identity `2.1.0.0` because the new API is additive and existing
 OpenVisionLab deployments load compatible `2.1` Noah dependencies.
 

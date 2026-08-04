@@ -155,18 +155,18 @@ namespace Lib.ThreeD.Inspection
             result.ValidCoverageRatio = summary.ValidCoverageRatio;
             result.MinimumValidSamples = minimumValidSamples;
             result.MinimumValidCoverageRatio = minimumValidCoverageRatio;
-            result.Metrics["TotalSampleCount"] = summary.TotalSampleCount;
-            result.Metrics["ValidSampleCount"] = summary.ValidSampleCount;
-            result.Metrics["MissingSampleCount"] = summary.MissingSampleCount;
-            result.Metrics["ValidCoverageRatio"] = summary.ValidCoverageRatio;
-            result.Metrics["MinimumValidSamples"] = minimumValidSamples;
-            result.Metrics["MinimumValidCoverageRatio"] = minimumValidCoverageRatio;
-            result.MetricUnits["TotalSampleCount"] = "count";
-            result.MetricUnits["ValidSampleCount"] = "count";
-            result.MetricUnits["MissingSampleCount"] = "count";
-            result.MetricUnits["ValidCoverageRatio"] = "ratio";
-            result.MetricUnits["MinimumValidSamples"] = "count";
-            result.MetricUnits["MinimumValidCoverageRatio"] = "ratio";
+            result.Metrics[ThreeDInspectionMetricNames.Quality.TotalSampleCount] = summary.TotalSampleCount;
+            result.Metrics[ThreeDInspectionMetricNames.Quality.ValidSampleCount] = summary.ValidSampleCount;
+            result.Metrics[ThreeDInspectionMetricNames.Quality.MissingSampleCount] = summary.MissingSampleCount;
+            result.Metrics[ThreeDInspectionMetricNames.Quality.ValidCoverageRatio] = summary.ValidCoverageRatio;
+            result.Metrics[ThreeDInspectionMetricNames.Quality.MinimumValidSamples] = minimumValidSamples;
+            result.Metrics[ThreeDInspectionMetricNames.Quality.MinimumValidCoverageRatio] = minimumValidCoverageRatio;
+            result.MetricUnits[ThreeDInspectionMetricNames.Quality.TotalSampleCount] = "count";
+            result.MetricUnits[ThreeDInspectionMetricNames.Quality.ValidSampleCount] = "count";
+            result.MetricUnits[ThreeDInspectionMetricNames.Quality.MissingSampleCount] = "count";
+            result.MetricUnits[ThreeDInspectionMetricNames.Quality.ValidCoverageRatio] = "ratio";
+            result.MetricUnits[ThreeDInspectionMetricNames.Quality.MinimumValidSamples] = "count";
+            result.MetricUnits[ThreeDInspectionMetricNames.Quality.MinimumValidCoverageRatio] = "ratio";
         }
     }
 }

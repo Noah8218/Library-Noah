@@ -4,9 +4,10 @@
     <Company>OpenVisionLab</Company>
     <Copyright>Copyright (c) 2026 최노아(Noah-Choi)</Copyright>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <Version>2.8.0</Version>
-    <PackageVersion>2.8.0</PackageVersion>
+    <Version>2.9.0</Version>
+    <PackageVersion>2.9.0</PackageVersion>
     <RepositoryType>git</RepositoryType>
+    <RepositoryUrl>https://github.com/Noah8218/Library-Noah</RepositoryUrl>
     <PackageOutputPath>$(MSBuildThisFileDirectory)artifacts\packages</PackageOutputPath>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
   </PropertyGroup>

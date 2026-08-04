@@ -2,7 +2,14 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
-    <PackageDescription>Pure height-map based 3D inspection contracts and algorithms for OpenVisionLab.</PackageDescription>
+    <PackageDescription>UI-independent height-map, full-XYZ geometry, matching, and 3D inspection contracts and algorithms for OpenVisionLab.</PackageDescription>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);1591</NoWarn>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\README.md" Pack="true" PackagePath="" Link="README.md" />
+  </ItemGroup>
 
 </Project>

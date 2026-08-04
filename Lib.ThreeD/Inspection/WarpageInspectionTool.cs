@@ -208,30 +208,30 @@ namespace Lib.ThreeD.Inspection
                 ThreeDInspectionResult result = ThreeDInspectionResult.CreateMeasurement(source, roi, stopwatch.Elapsed);
                 result.PlaneFit = new ThreeDPlaneFit(slopeX, slopeY, intercept);
                 ThreeDInspectionMath.ApplySampleSummary(result, summary, Options.MinimumValidSamples, Options.MinimumValidCoverageRatio);
-                result.Metrics["PeakToValley"] = peakToValley;
-                result.Metrics["Rms"] = rms;
-                result.Metrics["MinimumResidual"] = minimumResidual;
-                result.Metrics["MaximumResidual"] = maximumResidual;
-                result.Metrics["MaximumPeakToValley"] = Options.MaximumPeakToValley;
-                result.Metrics["PlaneSlopeX"] = slopeX;
-                result.Metrics["PlaneSlopeY"] = slopeY;
-                result.Metrics["PlaneIntercept"] = intercept;
+                result.Metrics[ThreeDInspectionMetricNames.Warpage.PeakToValley] = peakToValley;
+                result.Metrics[ThreeDInspectionMetricNames.Warpage.Rms] = rms;
+                result.Metrics[ThreeDInspectionMetricNames.Warpage.MinimumResidual] = minimumResidual;
+                result.Metrics[ThreeDInspectionMetricNames.Warpage.MaximumResidual] = maximumResidual;
+                result.Metrics[ThreeDInspectionMetricNames.Warpage.MaximumPeakToValley] = Options.MaximumPeakToValley;
+                result.Metrics[ThreeDInspectionMetricNames.Warpage.PlaneSlopeX] = slopeX;
+                result.Metrics[ThreeDInspectionMetricNames.Warpage.PlaneSlopeY] = slopeY;
+                result.Metrics[ThreeDInspectionMetricNames.Warpage.PlaneIntercept] = intercept;
                 if (Options.MaximumRms.HasValue)
                 {
-                    result.Metrics["MaximumRms"] = Options.MaximumRms.Value;
+                    result.Metrics[ThreeDInspectionMetricNames.Warpage.MaximumRms] = Options.MaximumRms.Value;
                 }
 
-                result.MetricUnits["PeakToValley"] = source.HeightUnit;
-                result.MetricUnits["Rms"] = source.HeightUnit;
-                result.MetricUnits["MinimumResidual"] = source.HeightUnit;
-                result.MetricUnits["MaximumResidual"] = source.HeightUnit;
-                result.MetricUnits["MaximumPeakToValley"] = source.HeightUnit;
-                result.MetricUnits["PlaneSlopeX"] = source.HeightUnit + "/" + source.PlanarUnit;
-                result.MetricUnits["PlaneSlopeY"] = source.HeightUnit + "/" + source.PlanarUnit;
-                result.MetricUnits["PlaneIntercept"] = source.HeightUnit;
+                result.MetricUnits[ThreeDInspectionMetricNames.Warpage.PeakToValley] = source.HeightUnit;
+                result.MetricUnits[ThreeDInspectionMetricNames.Warpage.Rms] = source.HeightUnit;
+                result.MetricUnits[ThreeDInspectionMetricNames.Warpage.MinimumResidual] = source.HeightUnit;
+                result.MetricUnits[ThreeDInspectionMetricNames.Warpage.MaximumResidual] = source.HeightUnit;
+                result.MetricUnits[ThreeDInspectionMetricNames.Warpage.MaximumPeakToValley] = source.HeightUnit;
+                result.MetricUnits[ThreeDInspectionMetricNames.Warpage.PlaneSlopeX] = source.HeightUnit + "/" + source.PlanarUnit;
+                result.MetricUnits[ThreeDInspectionMetricNames.Warpage.PlaneSlopeY] = source.HeightUnit + "/" + source.PlanarUnit;
+                result.MetricUnits[ThreeDInspectionMetricNames.Warpage.PlaneIntercept] = source.HeightUnit;
                 if (Options.MaximumRms.HasValue)
                 {
-                    result.MetricUnits["MaximumRms"] = source.HeightUnit;
+                    result.MetricUnits[ThreeDInspectionMetricNames.Warpage.MaximumRms] = source.HeightUnit;
                 }
 
                 bool passed = peakToValley <= Options.MaximumPeakToValley

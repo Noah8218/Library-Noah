@@ -81,14 +81,16 @@ using System;
 using Lib.ThreeD.Geometry;
 using Lib.ThreeD.Inspection;
 
-HeightMap3D heightMap = new HeightMap3D(
-    rows: 2,
-    columns: 3,
+HeightMap3D heightMap = HeightMap3D.FromArray(
+    values: new[,]
+    {
+        { 1.00, 1.05, 1.10 },
+        { 1.15, double.NaN, 1.20 }
+    },
     originX: 0.0,
     originY: 0.0,
     columnPitch: 0.1,
     rowPitch: 0.1,
-    values: new[] { 1.00, 1.05, 1.10, 1.15, double.NaN, 1.20 },
     planarUnit: "mm",
     heightUnit: "mm",
     frameId: "fixture-top",
@@ -105,15 +107,20 @@ ThicknessInspectionTool tool = new ThicknessInspectionTool(
     });
 
 ThreeDInspectionResult result = tool.Execute(heightMap);
-if (!result.HasMeasurement)
+if (result.MeasurementOutcome == ThreeDMeasurementOutcome.NotMeasured)
 {
     throw new InvalidOperationException($"{result.ErrorName}: {result.Message}");
 }
 
-Console.WriteLine($"{result.ResultStatusName}, Mean={result.Metrics["Mean"]} {result.MetricUnits["Mean"]}");
+if (!result.TryGetMetric(ThreeDInspectionMetricNames.Thickness.Mean, out double mean, out string meanUnit))
+{
+    throw new InvalidOperationException("Thickness mean was not produced.");
+}
+
+Console.WriteLine($"{result.MeasurementOutcome}, Mean={mean} {meanUnit}");
 ```
 
-`Success=false`이면서 `HasMeasurement=true`이면 계산은 완료됐지만 허용 공차를 벗어난 결과입니다. 단위·프레임 불일치, 잘못된 ROI, 샘플 수나 커버리지 부족은 `HasMeasurement=false`입니다. 상세 계약은 [3D inspection](docs/three-d-inspection.md)을 참고하세요.
+`MeasurementOutcome`은 `Passed`, `OutOfTolerance`, `NotMeasured`를 직접 구분합니다. 기존 `Success=false`이면서 `HasMeasurement=true`인 조합은 `OutOfTolerance`이며, 단위·프레임 불일치, 잘못된 ROI, 샘플 수나 커버리지 부족은 `NotMeasured`입니다. 상세 계약은 [3D inspection](docs/three-d-inspection.md)을 참고하세요.
 
 ## 동반 검증 애플리케이션
 
@@ -357,6 +364,16 @@ else
 `MeanTool`의 multi-ROI 실행은 `CvROIS` 순서대로 각 영역을 측정하고 같은 순서의 `MeanResult.index`를 제공합니다. `CornerTool`은 sub-pixel 보정된 각 점을 전역 이미지 좌표의 `CornerResult`로 제공하며, 검출점이 없으면 `CornerNoResult`를 반환합니다.
 
 ## 지원 3D 기능 요약
+
+3D API는 입력 형태에 따라 다음 세 계층으로 사용합니다. `IThreeDInspectionTool`은 단일 `HeightMap3D` 검사만 위한 좁은 인터페이스이며, 다중 surface나 mesh Tool을 이 인터페이스에 넣지 않습니다.
+
+| 계층 | 입력/결과 | 사용 시점 | `CombinedInspectionRunner` |
+| --- | --- | --- | --- |
+| Height-map 검사 | `HeightMap3D` → `ThreeDInspectionResult` | thickness, warpage, datum처럼 하나의 정규 격자를 검사할 때 | 지원 |
+| Source-neutral Tool | Tool별 typed input/options/result | full-XYZ geometry, regrid, filtering, matching, mesh 비교 | 미지원. Tool을 직접 실행 |
+| 다중 입력 치수 검사 | 호출자가 준비한 점·영역·통계 → typed result | flatness, point pair, gap/flush, volume, cross-section | 미지원. Tool을 직접 실행 |
+
+Height-map 검사는 입력/ROI/커버리지 오류를 통제된 `NotMeasured` 결과로 반환합니다. Source-neutral 및 다중 입력 Tool은 각 typed result의 `Success` 또는 `Passed` 계약을 사용하며, 잘못 구성된 호출 인자는 `ArgumentException`으로 거부할 수 있습니다. 전체 공개 Tool과 입력 선택 기준은 [3D inspection 문서](docs/three-d-inspection.md#public-tool-catalog)를 참고하세요.
 
 | 영역 | 주요 타입 | 역할 |
 | --- | --- | --- |
@@ -910,7 +927,7 @@ ROI의 폭 또는 높이가 0인 경우 Tool에 따라 전체 이미지로 대�
 
 공통 패키지 메타데이터는 `Directory.Build.props`에 정의되어 있습니다.
 
-- `Version`: `2.8.0`
+- `Version`: `2.9.0`
 - `PackageOutputPath`: `artifacts/packages`
 - `GeneratePackageOnBuild`: `false`
 

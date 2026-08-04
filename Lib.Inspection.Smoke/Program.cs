@@ -24,6 +24,7 @@ namespace Lib.Inspection.Smoke
             try
             {
                 Run("Height map keeps legacy unit compatibility", TestHeightMapLegacyUnitCompatibility, ref passed, ref total);
+                Run("Height map array factory preserves row-major values and declared metadata", TestHeightMapArrayFactory, ref passed, ref total);
                 Run("Height map rejects infinity and non-finite coordinate extents", TestHeightMapRejectsInvalidValues, ref passed, ref total);
                 Run("Thickness pass preserves declared metadata", TestThicknessPass, ref passed, ref total);
                 Run("Thickness rejects a unit contract mismatch", TestThicknessUnitContractMismatch, ref passed, ref total);
@@ -59,10 +60,66 @@ namespace Lib.Inspection.Smoke
                 Run("Reference-grid re-sampling rejects invalid frame axes", TestReferenceGridInvalidAxes, ref passed, ref total);
                 Run("Median filter removes a spike with the declared kernel", TestDeterministicMedianFilterSpike, ref passed, ref total);
                 Run("Median filter preserves missing cells and clipped borders", TestDeterministicMedianFilterMissingAndBorder, ref passed, ref total);
+                Run("Local-median outlier filter excludes the center and preserves the strict threshold", TestDeterministicLocalMedianOutlierFilter, ref passed, ref total);
+                Run("Level Surface detrends unique reference cells and preserves region evidence", TestLevelSurfaceDetrend, ref passed, ref total);
+                Run("Level Surface fails closed on insufficient unique reference support", TestLevelSurfaceInsufficientSupport, ref passed, ref total);
+                Run("Height-grid summary preserves missing policy and distribution", TestHeightGridSummary, ref passed, ref total);
+                Run("Height distribution preserves finite statistics and tie order", TestHeightDistributionStatistics, ref passed, ref total);
+                Run("Height-map region statistics preserve row-major aggregation", TestHeightMapRegionStatistics, ref passed, ref total);
+                Run("Completeness Grid preserves reference-relative cell decisions", TestCompletenessGridInspection, ref passed, ref total);
+                Run("Reference-grid reconstruction preserves declared and reference-axis coordinates", TestReferenceGridPointReconstruction, ref passed, ref total);
+                Run("Dual-surface thickness preserves analytic separation statistics", TestDualSurfaceThicknessInspection, ref passed, ref total);
+                Run("Dual-surface thickness preserves independent lower and upper failures", TestDualSurfaceThicknessInspectionFailure, ref passed, ref total);
+                Run("Dual-surface thickness rejects degenerate reference geometry", TestDualSurfaceThicknessInspectionDegenerateReference, ref passed, ref total);
+                Run("Height deviation preserves peak-side selection and pass decision", TestHeightDeviationInspection, ref passed, ref total);
+                Run("Height deviation preserves tolerance failure", TestHeightDeviationInspectionFailure, ref passed, ref total);
+                Run("Height deviation rejects invalid summary evidence", TestHeightDeviationInspectionInvalidInput, ref passed, ref total);
+                Run("Declared mesh normal quality accepts dense aligned normals", TestDeclaredMeshNormalQualityValid, ref passed, ref total);
+                Run("Declared mesh normal quality rejects reversed normals", TestDeclaredMeshNormalQualityReversed, ref passed, ref total);
+                Run("Declared mesh normal quality rejects partial and invalid topology", TestDeclaredMeshNormalQualityPartialAndInvalidTopology, ref passed, ref total);
+                Run("Landmark correspondence validation accepts independent tetrahedra", TestLandmarkCorrespondenceValidation, ref passed, ref total);
+                Run("Landmark correspondence validation rejects a coplanar source", TestLandmarkCorrespondenceValidationCoplanar, ref passed, ref total);
+                Run("Landmark correspondence validation rejects the taught volume boundary", TestLandmarkCorrespondenceValidationBoundary, ref passed, ref total);
+                Run("Repeatability statistics preserve sample standard deviation and range", TestRepeatabilityStatistics, ref passed, ref total);
+                Run("Repeatability statistics preserve a zero-spread series", TestRepeatabilityStatisticsZeroSpread, ref passed, ref total);
+                Run("Repeatability statistics reject insufficient and non-finite input", TestRepeatabilityStatisticsInvalidInput, ref passed, ref total);
+                Run("Labeled evidence statistics preserve role groups and population spread", TestLabeledEvidenceStatistics, ref passed, ref total);
+                Run("Labeled evidence statistics preserve empty roles", TestLabeledEvidenceStatisticsEmptyRoles, ref passed, ref total);
+                Run("Labeled evidence statistics reject invalid input", TestLabeledEvidenceStatisticsInvalidInput, ref passed, ref total);
+                Run("Threshold candidate analysis selects deterministic minimum, maximum, and range", TestThresholdCandidateAnalysis, ref passed, ref total);
+                Run("Threshold candidate analysis rejects invalid development evidence", TestThresholdCandidateAnalysisInvalidInput, ref passed, ref total);
                 Run("Height-difference edge retains strongest pair and exact-tie order", TestDeterministicHeightDifferenceEdge, ref passed, ref total);
                 Run("Height-difference edge skips missing pairs and requires support", TestDeterministicHeightDifferenceEdgeMissingAndSupport, ref passed, ref total);
                 Run("Deterministic line fit preserves full-XYZ inliers and direction", TestDeterministicLineFit, ref passed, ref total);
                 Run("Deterministic line fit rejects insufficient support", TestDeterministicLineFitSupportFailure, ref passed, ref total);
+                Run("Rigid surface pose search recovers known yaw and translation", TestDeterministicRigidSurfacePoseSearch, ref passed, ref total);
+                Run("Surface coverage preserves one-way unique occlusion evidence", TestDeterministicSurfaceCoverageOcclusion, ref passed, ref total);
+                Run("Rigid surface pose search fails closed on bounded domains", TestDeterministicRigidSurfacePoseSearchBounds, ref passed, ref total);
+                Run("Multiple surface match returns stable disjoint two-object results", TestDeterministicMultipleSurfaceMatch, ref passed, ref total);
+                Run("Multiple surface match fails closed on expanded candidate budget", TestDeterministicMultipleSurfaceMatchBudget, ref passed, ref total);
+                Run("Pose symmetry equivalence uses model-space post-multiplication", TestRigidPoseSymmetryEquivalencePostMultiply, ref passed, ref total);
+                Run("Pose symmetry equivalence preserves direct comparison for none", TestRigidPoseSymmetryEquivalenceNone, ref passed, ref total);
+                Run("Pose symmetry equivalence supports X and Y cyclic groups", TestRigidPoseSymmetryEquivalenceAxes, ref passed, ref total);
+                Run("Pose symmetry equivalence preserves thresholds and tie order", TestRigidPoseSymmetryEquivalenceThresholds, ref passed, ref total);
+                Run("Pose symmetry equivalence rejects invalid contracts", TestRigidPoseSymmetryEquivalenceInvalid, ref passed, ref total);
+                Run("Model surface selection preserves source order when disabled", TestModelSurfaceSelectionDisabled, ref passed, ref total);
+                Run("Model surface selection applies explicit exclusions", TestModelSurfaceSelectionExplicit, ref passed, ref total);
+                Run("Model surface selection removes exact geometric duplicates", TestModelSurfaceSelectionExactDuplicate, ref passed, ref total);
+                Run("Model surface selection canonicalizes authored order", TestModelSurfaceSelectionDeterministic, ref passed, ref total);
+                Run("Model surface selection rejects invalid contracts", TestModelSurfaceSelectionInvalid, ref passed, ref total);
+                Run("Triangle-mesh distance preserves closest feature and robust sign evidence", TestTriangleMeshDistance, ref passed, ref total);
+                Run("Nominal/actual mesh comparison preserves streaming statistics and sampling", TestNominalActualMeshComparison, ref passed, ref total);
+                Run("Rigid-transform diagnostics preserve plausibility measures", TestRigidTransformDiagnostics, ref passed, ref total);
+                Run("Surface-model preparation preserves even triangle samples", TestDeterministicSurfaceModelPreparation, ref passed, ref total);
+                Run("Model key-point extraction preserves deterministic spatial coverage", TestDeterministicModelKeyPointExtraction, ref passed, ref total);
+                Run("Model key-point extraction is independent of input order", TestDeterministicModelKeyPointExtractionOrder, ref passed, ref total);
+                Run("Model key-point extraction honors minimum separation", TestDeterministicModelKeyPointExtractionSeparation, ref passed, ref total);
+                Run("Model key-point extraction rejects invalid contracts", TestDeterministicModelKeyPointExtractionInvalid, ref passed, ref total);
+                Run("Prepared-scene preparation preserves even point samples", TestDeterministicPreparedScenePreparation, ref passed, ref total);
+                Run("Model surface-edge extraction preserves boundary topology", TestDeterministicModelSurfaceEdgeExtraction, ref passed, ref total);
+                Run("Organized scene surface-edge extraction anchors height steps", TestDeterministicOrganizedSceneSurfaceEdgeExtraction, ref passed, ref total);
+                Run("Surface-edge coverage reuses unique nearest matching", TestDeterministicSurfaceEdgeCoverage, ref passed, ref total);
+                Run("Surface-edge coverage accepts an empty scene as zero coverage", TestDeterministicSurfaceEdgeCoverageEmptyScene, ref passed, ref total);
                 Run("Least-squares height-field plane fit preserves analytic coefficients", TestLeastSquaresHeightFieldPlaneFit, ref passed, ref total);
                 Run("Plane flatness measures independent reference and surface samples", TestPlaneFlatnessInspection, ref passed, ref total);
                 Run("Plane flatness rejects degenerate reference geometry", TestPlaneFlatnessDegenerateReference, ref passed, ref total);
@@ -131,6 +188,35 @@ namespace Lib.Inspection.Smoke
             Require(map.CoordinateConvention == "GridXGridYScalarHeight", "The fixed height-map coordinate convention was not exposed.");
         }
 
+        private static void TestHeightMapArrayFactory()
+        {
+            double[,] values =
+            {
+                { 1.0, 2.0, 3.0 },
+                { 4.0, double.NaN, 6.0 }
+            };
+            HeightMap3D map = HeightMap3D.FromArray(
+                values,
+                originX: 10.0,
+                originY: 20.0,
+                columnPitch: 0.5,
+                rowPitch: 0.25,
+                planarUnit: "mm",
+                heightUnit: "um",
+                frameId: "fixture-top",
+                sourceId: "array-source");
+            values[0, 0] = 99.0;
+
+            Require(map.Rows == 2 && map.Columns == 3, "The array factory did not preserve the rectangular dimensions.");
+            RequireApproximately(map.GetHeight(0, 0), 1.0, 0.0, "The array factory did not copy its input.");
+            RequireApproximately(map.GetHeight(1, 0), 4.0, 0.0, "The array factory did not preserve row-major values.");
+            Require(double.IsNaN(map.GetHeight(1, 1)), "The array factory did not preserve a missing sample.");
+            RequireApproximately(map.GetX(2), 11.0, 0.0, "The array factory produced an unexpected X coordinate.");
+            RequireApproximately(map.GetY(1), 20.25, 0.0, "The array factory produced an unexpected Y coordinate.");
+            Require(map.PlanarUnit == "mm" && map.HeightUnit == "um", "The array factory did not preserve separate units.");
+            Require(map.FrameId == "fixture-top" && map.SourceId == "array-source", "The array factory did not preserve source identity.");
+        }
+
         private static void TestHeightMapRejectsInvalidValues()
         {
             bool infinityRejected = false;
@@ -184,15 +270,17 @@ namespace Lib.Inspection.Smoke
 
             Require(result.Success, "Thickness pass must succeed.");
             Require(result.HasMeasurement, "Thickness pass must contain a measurement.");
+            Require(result.MeasurementOutcome == ThreeDMeasurementOutcome.Passed, "Thickness pass must expose the passed measurement outcome.");
             Require(result.Unit == "mm" && result.PlanarUnit == "mm" && result.HeightUnit == "mm", "Declared map units were not preserved.");
             Require(result.FrameId == "sensor-top" && result.SourceId == "sample-thickness", "Declared map identity was not preserved.");
             Require(result.CoordinateConvention == "GridXGridYScalarHeight", "The result did not preserve the coordinate convention.");
             Require(result.TotalSampleCount == 6 && result.ValidSampleCount == 5 && result.MissingSampleCount == 1, "Unexpected typed thickness sample quality.");
             RequireApproximately(result.ValidCoverageRatio, 5.0 / 6.0, 1e-12, "Unexpected thickness coverage ratio.");
-            RequireApproximately(result.Metrics["ValidSampleCount"], 5.0, 0.0, "Unexpected thickness valid sample count.");
-            RequireApproximately(result.Metrics["Mean"], 1.2, 1e-12, "Unexpected thickness mean.");
-            RequireApproximately(result.Metrics["Range"], 0.4, 1e-12, "Unexpected thickness range.");
-            Require(result.MetricUnits["Mean"] == "mm" && result.MetricUnits["ValidCoverageRatio"] == "ratio", "Thickness metric units are incomplete.");
+            RequireApproximately(result.Metrics[ThreeDInspectionMetricNames.Quality.ValidSampleCount], 5.0, 0.0, "Unexpected thickness valid sample count.");
+            RequireApproximately(result.Metrics[ThreeDInspectionMetricNames.Thickness.Range], 0.4, 1e-12, "Unexpected thickness range.");
+            Require(result.TryGetMetric(ThreeDInspectionMetricNames.Thickness.Mean, out double mean, out string meanUnit), "The typed thickness metric name was not found.");
+            RequireApproximately(mean, 1.2, 1e-12, "Unexpected thickness mean.");
+            Require(meanUnit == "mm" && result.MetricUnits[ThreeDInspectionMetricNames.Quality.ValidCoverageRatio] == "ratio", "Thickness metric units are incomplete.");
         }
 
         private static void TestThicknessUnitContractMismatch()
@@ -206,6 +294,7 @@ namespace Lib.Inspection.Smoke
             }).Execute(map);
 
             Require(!result.HasMeasurement && result.ErrorCode == ThreeDInspectionErrorCode.InputContractMismatch, "A height-unit mismatch must fail before measurement.");
+            Require(result.MeasurementOutcome == ThreeDMeasurementOutcome.NotMeasured, "A rejected input must expose the not-measured outcome.");
             Require(result.ResultStatus == ThreeDInspectionResultStatus.InvalidInput, "A unit mismatch must be an invalid input result.");
             Require(result.PlanarUnit == "mm" && result.HeightUnit == "um", "The rejected input units were not retained for diagnostics.");
         }
@@ -252,8 +341,9 @@ namespace Lib.Inspection.Smoke
 
             Require(!result.Success, "Out-of-tolerance thickness must fail.");
             Require(result.HasMeasurement, "Out-of-tolerance thickness must retain the measurement.");
+            Require(result.MeasurementOutcome == ThreeDMeasurementOutcome.OutOfTolerance, "An out-of-tolerance result must remain a completed measurement.");
             Require(result.ResultStatus == ThreeDInspectionResultStatus.Failed, "Out-of-tolerance thickness must be a failed measurement, not an input error.");
-            RequireApproximately(result.Metrics["AboveUpperLimitCount"], 2.0, 0.0, "Unexpected thickness upper-limit count.");
+            RequireApproximately(result.Metrics[ThreeDInspectionMetricNames.Thickness.AboveUpperLimitCount], 2.0, 0.0, "Unexpected thickness upper-limit count.");
         }
 
         private static void TestThicknessInvalidRoi()
@@ -268,6 +358,7 @@ namespace Lib.Inspection.Smoke
             ThreeDInspectionResult result = tool.Execute(CreateThicknessMap());
 
             Require(result.ResultStatus == ThreeDInspectionResultStatus.InvalidRoi, "Invalid thickness ROI must be rejected.");
+            Require(result.MeasurementOutcome == ThreeDMeasurementOutcome.NotMeasured, "An invalid ROI must expose the not-measured outcome.");
         }
 
         private static void TestThicknessInsufficientSamples()
@@ -750,6 +841,114 @@ namespace Lib.Inspection.Smoke
                 "Median filter borders must use available neighbors only.");
         }
 
+        private static void TestDeterministicLocalMedianOutlierFilter()
+        {
+            double[] values =
+            {
+                1.0, 1.0, 1.0,
+                1.0, 100.0, 1.0,
+                1.0, 1.0, 1.0
+            };
+            DeterministicLocalMedianOutlierFilterResult result =
+                new DeterministicLocalMedianOutlierFilterTool().Execute(
+                    3,
+                    3,
+                    values,
+                    new DeterministicLocalMedianOutlierFilterOptions
+                    {
+                        WindowSize = 3,
+                        MaximumAbsoluteDeviation = 20.0,
+                        MinimumValidNeighbors = 3
+                    });
+            double[] thresholdValues =
+            {
+                1.0, 1.0, 1.0,
+                1.0, 21.0, 1.0,
+                1.0, 1.0, 1.0
+            };
+            DeterministicLocalMedianOutlierFilterResult threshold =
+                new DeterministicLocalMedianOutlierFilterTool().Execute(
+                    3,
+                    3,
+                    thresholdValues,
+                    new DeterministicLocalMedianOutlierFilterOptions
+                    {
+                        WindowSize = 3,
+                        MaximumAbsoluteDeviation = 20.0,
+                        MinimumValidNeighbors = 3
+                    });
+
+            Require(result.Success
+                && result.OutlierIndices.Count == 1
+                && result.OutlierIndices[0] == 4
+                && double.IsNaN(result.Values[4]),
+                "The local-median filter must remove only the isolated center spike.");
+            Require(threshold.Success
+                && threshold.OutlierIndices.Count == 0
+                && threshold.Values[4] == 21.0,
+                "Deviation exactly equal to the threshold must be retained.");
+        }
+
+        private static void TestLevelSurfaceDetrend()
+        {
+            const int rows = 4;
+            const int columns = 4;
+            double[] values = new double[rows * columns];
+            for (int row = 0; row < rows; row++)
+            {
+                for (int column = 0; column < columns; column++)
+                {
+                    values[(row * columns) + column] =
+                        10.0 + (2.0 * column) - (0.5 * row);
+                }
+            }
+
+            LevelSurfaceResult result = new LevelSurfaceTool().Execute(
+                rows,
+                columns,
+                values,
+                new[]
+                {
+                    new LevelSurfaceRegion(0, 0, 4, 3),
+                    new LevelSurfaceRegion(0, 2, 4, 2)
+                },
+                new LevelSurfaceOptions { MinimumValidSampleCount = 12 });
+
+            Require(result.Success
+                && result.ReferenceSampleCount == 16
+                && result.RegionEvidence.Count == 2
+                && result.RegionEvidence[0].ValidSampleCount == 12
+                && result.RegionEvidence[1].ValidSampleCount == 8,
+                "Level Surface must de-duplicate overlapping reference cells while retaining per-region counts.");
+            RequireApproximately(result.FittedSlopeX, 2.0, 1e-12,
+                "Unexpected Level Surface input X slope.");
+            RequireApproximately(result.FittedSlopeZ, -0.5, 1e-12,
+                "Unexpected Level Surface input Z slope.");
+            RequireApproximately(result.OutputReferenceSlopeX, 0.0, 1e-12,
+                "Level Surface must remove the reference X slope.");
+            RequireApproximately(result.OutputReferenceSlopeZ, 0.0, 1e-12,
+                "Level Surface must remove the reference Z slope.");
+            Require(result.Values.All(value => Math.Abs(value - 12.25) < 1e-12),
+                "Level Surface must detrend every finite cell to the reference mean.");
+        }
+
+        private static void TestLevelSurfaceInsufficientSupport()
+        {
+            LevelSurfaceResult result = new LevelSurfaceTool().Execute(
+                2,
+                2,
+                new[] { 1.0, double.NaN, 2.0, 3.0 },
+                new[] { new LevelSurfaceRegion(0, 0, 2, 2) },
+                new LevelSurfaceOptions { MinimumValidSampleCount = 4 });
+
+            Require(!result.Success
+                && result.Values.Count == 0
+                && result.Message.IndexOf(
+                    "unique finite reference samples",
+                    StringComparison.OrdinalIgnoreCase) >= 0,
+                "Level Surface must fail closed when unique finite support is insufficient.");
+        }
+
         private static void TestDeterministicHeightDifferenceEdge()
         {
             HeightDifferenceEdgeResult result = new DeterministicHeightDifferenceEdgeTool().Execute(
@@ -867,6 +1066,1240 @@ namespace Lib.Inspection.Smoke
                 });
 
             Require(!result.Success && result.Message.IndexOf("support", StringComparison.OrdinalIgnoreCase) >= 0, "Deterministic line fit must reject insufficient taught support.");
+        }
+
+        private static void TestDeterministicRigidSurfacePoseSearch()
+        {
+            IReadOnlyList<SurfaceMatchSample> model = CreateSurfaceMatchModel();
+            RigidSurfacePose knownPose = CreateKnownSurfacePose();
+            IReadOnlyList<SurfaceMatchSample> scene = model
+                .Select(sample => new SurfaceMatchSample(
+                    sample.Order,
+                    knownPose.Transform(sample.Position)))
+                .ToArray();
+            DeterministicRigidSurfacePoseSearchTool tool =
+                new DeterministicRigidSurfacePoseSearchTool();
+            DeterministicRigidSurfacePoseSearchResult first =
+                tool.Execute(model, scene, CreateSurfaceSearchOptions());
+            DeterministicRigidSurfacePoseSearchResult second =
+                tool.Execute(model, scene, CreateSurfaceSearchOptions());
+
+            Require(first.Success && first.Matched && first.Pose != null,
+                "Known surface pose must produce one matched rigid result.");
+            Require(first.EvaluatedCandidateCount == 7
+                && first.Coverage.MatchedModelSampleCount == 5
+                && first.Coverage.Matches.Count == 5,
+                "Known surface pose must preserve the bounded candidate count and full coverage.");
+            RequireApproximately(first.Pose.M11, Math.Sqrt(3.0) / 2.0, 1e-12,
+                "Unexpected known-pose rotation M11.");
+            RequireApproximately(first.Pose.M12, -0.5, 1e-12,
+                "Unexpected known-pose rotation M12.");
+            RequireApproximately(first.Pose.M21, 0.5, 1e-12,
+                "Unexpected known-pose rotation M21.");
+            RequireApproximately(first.Pose.M22, Math.Sqrt(3.0) / 2.0, 1e-12,
+                "Unexpected known-pose rotation M22.");
+            RequireApproximately(first.Pose.TranslationX, 10.0, 1e-12,
+                "Unexpected known-pose translation X.");
+            RequireApproximately(first.Pose.TranslationY, -4.0, 1e-12,
+                "Unexpected known-pose translation Y.");
+            RequireApproximately(first.Pose.TranslationZ, 2.0, 1e-12,
+                "Unexpected known-pose translation Z.");
+            Require(second.Success
+                && second.Matched
+                && second.Pose != null
+                && first.Pose.M11 == second.Pose.M11
+                && first.Pose.TranslationX == second.Pose.TranslationX
+                && first.Coverage.InlierRmse == second.Coverage.InlierRmse,
+                "Repeated rigid surface pose search must be deterministic.");
+        }
+
+        private static void TestDeterministicSurfaceCoverageOcclusion()
+        {
+            IReadOnlyList<SurfaceMatchSample> model = CreateSurfaceMatchModel();
+            RigidSurfacePose knownPose = CreateKnownSurfacePose();
+            IReadOnlyList<SurfaceMatchSample> scene = model
+                .Take(4)
+                .Select(sample => new SurfaceMatchSample(
+                    sample.Order,
+                    knownPose.Transform(sample.Position)))
+                .ToArray();
+            DeterministicSurfaceCoverageResult result =
+                new DeterministicSurfaceCoverageTool().Execute(
+                    model,
+                    scene,
+                    knownPose,
+                    1e-6);
+
+            Require(result.Success
+                && result.MatchedModelSampleCount == 4
+                && result.UnmatchedModelSampleCount == 1
+                && result.Matches.Count == 4,
+                "One removed scene sample must retain four unique matches.");
+            RequireApproximately(result.CoverageRatio, 0.8, 1e-15,
+                "Occluded surface coverage must be four fifths.");
+            Require(result.HasInlierRmse && result.InlierRmse <= 1e-12,
+                "Exact retained scene samples must have near-zero RMSE.");
+            Require(result.Matches.Select(match => match.SceneSampleOrder).Distinct().Count()
+                == result.Matches.Count,
+                "A scene sample must never be claimed more than once.");
+        }
+
+        private static void TestDeterministicRigidSurfacePoseSearchBounds()
+        {
+            IReadOnlyList<SurfaceMatchSample> model = CreateSurfaceMatchModel();
+            RigidSurfacePose knownPose = CreateKnownSurfacePose();
+            IReadOnlyList<SurfaceMatchSample> scene = model
+                .Select(sample => new SurfaceMatchSample(
+                    sample.Order,
+                    knownPose.Transform(sample.Position)))
+                .ToArray();
+            DeterministicRigidSurfacePoseSearchOptions bounded =
+                CreateSurfaceSearchOptions();
+            bounded.MinimumTranslationX = -1.0;
+            bounded.MaximumTranslationX = 1.0;
+            bounded.MinimumTranslationY = -1.0;
+            bounded.MaximumTranslationY = 1.0;
+            bounded.MinimumTranslationZ = -1.0;
+            bounded.MaximumTranslationZ = 1.0;
+            DeterministicRigidSurfacePoseSearchResult noMatch =
+                new DeterministicRigidSurfacePoseSearchTool().Execute(
+                    model,
+                    scene,
+                    bounded);
+
+            DeterministicRigidSurfacePoseSearchOptions insufficientBudget =
+                CreateSurfaceSearchOptions();
+            insufficientBudget.MaximumCandidateCount = 6;
+            DeterministicRigidSurfacePoseSearchResult rejected =
+                new DeterministicRigidSurfacePoseSearchTool().Execute(
+                    model,
+                    scene,
+                    insufficientBudget);
+
+            Require(noMatch.Success
+                && !noMatch.Matched
+                && noMatch.Pose == null
+                && noMatch.EvaluatedCandidateCount == 7
+                && noMatch.RejectionReason.IndexOf(
+                    "bounds",
+                    StringComparison.OrdinalIgnoreCase) >= 0,
+                "Translation bounds must produce a controlled no-match result.");
+            Require(!rejected.Success
+                && rejected.Message.IndexOf(
+                    "exceeds",
+                    StringComparison.OrdinalIgnoreCase) >= 0,
+                "A declared candidate budget must fail closed before search.");
+        }
+
+        private static void TestDeterministicMultipleSurfaceMatch()
+        {
+            IReadOnlyList<SurfaceMatchSample> model = CreateSurfaceMatchModel();
+            RigidSurfacePose firstPose = CreateKnownSurfacePose();
+            RigidSurfacePose secondPose = new RigidSurfacePose(
+                firstPose.M11,
+                firstPose.M12,
+                firstPose.M13,
+                firstPose.M21,
+                firstPose.M22,
+                firstPose.M23,
+                firstPose.M31,
+                firstPose.M32,
+                firstPose.M33,
+                -12.0,
+                7.0,
+                1.0);
+            IReadOnlyList<SurfaceMatchSample> scene = model
+                .Select(sample => firstPose.Transform(sample.Position))
+                .Concat(model.Select(sample => secondPose.Transform(sample.Position)))
+                .Select((point, order) => new SurfaceMatchSample(order, point))
+                .ToArray();
+            DeterministicMultipleSurfaceMatchOptions options =
+                CreateMultipleSurfaceSearchOptions();
+            DeterministicMultipleSurfaceMatchTool tool =
+                new DeterministicMultipleSurfaceMatchTool();
+            DeterministicMultipleSurfaceMatchResult first =
+                tool.Execute(model, scene, options);
+            DeterministicMultipleSurfaceMatchResult repeated =
+                tool.Execute(model, scene, options);
+
+            Require(first.Success
+                && first.Matches.Count == 2
+                && first.Matches[0].Order == 0
+                && first.Matches[1].Order == 1,
+                "The two-object fixture must return two ordered results.");
+            RequireApproximately(first.Matches[0].Pose.TranslationX, 10.0, 1e-12,
+                "Unexpected first multiple-match translation X.");
+            RequireApproximately(first.Matches[1].Pose.TranslationX, -12.0, 1e-12,
+                "Unexpected second multiple-match translation X.");
+            Require(first.Matches.All(match =>
+                    match.Coverage.MatchedModelSampleCount == 5
+                    && match.Coverage.HasInlierRmse
+                    && match.Coverage.InlierRmse <= 1e-12),
+                "Each multiple-match result must retain full exact coverage.");
+            Require(first.Matches
+                    .SelectMany(match => match.Coverage.Matches)
+                    .Select(match => match.SceneSampleOrder)
+                    .Distinct()
+                    .Count() == 10,
+                "Multiple-match results must not share scene samples.");
+            Require(repeated.Success
+                && repeated.Matches.Count == 2
+                && first.EvaluatedCandidateCount == repeated.EvaluatedCandidateCount
+                && first.Matches[0].Pose.TranslationX
+                    == repeated.Matches[0].Pose.TranslationX
+                && first.Matches[1].Pose.TranslationX
+                    == repeated.Matches[1].Pose.TranslationX,
+                "Repeated multiple-match search must preserve order and poses.");
+        }
+
+        private static void TestDeterministicMultipleSurfaceMatchBudget()
+        {
+            IReadOnlyList<SurfaceMatchSample> model = CreateSurfaceMatchModel();
+            RigidSurfacePose knownPose = CreateKnownSurfacePose();
+            IReadOnlyList<SurfaceMatchSample> scene = model
+                .Select(sample => new SurfaceMatchSample(
+                    sample.Order,
+                    knownPose.Transform(sample.Position)))
+                .ToArray();
+            DeterministicMultipleSurfaceMatchOptions options =
+                CreateMultipleSurfaceSearchOptions();
+            options.MaximumExpandedCandidateCount = 1;
+            DeterministicMultipleSurfaceMatchResult result =
+                new DeterministicMultipleSurfaceMatchTool().Execute(
+                    model,
+                    scene,
+                    options);
+
+            Require(!result.Success
+                && result.Message.IndexOf(
+                    "expanded candidate count",
+                    StringComparison.OrdinalIgnoreCase) >= 0,
+                "Multiple-match search must reject an insufficient expanded candidate budget before execution.");
+        }
+
+        private static void TestRigidPoseSymmetryEquivalencePostMultiply()
+        {
+            double cosine = Math.Sqrt(3.0) / 2.0;
+            RigidSurfacePose reference = new RigidSurfacePose(
+                1.0, 0.0, 0.0,
+                0.0, cosine, -0.5,
+                0.0, 0.5, cosine,
+                10.0, -4.0, 2.0);
+            RigidSurfacePose candidate = new RigidSurfacePose(
+                0.0, -1.0, 0.0,
+                cosine, 0.0, -0.5,
+                0.5, 0.0, cosine,
+                10.0, -4.0, 2.0);
+            RigidPoseSymmetryEquivalenceResult result =
+                new RigidPoseSymmetryEquivalenceTool().Execute(
+                    reference,
+                    candidate,
+                    CreateSymmetryOptions(
+                        RigidPoseSymmetryKind.DiscreteRotation,
+                        RigidPoseSymmetryAxis.Z,
+                        4,
+                        1e-9,
+                        1e-6));
+
+            Require(result.Success
+                && result.Equivalent
+                && result.SymmetryOperationIndex == 1,
+                "A candidate equal to reference * Rz(90) must be symmetry-equivalent.");
+            RequireApproximately(
+                result.SymmetryOperationAngleDegrees,
+                90.0,
+                1e-12,
+                "Unexpected winning symmetry angle.");
+            Require(result.TranslationDifference <= 1e-12
+                && result.RotationDifferenceDegrees <= 1e-6,
+                "Exact symmetry-equivalent poses must have near-zero residuals.");
+        }
+
+        private static void TestRigidPoseSymmetryEquivalenceNone()
+        {
+            RigidSurfacePose reference = CreateRotationPose(
+                RigidPoseSymmetryAxis.Z,
+                0.0,
+                1.0,
+                2.0,
+                3.0);
+            RigidSurfacePose rotated = CreateRotationPose(
+                RigidPoseSymmetryAxis.Z,
+                90.0,
+                1.0,
+                2.0,
+                3.0);
+            RigidPoseSymmetryEquivalenceOptions options =
+                CreateSymmetryOptions(
+                    RigidPoseSymmetryKind.None,
+                    RigidPoseSymmetryAxis.None,
+                    1,
+                    1e-9,
+                    1e-6);
+            RigidPoseSymmetryEquivalenceTool tool =
+                new RigidPoseSymmetryEquivalenceTool();
+            RigidPoseSymmetryEquivalenceResult identical =
+                tool.Execute(reference, reference, options);
+            RigidPoseSymmetryEquivalenceResult different =
+                tool.Execute(reference, rotated, options);
+
+            Require(identical.Success
+                && identical.Equivalent
+                && identical.SymmetryOperationIndex == 0,
+                "None symmetry must accept identical poses through operation zero.");
+            Require(different.Success
+                && !different.Equivalent
+                && different.SymmetryOperationIndex == 0
+                && different.RotationDifferenceDegrees > 89.999,
+                "None symmetry must preserve direct rotation comparison.");
+        }
+
+        private static void TestRigidPoseSymmetryEquivalenceAxes()
+        {
+            RigidSurfacePose identity = CreateRotationPose(
+                RigidPoseSymmetryAxis.Z,
+                0.0,
+                0.0,
+                0.0,
+                0.0);
+            RigidPoseSymmetryEquivalenceTool tool =
+                new RigidPoseSymmetryEquivalenceTool();
+            RigidPoseSymmetryEquivalenceResult x = tool.Execute(
+                identity,
+                CreateRotationPose(
+                    RigidPoseSymmetryAxis.X,
+                    180.0,
+                    0.0,
+                    0.0,
+                    0.0),
+                CreateSymmetryOptions(
+                    RigidPoseSymmetryKind.DiscreteRotation,
+                    RigidPoseSymmetryAxis.X,
+                    2,
+                    1e-9,
+                    1e-6));
+            RigidPoseSymmetryEquivalenceResult y = tool.Execute(
+                identity,
+                CreateRotationPose(
+                    RigidPoseSymmetryAxis.Y,
+                    120.0,
+                    0.0,
+                    0.0,
+                    0.0),
+                CreateSymmetryOptions(
+                    RigidPoseSymmetryKind.DiscreteRotation,
+                    RigidPoseSymmetryAxis.Y,
+                    3,
+                    1e-9,
+                    1e-6));
+
+            Require(x.Success && x.Equivalent
+                && x.SymmetryOperationIndex == 1,
+                "Order-two X symmetry must recognize 180 degrees.");
+            Require(y.Success && y.Equivalent
+                && y.SymmetryOperationIndex == 1,
+                "Order-three Y symmetry must recognize 120 degrees.");
+        }
+
+        private static void TestRigidPoseSymmetryEquivalenceThresholds()
+        {
+            RigidSurfacePose identity = CreateRotationPose(
+                RigidPoseSymmetryAxis.Z,
+                0.0,
+                0.0,
+                0.0,
+                0.0);
+            RigidSurfacePose near = CreateRotationPose(
+                RigidPoseSymmetryAxis.Z,
+                90.2,
+                0.05,
+                0.0,
+                0.0);
+            RigidPoseSymmetryEquivalenceTool tool =
+                new RigidPoseSymmetryEquivalenceTool();
+            RigidPoseSymmetryEquivalenceResult accepted = tool.Execute(
+                identity,
+                near,
+                CreateSymmetryOptions(
+                    RigidPoseSymmetryKind.DiscreteRotation,
+                    RigidPoseSymmetryAxis.Z,
+                    4,
+                    0.05,
+                    0.2));
+            RigidPoseSymmetryEquivalenceResult rejected = tool.Execute(
+                identity,
+                near,
+                CreateSymmetryOptions(
+                    RigidPoseSymmetryKind.DiscreteRotation,
+                    RigidPoseSymmetryAxis.Z,
+                    4,
+                    0.049,
+                    0.19));
+            RigidPoseSymmetryEquivalenceResult tie = tool.Execute(
+                identity,
+                CreateRotationPose(
+                    RigidPoseSymmetryAxis.Z,
+                    90.0,
+                    0.0,
+                    0.0,
+                    0.0),
+                CreateSymmetryOptions(
+                    RigidPoseSymmetryKind.DiscreteRotation,
+                    RigidPoseSymmetryAxis.Z,
+                    2,
+                    0.0,
+                    90.0));
+
+            Require(accepted.Success
+                && accepted.Equivalent
+                && accepted.SymmetryOperationIndex == 1,
+                "Residuals on the authored inclusive limits must pass.");
+            RequireApproximately(
+                accepted.TranslationDifference,
+                0.05,
+                1e-12,
+                "Unexpected translation residual.");
+            RequireApproximately(
+                accepted.RotationDifferenceDegrees,
+                0.2,
+                1e-9,
+                "Unexpected rotation residual.");
+            Require(rejected.Success && !rejected.Equivalent,
+                "Residuals outside either authored limit must fail.");
+            Require(tie.Success
+                && tie.Equivalent
+                && tie.SymmetryOperationIndex == 0,
+                "An exact discrete tie must choose the lowest operation index.");
+        }
+
+        private static void TestRigidPoseSymmetryEquivalenceInvalid()
+        {
+            RigidSurfacePose identity = CreateRotationPose(
+                RigidPoseSymmetryAxis.Z,
+                0.0,
+                0.0,
+                0.0,
+                0.0);
+            RigidPoseSymmetryEquivalenceTool tool =
+                new RigidPoseSymmetryEquivalenceTool();
+            RigidPoseSymmetryEquivalenceResult invalidSymmetry = tool.Execute(
+                identity,
+                identity,
+                CreateSymmetryOptions(
+                    RigidPoseSymmetryKind.None,
+                    RigidPoseSymmetryAxis.Z,
+                    1,
+                    0.0,
+                    0.0));
+            RigidSurfacePose nonRigid = new RigidSurfacePose(
+                2.0, 0.0, 0.0,
+                0.0, 1.0, 0.0,
+                0.0, 0.0, 1.0,
+                0.0, 0.0, 0.0);
+            RigidPoseSymmetryEquivalenceResult invalidPose = tool.Execute(
+                identity,
+                nonRigid,
+                CreateSymmetryOptions(
+                    RigidPoseSymmetryKind.None,
+                    RigidPoseSymmetryAxis.None,
+                    1,
+                    0.0,
+                    0.0));
+
+            Require(!invalidSymmetry.Success
+                && invalidSymmetry.Message.IndexOf(
+                    "None symmetry",
+                    StringComparison.OrdinalIgnoreCase) >= 0,
+                "A malformed none declaration must fail closed.");
+            Require(!invalidPose.Success
+                && invalidPose.Message.IndexOf(
+                    "rigid",
+                    StringComparison.OrdinalIgnoreCase) >= 0,
+                "A non-rigid candidate pose must fail closed.");
+        }
+
+        private static void TestModelSurfaceSelectionDisabled()
+        {
+            ThreeDPoint[] points;
+            SurfaceModelTriangleInput[] triangles;
+            CreateModelSurfaceSelectionFixture(out points, out triangles);
+            DeterministicModelSurfaceSelectionResult result =
+                new DeterministicModelSurfaceSelectionTool().Execute(
+                    points,
+                    triangles,
+                    new DeterministicModelSurfaceSelectionOptions());
+
+            Require(result.Success
+                && result.RetainedSourceTriangleIndices.SequenceEqual(
+                    new[] { 0, 1, 2, 3 })
+                && result.RemovedSurfaces.Count == 0,
+                "Disabled cleanup must preserve every source triangle in source order.");
+        }
+
+        private static void TestModelSurfaceSelectionExplicit()
+        {
+            ThreeDPoint[] points;
+            SurfaceModelTriangleInput[] triangles;
+            CreateModelSurfaceSelectionFixture(out points, out triangles);
+            DeterministicModelSurfaceSelectionResult result =
+                new DeterministicModelSurfaceSelectionTool().Execute(
+                    points,
+                    triangles,
+                    new DeterministicModelSurfaceSelectionOptions
+                    {
+                        ExplicitInternalSourceTriangleIndices =
+                            new[] { 1 },
+                        ExplicitUnobservableSourceTriangleIndices =
+                            new[] { 2 }
+                    });
+
+            Require(result.Success
+                && result.RetainedSourceTriangleIndices.SequenceEqual(
+                    new[] { 0, 3 })
+                && result.RemovedSurfaces.Count == 2
+                && result.RemovedSurfaces[0].SourceTriangleIndex == 1
+                && result.RemovedSurfaces[0].Reason
+                    == ModelSurfaceRemovalReason.ExplicitInternal
+                && result.RemovedSurfaces[1].SourceTriangleIndex == 2
+                && result.RemovedSurfaces[1].Reason
+                    == ModelSurfaceRemovalReason.ExplicitUnobservable,
+                "Explicit internal and unobservable exclusions must retain typed evidence.");
+        }
+
+        private static void TestModelSurfaceSelectionExactDuplicate()
+        {
+            ThreeDPoint[] points;
+            SurfaceModelTriangleInput[] triangles;
+            CreateModelSurfaceSelectionFixture(out points, out triangles);
+            DeterministicModelSurfaceSelectionResult result =
+                new DeterministicModelSurfaceSelectionTool().Execute(
+                    points,
+                    triangles,
+                    new DeterministicModelSurfaceSelectionOptions
+                    {
+                        RemoveExactDuplicateTriangles = true
+                    });
+
+            RemovedModelSurface duplicate = result.RemovedSurfaces.Single();
+            Require(result.Success
+                && result.RetainedSourceTriangleIndices.SequenceEqual(
+                    new[] { 0, 1, 2 })
+                && duplicate.SourceTriangleIndex == 3
+                && duplicate.Reason
+                    == ModelSurfaceRemovalReason.ExactDuplicate
+                && duplicate.DuplicateOfSourceTriangleIndex == 0,
+                "Exact-coordinate duplicates must retain the lowest source-triangle index.");
+        }
+
+        private static void TestModelSurfaceSelectionDeterministic()
+        {
+            ThreeDPoint[] points;
+            SurfaceModelTriangleInput[] triangles;
+            CreateModelSurfaceSelectionFixture(out points, out triangles);
+            DeterministicModelSurfaceSelectionTool tool =
+                new DeterministicModelSurfaceSelectionTool();
+            DeterministicModelSurfaceSelectionResult first = tool.Execute(
+                points,
+                triangles,
+                new DeterministicModelSurfaceSelectionOptions
+                {
+                    ExplicitInternalSourceTriangleIndices =
+                        new[] { 2, 1 },
+                    RemoveExactDuplicateTriangles = true
+                });
+            DeterministicModelSurfaceSelectionResult second = tool.Execute(
+                points,
+                triangles,
+                new DeterministicModelSurfaceSelectionOptions
+                {
+                    ExplicitInternalSourceTriangleIndices =
+                        new[] { 1, 2 },
+                    RemoveExactDuplicateTriangles = true
+                });
+
+            Require(first.Success
+                && second.Success
+                && first.ExplicitInternalSourceTriangleIndices.SequenceEqual(
+                    new[] { 1, 2 })
+                && first.RetainedSourceTriangleIndices.SequenceEqual(
+                    second.RetainedSourceTriangleIndices)
+                && first.RemovedSurfaces.Select(item => item.SourceTriangleIndex)
+                    .SequenceEqual(second.RemovedSurfaces.Select(
+                        item => item.SourceTriangleIndex)),
+                "Authored exclusion order must not change canonical selection evidence.");
+        }
+
+        private static void TestModelSurfaceSelectionInvalid()
+        {
+            ThreeDPoint[] points;
+            SurfaceModelTriangleInput[] triangles;
+            CreateModelSurfaceSelectionFixture(out points, out triangles);
+            DeterministicModelSurfaceSelectionTool tool =
+                new DeterministicModelSurfaceSelectionTool();
+            DeterministicModelSurfaceSelectionResult overlap = tool.Execute(
+                points,
+                triangles,
+                new DeterministicModelSurfaceSelectionOptions
+                {
+                    ExplicitInternalSourceTriangleIndices = new[] { 1 },
+                    ExplicitUnobservableSourceTriangleIndices = new[] { 1 }
+                });
+            DeterministicModelSurfaceSelectionResult outside = tool.Execute(
+                points,
+                triangles,
+                new DeterministicModelSurfaceSelectionOptions
+                {
+                    ExplicitInternalSourceTriangleIndices = new[] { 4 }
+                });
+            DeterministicModelSurfaceSelectionResult empty = tool.Execute(
+                points,
+                triangles,
+                new DeterministicModelSurfaceSelectionOptions
+                {
+                    ExplicitInternalSourceTriangleIndices =
+                        new[] { 0, 1, 2, 3 }
+                });
+
+            Require(!overlap.Success
+                && overlap.Message.IndexOf(
+                    "both explicitly",
+                    StringComparison.OrdinalIgnoreCase) >= 0,
+                "Overlapping authored roles must fail closed.");
+            Require(!outside.Success
+                && outside.Message.IndexOf(
+                    "must exist",
+                    StringComparison.OrdinalIgnoreCase) >= 0,
+                "Out-of-range authored exclusions must fail closed.");
+            Require(!empty.Success
+                && empty.Message.IndexOf(
+                    "retain at least one",
+                    StringComparison.OrdinalIgnoreCase) >= 0,
+                "A selection that removes every surface must fail closed.");
+        }
+
+        private static void CreateModelSurfaceSelectionFixture(
+            out ThreeDPoint[] points,
+            out SurfaceModelTriangleInput[] triangles)
+        {
+            points = new[]
+            {
+                new ThreeDPoint(0.0, 0.0, 0.0),
+                new ThreeDPoint(1.0, 0.0, 0.0),
+                new ThreeDPoint(0.0, 1.0, 0.0),
+                new ThreeDPoint(0.0, 0.0, -1.0),
+                new ThreeDPoint(1.0, 0.0, -1.0),
+                new ThreeDPoint(0.0, 1.0, -1.0),
+                new ThreeDPoint(2.0, 0.0, 0.0),
+                new ThreeDPoint(3.0, 0.0, 0.0),
+                new ThreeDPoint(2.0, 1.0, 0.0),
+                new ThreeDPoint(0.0, 0.0, 0.0),
+                new ThreeDPoint(1.0, 0.0, 0.0),
+                new ThreeDPoint(0.0, 1.0, 0.0)
+            };
+            triangles = new[]
+            {
+                new SurfaceModelTriangleInput(0, 1, 2),
+                new SurfaceModelTriangleInput(3, 4, 5),
+                new SurfaceModelTriangleInput(6, 7, 8),
+                new SurfaceModelTriangleInput(9, 10, 11)
+            };
+        }
+
+        private static void TestTriangleMeshDistance()
+        {
+            TriangleMeshDistanceTool tool = new TriangleMeshDistanceTool(
+                new[]
+                {
+                    new MeshTriangle(
+                        7,
+                        new ThreeDPoint(0.0, 0.0, 0.0),
+                        new ThreeDPoint(2.0, 0.0, 0.0),
+                        new ThreeDPoint(0.0, 2.0, 0.0))
+                });
+            PointMeshDistance face = tool.Execute(
+                new ThreeDPoint(0.5, 0.5, 1.0));
+            PointMeshDistance boundary = tool.Execute(
+                new ThreeDPoint(1.0, -1.0, 1.0));
+            PointMeshDistance recovered = tool.ExecuteRobustSign(
+                new ThreeDPoint(1.0, -1.0, 1.0),
+                boundary.UnsignedDistance);
+
+            Require(tool.TriangleCount == 1
+                && face.SourceTriangleIndex == 7
+                && face.ClosestFeature == MeshClosestFeature.FaceInterior
+                && face.SignResolved
+                && face.SignedDistance.HasValue,
+                "Face-interior distance must retain direct signed evidence.");
+            RequireApproximately(face.UnsignedDistance, 1.0, 1e-12,
+                "Unexpected face-interior unsigned distance.");
+            RequireApproximately(face.SignedDistance.Value, 1.0, 1e-12,
+                "Unexpected face-interior signed distance.");
+            Require(boundary.ClosestFeature == MeshClosestFeature.Edge
+                && !boundary.SignResolved
+                && !boundary.SignedDistance.HasValue,
+                "Boundary distance must not guess a direct sign.");
+            Require(recovered.SignResolved
+                && recovered.SignedDistance.HasValue,
+                "Robust boundary-sign execution must return explicit evidence.");
+            RequireApproximately(
+                recovered.SignedDistance.Value,
+                Math.Sqrt(2.0),
+                1e-12,
+                "Unexpected robust boundary sign distance.");
+        }
+
+        private static void TestNominalActualMeshComparison()
+        {
+            NominalActualMeshComparisonResult result =
+                new NominalActualMeshComparisonTool().Execute(
+                    new[]
+                    {
+                        new MeshTriangle(
+                            3,
+                            new ThreeDPoint(0.0, 0.0, 0.0),
+                            new ThreeDPoint(2.0, 0.0, 0.0),
+                            new ThreeDPoint(0.0, 2.0, 0.0))
+                    },
+                    new[]
+                    {
+                        new ThreeDPoint(0.5, 0.5, 1.0),
+                        new ThreeDPoint(0.5, 0.5, -2.0)
+                    },
+                    new NominalActualMeshComparisonOptions(
+                        2,
+                        -1.5,
+                        1.5,
+                        2));
+
+            Require(result.Success
+                && result.ProcessedPointCount == 2
+                && result.BelowToleranceCount == 1
+                && result.WithinToleranceCount == 1
+                && result.AboveToleranceCount == 0
+                && result.DirectSignResolvedCount == 2
+                && result.RobustSignRecoveredCount == 0
+                && result.DisplayStride == 1
+                && result.DisplaySamples.Count == 2,
+                "Nominal/actual comparison must retain deterministic counts and display sampling.");
+            RequireApproximately(result.UnsignedStatistics.Mean, 1.5, 1e-12,
+                "Unexpected unsigned-deviation mean.");
+            RequireApproximately(result.SignedStatistics.Mean, -0.5, 1e-12,
+                "Unexpected signed-deviation mean.");
+            Require(result.DisplaySamples[0].SourceTriangleIndex == 3
+                && result.DisplaySamples[0].PointIndex == 0,
+                "Display evidence must retain source triangle and query order.");
+        }
+
+        private static void TestRigidTransformDiagnostics()
+        {
+            RigidTransformDiagnosticsTool tool =
+                new RigidTransformDiagnosticsTool();
+            RigidTransformDiagnosticsResult result = tool.Execute(
+                new[]
+                {
+                    0.0, -1.0, 0.0, 3.0,
+                    1.0, 0.0, 0.0, 4.0,
+                    0.0, 0.0, 1.0, 0.0,
+                    0.0, 0.0, 0.0, 1.0
+                });
+            RigidTransformDiagnosticsResult rejected = tool.Execute(
+                new[]
+                {
+                    double.NaN, 0.0, 0.0, 0.0,
+                    0.0, 1.0, 0.0, 0.0,
+                    0.0, 0.0, 1.0, 0.0,
+                    0.0, 0.0, 0.0, 1.0
+                });
+
+            Require(result.Success,
+                "Finite rigid input must produce transform diagnostics.");
+            RequireApproximately(result.HomogeneousRowMaximumError, 0.0, 0.0,
+                "Unexpected homogeneous-row error.");
+            RequireApproximately(result.RotationOrthogonalityMaximumError, 0.0, 0.0,
+                "Unexpected rotation orthogonality error.");
+            RequireApproximately(result.RotationDeterminant, 1.0, 0.0,
+                "Unexpected rotation determinant.");
+            RequireApproximately(result.RotationDeterminantUnitError, 0.0, 0.0,
+                "Unexpected determinant-unit error.");
+            RequireApproximately(result.TranslationMagnitude, 5.0, 1e-12,
+                "Unexpected translation magnitude.");
+            RequireApproximately(result.RotationAngleDegrees, 90.0, 1e-12,
+                "Unexpected rotation angle.");
+            Require(!rejected.Success
+                && rejected.Message.IndexOf("16 finite", StringComparison.Ordinal) >= 0,
+                "Non-finite transform input must fail closed.");
+        }
+
+        private static void TestDeterministicSurfaceModelPreparation()
+        {
+            ThreeDPoint[] points =
+            {
+                new ThreeDPoint(0.0, 0.0, 0.0),
+                new ThreeDPoint(2.0, 0.0, 0.0),
+                new ThreeDPoint(2.0, 2.0, 0.0),
+                new ThreeDPoint(0.0, 2.0, 0.0)
+            };
+            SurfaceModelTriangleInput[] triangles =
+            {
+                new SurfaceModelTriangleInput(0, 1, 2),
+                new SurfaceModelTriangleInput(0, 2, 3)
+            };
+            ThreeDPoint[] normals = points
+                .Select(_ => new ThreeDPoint(0.0, 0.0, 1.0))
+                .ToArray();
+            DeterministicSurfaceModelPreparationResult result =
+                new DeterministicSurfaceModelPreparationTool().Execute(
+                    points,
+                    triangles,
+                    normals,
+                    new DeterministicSurfaceModelPreparationOptions
+                    {
+                        MaximumSampleCount = 1
+                    });
+
+            Require(result.Success && result.Samples.Count == 1,
+                "Surface-model preparation must return one controlled sample.");
+            PreparedSurfaceModelSample sample = result.Samples[0];
+            Require(sample.Order == 0 && sample.SourceTriangleIndex == 1,
+                "Even triangle selection must preserve the established index schedule.");
+            RequireApproximately(sample.Position.X, 2.0 / 3.0, 0.0,
+                "Unexpected selected triangle centroid X.");
+            RequireApproximately(sample.Position.Y, 4.0 / 3.0, 0.0,
+                "Unexpected selected triangle centroid Y.");
+            RequireApproximately(sample.Normal.Z, 1.0, 0.0,
+                "Declared normal averaging must retain the source orientation.");
+        }
+
+        private static void TestDeterministicPreparedScenePreparation()
+        {
+            ThreeDPoint[] points = Enumerable.Range(0, 5)
+                .Select(index => new ThreeDPoint(index, 0.0, index * 0.5))
+                .ToArray();
+            DeterministicPreparedScenePreparationResult result =
+                new DeterministicPreparedScenePreparationTool().Execute(
+                    points,
+                    new DeterministicPreparedScenePreparationOptions
+                    {
+                        MaximumSampleCount = 2
+                    });
+
+            Require(result.Success && result.Samples.Count == 2,
+                "Prepared-scene preparation must return the requested sample count.");
+            Require(result.Samples[0].SourcePointIndex == 1
+                && result.Samples[1].SourcePointIndex == 3,
+                "Even point selection must preserve stable source locators.");
+            Require(result.Samples[0].Position == points[1]
+                && result.Samples[1].Position == points[3],
+                "Prepared-scene samples must preserve the selected source objects.");
+        }
+
+        private static void TestDeterministicModelSurfaceEdgeExtraction()
+        {
+            ThreeDPoint[] points =
+            {
+                new ThreeDPoint(0.0, 0.0, 0.0),
+                new ThreeDPoint(2.0, 0.0, 0.0),
+                new ThreeDPoint(2.0, 2.0, 0.0),
+                new ThreeDPoint(0.0, 2.0, 0.0)
+            };
+            SurfaceModelTriangleInput[] triangles =
+            {
+                new SurfaceModelTriangleInput(0, 1, 2),
+                new SurfaceModelTriangleInput(0, 2, 3)
+            };
+            DeterministicModelSurfaceEdgeExtractionResult result =
+                new DeterministicModelSurfaceEdgeExtractionTool().Execute(
+                    points,
+                    triangles,
+                    new DeterministicModelSurfaceEdgeExtractionOptions
+                    {
+                        MinimumEdgeLength = 0.1,
+                        MinimumCreaseAngleDegrees = 1.0,
+                        IncludeBoundaryEdges = true
+                    });
+
+            Require(result.Success && result.Edges.Count == 4,
+                "A flat triangulated square must expose four boundary edges only.");
+            Require(result.Edges.All(edge =>
+                    edge.Kind == ExtractedModelSurfaceEdgeKind.Boundary),
+                "The flat internal diagonal must not be classified as a crease.");
+            Require(result.Edges[0].FirstPointIndex == 0
+                && result.Edges[0].SecondPointIndex == 1
+                && result.Edges[1].FirstPointIndex == 0
+                && result.Edges[1].SecondPointIndex == 3,
+                "Model edge ordering must use sorted undirected point locators.");
+        }
+
+        private static void TestDeterministicOrganizedSceneSurfaceEdgeExtraction()
+        {
+            ThreeDPoint[] points =
+            {
+                new ThreeDPoint(0.0, 0.0, 0.0),
+                new ThreeDPoint(1.0, 0.0, 2.0),
+                new ThreeDPoint(2.0, 0.0, 0.0),
+                new ThreeDPoint(0.0, 1.0, 0.0),
+                new ThreeDPoint(1.0, 1.0, 2.0),
+                new ThreeDPoint(2.0, 1.0, 0.0)
+            };
+            DeterministicOrganizedSceneSurfaceEdgeExtractionResult result =
+                new DeterministicOrganizedSceneSurfaceEdgeExtractionTool()
+                    .Execute(
+                        points,
+                        new DeterministicOrganizedSceneSurfaceEdgeExtractionOptions
+                        {
+                            Width = 3,
+                            Height = 2,
+                            MinimumAbsoluteHeightStep = 2.0,
+                            IncludeColumnNeighbors = true,
+                            IncludeRowNeighbors = false
+                        });
+
+            Require(result.Success && result.Edges.Count == 4,
+                "Inclusive height-step extraction must retain four column edges.");
+            Require(result.Edges[0].AnchorPointIndex == 1
+                && result.Edges[1].AnchorPointIndex == 1
+                && result.Edges[2].AnchorPointIndex == 4
+                && result.Edges[3].AnchorPointIndex == 4,
+                "Every organized height step must anchor at its higher endpoint.");
+            Require(result.Edges.All(edge =>
+                    edge.Axis == ExtractedSceneSurfaceEdgeAxis.AcrossColumns
+                    && edge.AbsoluteHeightStep == 2.0),
+                "Scene edge axis and threshold evidence were not preserved.");
+        }
+
+        private static void TestDeterministicSurfaceEdgeCoverage()
+        {
+            SurfaceEdgeAnchorSample[] model =
+            {
+                new SurfaceEdgeAnchorSample(
+                    0, new ThreeDPoint(0.0, 0.0, 0.0)),
+                new SurfaceEdgeAnchorSample(
+                    1, new ThreeDPoint(2.0, 0.0, 0.0))
+            };
+            SurfaceEdgeAnchorSample[] scene =
+            {
+                new SurfaceEdgeAnchorSample(
+                    0, new ThreeDPoint(0.1, 0.0, 0.0)),
+                new SurfaceEdgeAnchorSample(
+                    1, new ThreeDPoint(2.1, 0.0, 0.0))
+            };
+            RigidSurfacePose identity = new RigidSurfacePose(
+                1.0, 0.0, 0.0,
+                0.0, 1.0, 0.0,
+                0.0, 0.0, 1.0,
+                0.0, 0.0, 0.0);
+            DeterministicSurfaceEdgeCoverageResult result =
+                new DeterministicSurfaceEdgeCoverageTool().Execute(
+                    model,
+                    scene,
+                    identity,
+                    0.2);
+
+            Require(result.Success
+                && result.MatchedModelEdgeCount == 2
+                && result.UnmatchedModelEdgeCount == 0
+                && result.Matches.Count == 2,
+                "Surface-edge coverage must retain two unique nearest matches.");
+            RequireApproximately(result.CoverageRatio, 1.0, 0.0,
+                "Surface-edge coverage ratio must remain decision-free and exact.");
+            RequireApproximately(result.InlierRmse, 0.1, 1e-12,
+                "Unexpected surface-edge coverage RMSE.");
+        }
+
+        private static void TestDeterministicSurfaceEdgeCoverageEmptyScene()
+        {
+            SurfaceEdgeAnchorSample[] model =
+            {
+                new SurfaceEdgeAnchorSample(
+                    0, new ThreeDPoint(0.0, 0.0, 0.0))
+            };
+            RigidSurfacePose identity = new RigidSurfacePose(
+                1.0, 0.0, 0.0,
+                0.0, 1.0, 0.0,
+                0.0, 0.0, 1.0,
+                0.0, 0.0, 0.0);
+            DeterministicSurfaceEdgeCoverageResult result =
+                new DeterministicSurfaceEdgeCoverageTool().Execute(
+                    model,
+                    new SurfaceEdgeAnchorSample[0],
+                    identity,
+                    0.2);
+
+            Require(result.Success
+                && result.ModelEdgeCount == 1
+                && result.SceneEdgeCount == 0
+                && result.MatchedModelEdgeCount == 0
+                && result.UnmatchedModelEdgeCount == 1
+                && result.CoverageRatio == 0.0
+                && !result.HasInlierRmse
+                && result.Matches.Count == 0,
+                "An empty scene-edge set must remain valid zero-coverage evidence.");
+        }
+
+        private static IReadOnlyList<SurfaceMatchSample> CreateSurfaceMatchModel()
+        {
+            return new[]
+            {
+                new SurfaceMatchSample(0, new ThreeDPoint(0.0, 0.0, 0.0)),
+                new SurfaceMatchSample(1, new ThreeDPoint(2.0, 0.0, 0.0)),
+                new SurfaceMatchSample(2, new ThreeDPoint(0.0, 3.0, 0.0)),
+                new SurfaceMatchSample(3, new ThreeDPoint(4.0, 1.0, 0.0)),
+                new SurfaceMatchSample(4, new ThreeDPoint(1.0, 5.0, 0.0))
+            };
+        }
+
+        private static RigidSurfacePose CreateKnownSurfacePose()
+        {
+            double cosine = Math.Sqrt(3.0) / 2.0;
+            return new RigidSurfacePose(
+                cosine,
+                -0.5,
+                0.0,
+                0.5,
+                cosine,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                10.0,
+                -4.0,
+                2.0);
+        }
+
+        private static void TestDeterministicModelKeyPointExtraction()
+        {
+            ModelKeyPointInput[] samples = CreateModelKeyPointFixture();
+            DeterministicModelKeyPointExtractionResult result =
+                new DeterministicModelKeyPointExtractionTool().Execute(
+                    samples,
+                    new DeterministicModelKeyPointExtractionOptions
+                    {
+                        MaximumKeyPointCount = 3,
+                        MinimumSeparation = 0.0
+                    });
+
+            Require(result.Success, result.Message);
+            Require(
+                result.KeyPoints.Select(point => point.SourceSampleOrder)
+                    .SequenceEqual(new[] { 0, 3, 2 }),
+                "Model key-point farthest-point order changed.");
+            RequireApproximately(
+                result.KeyPoints[1].NearestSelectedDistance,
+                5.0,
+                0.0,
+                "Unexpected second key-point separation.");
+            RequireApproximately(
+                result.KeyPoints[2].NearestSelectedDistance,
+                2.0,
+                0.0,
+                "Unexpected third key-point separation.");
+        }
+
+        private static void TestDeterministicModelKeyPointExtractionOrder()
+        {
+            ModelKeyPointInput[] samples = CreateModelKeyPointFixture();
+            DeterministicModelKeyPointExtractionTool tool =
+                new DeterministicModelKeyPointExtractionTool();
+            DeterministicModelKeyPointExtractionOptions options =
+                new DeterministicModelKeyPointExtractionOptions
+                {
+                    MaximumKeyPointCount = 4,
+                    MinimumSeparation = 0.0
+                };
+            DeterministicModelKeyPointExtractionResult first =
+                tool.Execute(samples, options);
+            DeterministicModelKeyPointExtractionResult second =
+                tool.Execute(samples.Reverse().ToArray(), options);
+
+            Require(first.Success && second.Success,
+                first.Message + second.Message);
+            Require(
+                first.KeyPoints.Select(point => point.SourceSampleOrder)
+                    .SequenceEqual(second.KeyPoints.Select(
+                        point => point.SourceSampleOrder)),
+                "Input order changed model key-point identities.");
+        }
+
+        private static void TestDeterministicModelKeyPointExtractionSeparation()
+        {
+            DeterministicModelKeyPointExtractionResult result =
+                new DeterministicModelKeyPointExtractionTool().Execute(
+                    CreateModelKeyPointFixture(),
+                    new DeterministicModelKeyPointExtractionOptions
+                    {
+                        MaximumKeyPointCount = 4,
+                        MinimumSeparation = 2.0
+                    });
+
+            Require(result.Success, result.Message);
+            Require(
+                result.KeyPoints.Select(point => point.SourceSampleOrder)
+                    .SequenceEqual(new[] { 0, 3 }),
+                "Minimum separation must exclude points on the boundary.");
+        }
+
+        private static void TestDeterministicModelKeyPointExtractionInvalid()
+        {
+            DeterministicModelKeyPointExtractionTool tool =
+                new DeterministicModelKeyPointExtractionTool();
+            ModelKeyPointInput[] duplicateOrders =
+            {
+                new ModelKeyPointInput(
+                    0,
+                    new ThreeDPoint(0.0, 0.0, 0.0),
+                    new ThreeDPoint(0.0, 0.0, 1.0)),
+                new ModelKeyPointInput(
+                    0,
+                    new ThreeDPoint(1.0, 0.0, 0.0),
+                    new ThreeDPoint(0.0, 0.0, 1.0))
+            };
+            DeterministicModelKeyPointExtractionResult duplicate =
+                tool.Execute(
+                    duplicateOrders,
+                    new DeterministicModelKeyPointExtractionOptions
+                    {
+                        MaximumKeyPointCount = 1
+                    });
+            DeterministicModelKeyPointExtractionResult invalidNormal =
+                tool.Execute(
+                    new[]
+                    {
+                        new ModelKeyPointInput(
+                            0,
+                            new ThreeDPoint(0.0, 0.0, 0.0),
+                            new ThreeDPoint(0.0, 0.0, 2.0))
+                    },
+                    new DeterministicModelKeyPointExtractionOptions
+                    {
+                        MaximumKeyPointCount = 1
+                    });
+
+            Require(!duplicate.Success,
+                "Duplicate source sample orders must fail closed.");
+            Require(!invalidNormal.Success,
+                "Non-unit source sample normals must fail closed.");
+        }
+
+        private static ModelKeyPointInput[] CreateModelKeyPointFixture()
+        {
+            ThreeDPoint normal = new ThreeDPoint(0.0, 0.0, 1.0);
+            return new[]
+            {
+                new ModelKeyPointInput(
+                    2,
+                    new ThreeDPoint(0.0, 2.0, 0.0),
+                    normal),
+                new ModelKeyPointInput(
+                    0,
+                    new ThreeDPoint(0.0, 0.0, 0.0),
+                    normal),
+                new ModelKeyPointInput(
+                    3,
+                    new ThreeDPoint(5.0, 0.0, 0.0),
+                    normal),
+                new ModelKeyPointInput(
+                    1,
+                    new ThreeDPoint(1.0, 0.0, 0.0),
+                    normal)
+            };
+        }
+
+        private static RigidPoseSymmetryEquivalenceOptions
+            CreateSymmetryOptions(
+                RigidPoseSymmetryKind kind,
+                RigidPoseSymmetryAxis axis,
+                int order,
+                double maximumTranslationDifference,
+                double maximumRotationDifferenceDegrees)
+        {
+            return new RigidPoseSymmetryEquivalenceOptions
+            {
+                Symmetry = new RigidPoseSymmetry(kind, axis, order),
+                MaximumTranslationDifference = maximumTranslationDifference,
+                MaximumRotationDifferenceDegrees =
+                    maximumRotationDifferenceDegrees,
+                RigidTransformTolerance = 1e-9
+            };
+        }
+
+        private static RigidSurfacePose CreateRotationPose(
+            RigidPoseSymmetryAxis axis,
+            double angleDegrees,
+            double translationX,
+            double translationY,
+            double translationZ)
+        {
+            double radians = angleDegrees * Math.PI / 180.0;
+            double cosine = Math.Cos(radians);
+            double sine = Math.Sin(radians);
+            switch (axis)
+            {
+                case RigidPoseSymmetryAxis.X:
+                    return new RigidSurfacePose(
+                        1.0, 0.0, 0.0,
+                        0.0, cosine, -sine,
+                        0.0, sine, cosine,
+                        translationX, translationY, translationZ);
+                case RigidPoseSymmetryAxis.Y:
+                    return new RigidSurfacePose(
+                        cosine, 0.0, sine,
+                        0.0, 1.0, 0.0,
+                        -sine, 0.0, cosine,
+                        translationX, translationY, translationZ);
+                default:
+                    return new RigidSurfacePose(
+                        cosine, -sine, 0.0,
+                        sine, cosine, 0.0,
+                        0.0, 0.0, 1.0,
+                        translationX, translationY, translationZ);
+            }
+        }
+
+        private static DeterministicRigidSurfacePoseSearchOptions
+            CreateSurfaceSearchOptions()
+        {
+            return new DeterministicRigidSurfacePoseSearchOptions
+            {
+                MinimumRotationXDegrees = 0.0,
+                MaximumRotationXDegrees = 0.0,
+                RotationStepXDegrees = 1.0,
+                MinimumRotationYDegrees = 0.0,
+                MaximumRotationYDegrees = 0.0,
+                RotationStepYDegrees = 1.0,
+                MinimumRotationZDegrees = -45.0,
+                MaximumRotationZDegrees = 45.0,
+                RotationStepZDegrees = 15.0,
+                MinimumTranslationX = 8.0,
+                MaximumTranslationX = 12.0,
+                MinimumTranslationY = -6.0,
+                MaximumTranslationY = -2.0,
+                MinimumTranslationZ = 1.0,
+                MaximumTranslationZ = 3.0,
+                MaximumCorrespondenceDistance = 1e-6,
+                MinimumMatchedSampleCount = 3,
+                MaximumCandidateCount = 100
+            };
+        }
+
+        private static DeterministicMultipleSurfaceMatchOptions
+            CreateMultipleSurfaceSearchOptions()
+        {
+            DeterministicRigidSurfacePoseSearchOptions pose =
+                CreateSurfaceSearchOptions();
+            pose.MinimumRotationZDegrees = 30.0;
+            pose.MaximumRotationZDegrees = 30.0;
+            pose.MinimumTranslationX = -15.0;
+            pose.MaximumTranslationX = 15.0;
+            pose.MinimumTranslationY = -8.0;
+            pose.MaximumTranslationY = 9.0;
+            pose.MinimumTranslationZ = 0.0;
+            pose.MaximumTranslationZ = 3.0;
+            return new DeterministicMultipleSurfaceMatchOptions
+            {
+                PoseSearchOptions = pose,
+                MaximumMatchCount = 2,
+                MaximumExpandedCandidateCount = 1000
+            };
         }
 
         private static void TestLeastSquaresHeightFieldPlaneFit()
@@ -2236,6 +3669,642 @@ namespace Lib.Inspection.Smoke
 
             Require(!result.Success, "An empty combined configuration must not pass.");
             Require(result.Steps.Count == 0, "An empty combined configuration must not create synthetic tool results.");
+        }
+
+        private static void TestHeightGridSummary()
+        {
+            HeightGridSummaryResult result = new HeightGridSummaryTool().Execute(
+                new[] { 0.0f, 1.0f, 2.0f, float.NaN, 3.0f, 4.0f },
+                new HeightGridSummaryOptions
+                {
+                    ZeroIsMissing = true,
+                    DistributionBinCount = 2
+                });
+
+            Require(result.Success, result.Message);
+            Require(result.SampleCount == 6
+                    && result.ValidSampleCount == 4
+                    && result.MissingSampleCount == 2
+                    && result.ZeroSampleCount == 1
+                    && result.NonFiniteSampleCount == 1,
+                "Height-grid missing policy evidence changed.");
+            RequireApproximately(result.Minimum, 1.0, 0.0, "Unexpected height-grid minimum.");
+            RequireApproximately(result.Maximum, 4.0, 0.0, "Unexpected height-grid maximum.");
+            RequireApproximately(result.Mean, 2.5, 0.0, "Unexpected height-grid mean.");
+            Require(result.Bins.Count == 2
+                    && result.Bins[0] == 2
+                    && result.Bins[1] == 2
+                    && result.PeakBinIndex == 0,
+                "Height-grid distribution or exact-tie order changed.");
+            RequireApproximately(result.PeakLowerBound, 1.0, 0.0, "Unexpected peak lower bound.");
+            RequireApproximately(result.PeakUpperBound, 2.5, 0.0, "Unexpected peak upper bound.");
+        }
+
+        private static void TestHeightDistributionStatistics()
+        {
+            HeightDistributionStatisticsResult result =
+                new HeightDistributionStatisticsTool().Execute(
+                    new[] { 1.0, 2.0, double.NaN, 3.0, 4.0 },
+                    new HeightDistributionStatisticsOptions
+                    {
+                        BinCount = 2,
+                        ExpectedValidSampleCount = 4
+                    });
+
+            Require(result.Success, result.Message);
+            Require(result.ValidSampleCount == 4
+                    && result.MissingSampleCount == 1
+                    && result.PeakBinIndex == 0
+                    && result.Bins[0] == 2
+                    && result.Bins[1] == 2,
+                "Height-distribution finite counts, bins, or tie order changed.");
+            RequireApproximately(result.Minimum, 1.0, 0.0, "Unexpected distribution minimum.");
+            RequireApproximately(result.Maximum, 4.0, 0.0, "Unexpected distribution maximum.");
+            RequireApproximately(result.Mean, 2.5, 0.0, "Unexpected distribution mean.");
+        }
+
+        private static void TestHeightMapRegionStatistics()
+        {
+            HeightMapRegionStatisticsResult result =
+                new HeightMapRegionStatisticsTool().Execute(
+                    3,
+                    3,
+                    new[]
+                    {
+                        1.0, 2.0, double.NaN,
+                        4.0, 5.0, 6.0,
+                        7.0, 8.0, 9.0
+                    },
+                    new HeightGridRegion(1, 0, 2, 2));
+
+            Require(result.Success, result.Message);
+            Require(result.TotalCellCount == 4
+                    && result.FiniteCellCount == 4
+                    && result.MissingCellCount == 0,
+                "Height-map region counts changed.");
+            RequireApproximately(result.Sum, 24.0, 0.0, "Unexpected region sum.");
+            RequireApproximately(result.Mean, 6.0, 0.0, "Unexpected region mean.");
+            RequireApproximately(result.FiniteCoverageRatio, 1.0, 0.0, "Unexpected region coverage.");
+        }
+
+        private static void TestCompletenessGridInspection()
+        {
+            CompletenessGridInspectionResult result =
+                new CompletenessGridInspectionTool().Execute(
+                    4,
+                    4,
+                    new[]
+                    {
+                        10.0, 10.0, 10.0, 10.0,
+                        10.0, 10.0, 10.0, 10.0,
+                        11.0, 11.0, double.NaN, double.NaN,
+                        10.0, 10.0, 10.0, 10.0
+                    },
+                    new HeightGridRegion(0, 0, 1, 2),
+                    new HeightGridRegion(2, 0, 1, 4),
+                    new CompletenessGridProfile
+                    {
+                        Rows = 1,
+                        Columns = 2,
+                        XPitchColumns = 2,
+                        ZPitchRows = 1,
+                        CellWidthColumns = 2,
+                        CellHeightRows = 1
+                    },
+                    new CompletenessPresencePolicy
+                    {
+                        MinimumFiniteCoverageRatio = 0.5,
+                        MinimumReferenceRelativeMeanHeight = 0.0,
+                        MaximumReferenceRelativeMeanHeight = 2.0
+                    });
+
+            Require(result.Success, result.Message);
+            Require(result.ReferenceFiniteCellCount == 2
+                    && result.ReferenceMeanHeight == 10.0
+                    && result.Cells.Count == 2
+                    && result.PassedCellCount == 1
+                    && result.FailedCellCount == 1
+                    && result.AggregateDecision == CompletenessCellDecision.Fail,
+                "Completeness-grid aggregate evidence changed.");
+            Require(result.Cells[0].Decision == CompletenessCellDecision.Pass
+                    && result.Cells[0].ReferenceRelativeMeanHeight == 1.0
+                    && result.Cells[1].Decision == CompletenessCellDecision.Fail
+                    && result.Cells[1].HeightDisposition == CompletenessHeightDisposition.Missing,
+                "Completeness-grid cell evidence changed.");
+        }
+
+        private static void TestReferenceGridPointReconstruction()
+        {
+            ReferenceGridDefinition definition = new ReferenceGridDefinition
+            {
+                Origin = new ReferenceGridVector(10.0, -4.0, 2.0),
+                UAxis = new ReferenceGridVector(1.0, 0.0, 0.0),
+                VAxis = new ReferenceGridVector(0.0, 0.0, 1.0),
+                HAxis = new ReferenceGridVector(0.0, 1.0, 0.0),
+                PitchU = 2.0,
+                PitchV = 3.0
+            };
+            ReferenceGridPointReconstructionResult result =
+                new ReferenceGridPointReconstructionTool().Execute(
+                    2,
+                    2,
+                    new[] { 1.0, 2.0, 3.0, double.NaN },
+                    new HeightGridRegion(0, 0, 2, 2),
+                    definition,
+                    new ReferenceGridPointReconstructionOptions
+                    {
+                        CoordinateMode = ReferenceGridCoordinateMode.DeclaredFrame
+                    });
+
+            Require(result.Success, result.Message);
+            Require(result.Samples.Count == 3, "Reference-grid missing-cell handling changed.");
+            ReferenceGridPointSample first = result.Samples[0];
+            RequireApproximately(first.U, 1.0, 0.0, "Unexpected first U coordinate.");
+            RequireApproximately(first.V, 1.5, 0.0, "Unexpected first V coordinate.");
+            RequireApproximately(first.X, 11.0, 0.0, "Unexpected first X coordinate.");
+            RequireApproximately(first.Y, -3.0, 0.0, "Unexpected first Y coordinate.");
+            RequireApproximately(first.Z, 3.5, 0.0, "Unexpected first Z coordinate.");
+            Require(result.Samples[2].Row == 1 && result.Samples[2].Column == 0,
+                "Reference-grid row-major order changed.");
+        }
+
+        private static void TestDualSurfaceThicknessInspection()
+        {
+            HeightFieldPlaneFitSample[] reference = CreateThicknessPlaneSamples(10.0, 10.0, 10.0, 10.0);
+            HeightFieldPlaneFitSample[] measurement = CreateThicknessPlaneSamples(15.0, 15.0, 15.0, 15.0);
+            DualSurfaceThicknessInspectionResult result =
+                new DualSurfaceThicknessInspectionTool().Execute(reference, measurement, 4.0, 6.0, 4);
+
+            Require(result.Success && result.Decision == DualSurfaceThicknessDecision.Pass,
+                "Analytic dual-surface thickness must pass.");
+            RequireApproximately(result.Mean, 5.0, 0.0, "Unexpected thickness mean.");
+            RequireApproximately(result.Minimum, 5.0, 0.0, "Unexpected thickness minimum.");
+            RequireApproximately(result.Maximum, 5.0, 0.0, "Unexpected thickness maximum.");
+            RequireApproximately(result.Range, 0.0, 0.0, "Unexpected thickness range.");
+            RequireApproximately(result.RootMeanSquareSpread, 0.0, 0.0, "Unexpected thickness RMS spread.");
+            RequireApproximately(result.ReferenceFitHeightRootMeanSquare, 0.0, 0.0, "Unexpected reference H RMS.");
+            Require(result.ReferenceSampleCount == 4 && result.MeasurementSampleCount == 4,
+                "Dual-surface sample counts changed.");
+        }
+
+        private static void TestDualSurfaceThicknessInspectionFailure()
+        {
+            HeightFieldPlaneFitSample[] reference = CreateThicknessPlaneSamples(10.0, 10.0, 10.0, 10.0);
+            HeightFieldPlaneFitSample[] measurement = CreateThicknessPlaneSamples(13.0, 15.0, 15.0, 17.0);
+            DualSurfaceThicknessInspectionResult result =
+                new DualSurfaceThicknessInspectionTool().Execute(reference, measurement, 4.0, 6.0, 4);
+
+            Require(result.Success && result.Decision == DualSurfaceThicknessDecision.Fail,
+                "Out-of-limit dual-surface thickness must fail.");
+            Require(result.BelowLowerLimitCount == 1 && result.AboveUpperLimitCount == 1,
+                "Dual-surface limit counts changed.");
+            RequireApproximately(result.Mean, 5.0, 0.0, "Unexpected failed thickness mean.");
+            RequireApproximately(result.RootMeanSquareSpread, Math.Sqrt(2.0), 1e-12,
+                "Unexpected failed thickness RMS spread.");
+        }
+
+        private static void TestDualSurfaceThicknessInspectionDegenerateReference()
+        {
+            HeightFieldPlaneFitSample[] reference =
+            {
+                new HeightFieldPlaneFitSample(new ThreeDPoint(0.0, 10.0, 0.0), 10.0),
+                new HeightFieldPlaneFitSample(new ThreeDPoint(1.0, 10.0, 0.0), 10.0),
+                new HeightFieldPlaneFitSample(new ThreeDPoint(2.0, 10.0, 0.0), 10.0)
+            };
+            DualSurfaceThicknessInspectionResult result =
+                new DualSurfaceThicknessInspectionTool().Execute(
+                    reference,
+                    CreateThicknessPlaneSamples(15.0, 15.0, 15.0, 15.0),
+                    4.0,
+                    6.0,
+                    1);
+
+            Require(!result.Success && result.Decision == DualSurfaceThicknessDecision.Error,
+                "Degenerate thickness reference must fail closed.");
+            Require(result.Message.StartsWith("Reference surface fit failed:", StringComparison.Ordinal),
+                "Degenerate thickness reference message changed.");
+        }
+
+        private static void TestHeightDeviationInspection()
+        {
+            HeightDeviationInspectionResult result =
+                new HeightDeviationInspectionTool().Execute(8.0, 13.0, 10.0, 12, 3.0);
+
+            Require(result.Success && result.Decision == HeightDeviationDecision.Pass,
+                "Height deviation at tolerance must pass.");
+            RequireApproximately(result.LowDeviation, 2.0, 0.0, "Unexpected low deviation.");
+            RequireApproximately(result.HighDeviation, 3.0, 0.0, "Unexpected high deviation.");
+            RequireApproximately(result.PeakDeviation, 3.0, 0.0, "Unexpected peak deviation.");
+        }
+
+        private static void TestHeightDeviationInspectionFailure()
+        {
+            HeightDeviationInspectionResult result =
+                new HeightDeviationInspectionTool().Execute(8.0, 13.0, 10.0, 12, 2.5);
+
+            Require(result.Success && result.Decision == HeightDeviationDecision.Fail,
+                "Height deviation above tolerance must fail.");
+            RequireApproximately(result.PeakDeviation, 3.0, 0.0, "Unexpected failed peak deviation.");
+        }
+
+        private static void TestHeightDeviationInspectionInvalidInput()
+        {
+            HeightDeviationInspectionResult result =
+                new HeightDeviationInspectionTool().Execute(double.NaN, 13.0, 10.0, 12, 2.5);
+
+            Require(!result.Success && result.Decision == HeightDeviationDecision.Error,
+                "Invalid height summary must fail closed.");
+            Require(double.IsNaN(result.PeakDeviation), "Invalid height summary must not expose a peak value.");
+        }
+
+        private static void TestDeclaredMeshNormalQualityValid()
+        {
+            ThreeDPoint[] points = CreateNormalQualitySquare();
+            DeclaredMeshNormalQualityResult result =
+                new DeclaredMeshNormalQualityTool().Execute(
+                    points,
+                    new[] { 0, 1, 2, 0, 2, 3 },
+                    new[]
+                    {
+                        new ThreeDPoint(0.0, 0.0, 1.0),
+                        new ThreeDPoint(0.0, 0.0, 1.0),
+                        new ThreeDPoint(0.0, 0.0, 1.0),
+                        new ThreeDPoint(0.0, 0.0, 1.0)
+                    },
+                    null,
+                    1e-3,
+                    0.5);
+
+            Require(result.State == DeclaredMeshNormalQualityState.Valid,
+                "Dense aligned normals must be valid.");
+            Require(result.ComparableCornerCount == 6 && result.ConsistentCornerCount == 6,
+                "Every referenced normal corner must be comparable and aligned.");
+            RequireApproximately(result.MinimumAlignment, 1.0, 0.0,
+                "Unexpected aligned-normal minimum cosine.");
+        }
+
+        private static void TestDeclaredMeshNormalQualityReversed()
+        {
+            DeclaredMeshNormalQualityResult result =
+                new DeclaredMeshNormalQualityTool().Execute(
+                    CreateNormalQualitySquare(),
+                    new[] { 0, 1, 2, 0, 2, 3 },
+                    new[]
+                    {
+                        new ThreeDPoint(0.0, 0.0, -1.0),
+                        new ThreeDPoint(0.0, 0.0, -1.0),
+                        new ThreeDPoint(0.0, 0.0, -1.0),
+                        new ThreeDPoint(0.0, 0.0, -1.0)
+                    },
+                    null,
+                    1e-3,
+                    0.5);
+
+            Require(result.State == DeclaredMeshNormalQualityState.Invalid,
+                "Reversed normals must fail closed.");
+            Require(result.ReversedCornerCount == 6 && result.ConsistentCornerCount == 0,
+                "Reversed-normal evidence changed.");
+        }
+
+        private static void TestDeclaredMeshNormalQualityPartialAndInvalidTopology()
+        {
+            ThreeDPoint[] points = CreateNormalQualitySquare();
+            DeclaredMeshNormalQualityTool tool = new DeclaredMeshNormalQualityTool();
+            DeclaredMeshNormalQualityResult partial = tool.Execute(
+                points,
+                new[] { 0, 1, 2, 0, 2, 3 },
+                new[]
+                {
+                    new ThreeDPoint(0.0, 0.0, 1.0),
+                    new ThreeDPoint(0.0, 0.0, 1.0),
+                    new ThreeDPoint(0.0, 0.0, 1.0)
+                },
+                null,
+                1e-3,
+                0.5);
+            DeclaredMeshNormalQualityResult invalid = tool.Execute(
+                points,
+                new[] { 0, 4, 5 },
+                new[]
+                {
+                    new ThreeDPoint(0.0, 0.0, 1.0),
+                    new ThreeDPoint(0.0, 0.0, 1.0),
+                    new ThreeDPoint(0.0, 0.0, 1.0),
+                    new ThreeDPoint(0.0, 0.0, 1.0)
+                },
+                null,
+                1e-3,
+                0.5);
+
+            Require(partial.State == DeclaredMeshNormalQualityState.Invalid
+                && partial.NormalCount == 3,
+                "Partial declared normals must fail closed.");
+            Require(invalid.State == DeclaredMeshNormalQualityState.Invalid
+                && invalid.InvalidIndexCount == 2
+                && invalid.ComparableCornerCount == 0,
+                "Invalid topology evidence changed.");
+        }
+
+        private static void TestLandmarkCorrespondenceValidation()
+        {
+            ThreeDPoint[] tetrahedron = CreateIndependentTetrahedron();
+            LandmarkCorrespondenceValidationResult result =
+                new LandmarkCorrespondenceValidationTool().Execute(
+                    tetrahedron,
+                    tetrahedron,
+                    0.1);
+
+            Require(result.Success && result.SourceRank == 4 && result.ReferenceRank == 4,
+                "Independent landmark tetrahedra must pass.");
+            RequireApproximately(
+                result.SourceNormalizedTetrahedronVolume,
+                1.0 / Math.Pow(Math.Sqrt(2.0), 3.0),
+                1e-15,
+                "Unexpected normalized landmark volume.");
+        }
+
+        private static void TestLandmarkCorrespondenceValidationCoplanar()
+        {
+            LandmarkCorrespondenceValidationResult result =
+                new LandmarkCorrespondenceValidationTool().Execute(
+                    new[]
+                    {
+                        new ThreeDPoint(0.0, 0.0, 0.0),
+                        new ThreeDPoint(1.0, 0.0, 0.0),
+                        new ThreeDPoint(0.0, 1.0, 0.0),
+                        new ThreeDPoint(1.0, 1.0, 0.0)
+                    },
+                    CreateIndependentTetrahedron(),
+                    0.1);
+
+            Require(!result.Success && result.SourceRank == 3,
+                "Coplanar source landmarks must fail closed.");
+            Require(result.Message.StartsWith(
+                "Source landmark tetrahedron is not affine-independent",
+                StringComparison.Ordinal),
+                "Coplanar source failure message changed.");
+        }
+
+        private static void TestLandmarkCorrespondenceValidationBoundary()
+        {
+            ThreeDPoint[] tetrahedron = CreateIndependentTetrahedron();
+            LandmarkCorrespondenceValidationTool tool =
+                new LandmarkCorrespondenceValidationTool();
+            LandmarkCorrespondenceValidationResult baseline =
+                tool.Execute(tetrahedron, tetrahedron, 0.1);
+            LandmarkCorrespondenceValidationResult boundary =
+                tool.Execute(
+                    tetrahedron,
+                    tetrahedron,
+                    baseline.SourceNormalizedTetrahedronVolume);
+
+            Require(!boundary.Success,
+                "A normalized volume equal to the taught minimum must fail closed.");
+        }
+
+        private static void TestRepeatabilityStatistics()
+        {
+            RepeatabilityStatisticsResult result =
+                new RepeatabilityStatisticsTool().Execute(new[] { 10.0, 12.0, 14.0, 16.0 });
+
+            Require(result.Success && result.Count == 4,
+                "A four-run repeatability series must be accepted.");
+            RequireApproximately(result.Mean, 13.0, 0.0,
+                "Unexpected repeatability mean.");
+            RequireApproximately(result.Minimum, 10.0, 0.0,
+                "Unexpected repeatability minimum.");
+            RequireApproximately(result.Maximum, 16.0, 0.0,
+                "Unexpected repeatability maximum.");
+            RequireApproximately(result.SampleStandardDeviation, 2.581988897471611, 0.0,
+                "Unexpected repeatability sample standard deviation.");
+            RequireApproximately(result.SixSigmaSpread, 15.491933384829668, 0.0,
+                "Unexpected repeatability six-sigma spread.");
+            RequireApproximately(result.Range, 6.0, 0.0,
+                "Unexpected repeatability range.");
+        }
+
+        private static void TestRepeatabilityStatisticsZeroSpread()
+        {
+            RepeatabilityStatisticsResult result =
+                new RepeatabilityStatisticsTool().Execute(new[] { 4.25, 4.25, 4.25 });
+
+            Require(result.Success && result.Count == 3,
+                "A finite zero-spread series must be accepted.");
+            RequireApproximately(result.Mean, 4.25, 0.0,
+                "Unexpected zero-spread mean.");
+            RequireApproximately(result.SampleStandardDeviation, 0.0, 0.0,
+                "Unexpected zero-spread sample standard deviation.");
+            RequireApproximately(result.SixSigmaSpread, 0.0, 0.0,
+                "Unexpected zero-spread six-sigma value.");
+            RequireApproximately(result.Range, 0.0, 0.0,
+                "Unexpected zero-spread range.");
+        }
+
+        private static void TestRepeatabilityStatisticsInvalidInput()
+        {
+            RepeatabilityStatisticsTool tool = new RepeatabilityStatisticsTool();
+            RepeatabilityStatisticsResult insufficient = tool.Execute(new[] { 1.0 });
+            RepeatabilityStatisticsResult nonFinite = tool.Execute(new[] { 1.0, double.NaN });
+            RepeatabilityStatisticsResult invalidPolicy = tool.Execute(
+                new[] { 1.0, 2.0 },
+                (RepeatabilityNegativeVariancePolicy)99);
+
+            Require(!insufficient.Success && insufficient.Count == 1,
+                "A single repeatability value must fail closed.");
+            Require(!nonFinite.Success && nonFinite.Count == 2,
+                "A non-finite repeatability value must fail closed.");
+            Require(!invalidPolicy.Success && invalidPolicy.Count == 2,
+                "An unsupported negative-variance policy must fail closed.");
+            Require(double.IsNaN(nonFinite.Mean)
+                && double.IsNaN(nonFinite.SampleStandardDeviation)
+                && double.IsNaN(nonFinite.Range),
+                "Invalid repeatability input must not expose partial statistics.");
+        }
+
+        private static void TestLabeledEvidenceStatistics()
+        {
+            LabeledEvidenceStatisticsResult result =
+                new LabeledEvidenceStatisticsTool().Execute(
+                    new[]
+                    {
+                        new LabeledEvidenceStatisticsObservation("good-1", LabeledEvidenceRole.Good, 2.0),
+                        new LabeledEvidenceStatisticsObservation("good-1", LabeledEvidenceRole.Good, 4.0),
+                        new LabeledEvidenceStatisticsObservation("bad-1", LabeledEvidenceRole.Bad, -10.0),
+                        new LabeledEvidenceStatisticsObservation("bad-2", LabeledEvidenceRole.Bad, 20.0)
+                    });
+
+            LabeledEvidenceRoleStatistics good = result.RoleStatistics
+                .Single(item => item.Role == LabeledEvidenceRole.Good);
+            LabeledEvidenceRoleStatistics bad = result.RoleStatistics
+                .Single(item => item.Role == LabeledEvidenceRole.Bad);
+            LabeledEvidenceRoleStatistics heldOut = result.RoleStatistics
+                .Single(item => item.Role == LabeledEvidenceRole.HeldOut);
+            Require(result.Success && result.RoleStatistics.Count == 3,
+                "Every supported evidence role must be reported.");
+            Require(good.SampleCount == 1 && good.ValueCount == 2,
+                "Opaque Good sample identity counting changed.");
+            RequireApproximately(good.Mean.Value, 3.0, 0.0,
+                "Unexpected Good mean.");
+            RequireApproximately(good.PopulationStandardDeviation.Value, 1.0, 0.0,
+                "Unexpected Good population standard deviation.");
+            Require(bad.SampleCount == 2 && bad.ValueCount == 2,
+                "Opaque Bad sample identity counting changed.");
+            RequireApproximately(bad.Minimum.Value, -10.0, 0.0,
+                "Unexpected Bad minimum.");
+            RequireApproximately(bad.Maximum.Value, 20.0, 0.0,
+                "Unexpected Bad maximum.");
+            RequireApproximately(bad.PopulationStandardDeviation.Value, 15.0, 0.0,
+                "Unexpected Bad population standard deviation.");
+            Require(heldOut.SampleCount == 0 && heldOut.ValueCount == 0
+                && !heldOut.Mean.HasValue
+                && !heldOut.PopulationStandardDeviation.HasValue,
+                "An empty Held-out role must remain explicit without fabricated statistics.");
+        }
+
+        private static void TestLabeledEvidenceStatisticsEmptyRoles()
+        {
+            LabeledEvidenceStatisticsResult result =
+                new LabeledEvidenceStatisticsTool().Execute(
+                    new[]
+                    {
+                        new LabeledEvidenceStatisticsObservation("held-1", LabeledEvidenceRole.HeldOut, 7.5)
+                    });
+
+            LabeledEvidenceRoleStatistics heldOut = result.RoleStatistics
+                .Single(item => item.Role == LabeledEvidenceRole.HeldOut);
+            Require(result.Success && heldOut.SampleCount == 1 && heldOut.ValueCount == 1,
+                "A finite Held-out-only series must be accepted.");
+            RequireApproximately(heldOut.Mean.Value, 7.5, 0.0,
+                "Unexpected Held-out mean.");
+            RequireApproximately(heldOut.PopulationStandardDeviation.Value, 0.0, 0.0,
+                "A single Held-out observation must have zero population spread.");
+        }
+
+        private static void TestLabeledEvidenceStatisticsInvalidInput()
+        {
+            LabeledEvidenceStatisticsTool tool = new LabeledEvidenceStatisticsTool();
+            LabeledEvidenceStatisticsResult nonFinite = tool.Execute(
+                new[]
+                {
+                    new LabeledEvidenceStatisticsObservation("good-1", LabeledEvidenceRole.Good, double.NaN)
+                });
+            LabeledEvidenceStatisticsResult invalidRole = tool.Execute(
+                new[]
+                {
+                    new LabeledEvidenceStatisticsObservation("good-1", (LabeledEvidenceRole)99, 1.0)
+                });
+
+            Require(!nonFinite.Success && nonFinite.RoleStatistics.Count == 0,
+                "Non-finite labeled evidence must fail closed.");
+            Require(!invalidRole.Success && invalidRole.RoleStatistics.Count == 0,
+                "An unsupported labeled evidence role must fail closed.");
+        }
+
+        private static void TestThresholdCandidateAnalysis()
+        {
+            ThresholdCandidateAnalysisResult result =
+                new ThresholdCandidateAnalysisTool().Execute(
+                    new[]
+                    {
+                        new ThresholdCandidateObservation(0, ThresholdObservationClass.Accepted, 2.0),
+                        new ThresholdCandidateObservation(1, ThresholdObservationClass.Accepted, 4.0),
+                        new ThresholdCandidateObservation(2, ThresholdObservationClass.Rejected, -10.0),
+                        new ThresholdCandidateObservation(3, ThresholdObservationClass.Rejected, 20.0)
+                    });
+
+            ThresholdCandidateAnalysisCandidate minimum = result.Candidates
+                .Single(item => item.LimitKind == ThresholdCandidateLimitKind.Minimum);
+            ThresholdCandidateAnalysisCandidate maximum = result.Candidates
+                .Single(item => item.LimitKind == ThresholdCandidateLimitKind.Maximum);
+            ThresholdCandidateAnalysisCandidate range = result.Candidates
+                .Single(item => item.LimitKind == ThresholdCandidateLimitKind.Range);
+            Require(result.Success && result.Candidates.Count == 3,
+                "Exactly one candidate per supported threshold kind is required.");
+            RequireApproximately(minimum.Minimum.Value, 2.0, 0.0,
+                "Unexpected deterministic minimum candidate.");
+            Require(minimum.ErrorCount == 1 && minimum.RejectedAcceptedCount == 1,
+                "Minimum candidate decision counts changed.");
+            RequireApproximately(maximum.Maximum.Value, 4.0, 0.0,
+                "Unexpected deterministic maximum candidate.");
+            Require(maximum.ErrorCount == 1 && maximum.RejectedAcceptedCount == 1,
+                "Maximum candidate decision counts changed.");
+            RequireApproximately(range.Minimum.Value, 2.0, 0.0,
+                "Unexpected deterministic range minimum.");
+            RequireApproximately(range.Maximum.Value, 4.0, 0.0,
+                "Unexpected deterministic range maximum.");
+            Require(range.ErrorCount == 0
+                && range.AcceptedAcceptedCount == 2
+                && range.RejectedRejectedCount == 2,
+                "Range candidate classification changed.");
+            Require(range.Decisions.Select(item => item.ObservationIndex)
+                .SequenceEqual(new[] { 0, 1, 2, 3 }),
+                "Threshold decision order must follow the supplied observation order.");
+        }
+
+        private static void TestThresholdCandidateAnalysisInvalidInput()
+        {
+            ThresholdCandidateAnalysisTool tool = new ThresholdCandidateAnalysisTool();
+            ThresholdCandidateAnalysisResult oneClass = tool.Execute(
+                new[]
+                {
+                    new ThresholdCandidateObservation(0, ThresholdObservationClass.Accepted, 1.0)
+                });
+            ThresholdCandidateAnalysisResult duplicateIndex = tool.Execute(
+                new[]
+                {
+                    new ThresholdCandidateObservation(0, ThresholdObservationClass.Accepted, 1.0),
+                    new ThresholdCandidateObservation(0, ThresholdObservationClass.Rejected, 2.0)
+                });
+            ThresholdCandidateAnalysisResult nonFinite = tool.Execute(
+                new[]
+                {
+                    new ThresholdCandidateObservation(0, ThresholdObservationClass.Accepted, 1.0),
+                    new ThresholdCandidateObservation(1, ThresholdObservationClass.Rejected, double.PositiveInfinity)
+                });
+
+            Require(!oneClass.Success && oneClass.Candidates.Count == 0,
+                "Single-class threshold evidence must fail closed.");
+            Require(!duplicateIndex.Success && duplicateIndex.Candidates.Count == 0,
+                "Duplicate threshold observation indices must fail closed.");
+            Require(!nonFinite.Success && nonFinite.Candidates.Count == 0,
+                "Non-finite threshold evidence must fail closed.");
+        }
+
+        private static ThreeDPoint[] CreateNormalQualitySquare()
+        {
+            return new[]
+            {
+                new ThreeDPoint(0.0, 0.0, 0.0),
+                new ThreeDPoint(1.0, 0.0, 0.0),
+                new ThreeDPoint(1.0, 1.0, 0.0),
+                new ThreeDPoint(0.0, 1.0, 0.0)
+            };
+        }
+
+        private static ThreeDPoint[] CreateIndependentTetrahedron()
+        {
+            return new[]
+            {
+                new ThreeDPoint(0.0, 0.0, 0.0),
+                new ThreeDPoint(1.0, 0.0, 0.0),
+                new ThreeDPoint(0.0, 1.0, 0.0),
+                new ThreeDPoint(0.0, 0.0, 1.0)
+            };
+        }
+
+        private static HeightFieldPlaneFitSample[] CreateThicknessPlaneSamples(
+            double first,
+            double second,
+            double third,
+            double fourth)
+        {
+            return new[]
+            {
+                new HeightFieldPlaneFitSample(new ThreeDPoint(0.0, 10.0, 0.0), first),
+                new HeightFieldPlaneFitSample(new ThreeDPoint(1.0, 10.0, 0.0), second),
+                new HeightFieldPlaneFitSample(new ThreeDPoint(0.0, 10.0, 1.0), third),
+                new HeightFieldPlaneFitSample(new ThreeDPoint(1.0, 10.0, 1.0), fourth)
+            };
         }
 
         private static HeightMap3D CreateThicknessMap()

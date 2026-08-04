@@ -135,6 +135,52 @@ namespace Lib.ThreeD.Geometry
             _values = (double[])values.Clone();
         }
 
+        /// <summary>
+        /// Creates a height map from a rectangular array whose first dimension is row and second
+        /// dimension is column. Values are copied in row-major order. Units and frame remain
+        /// explicit; no conversion, frame transform, or missing-value interpolation is performed.
+        /// </summary>
+        public static HeightMap3D FromArray(
+            double[,] values,
+            double originX,
+            double originY,
+            double columnPitch,
+            double rowPitch,
+            string planarUnit,
+            string heightUnit,
+            string frameId,
+            string sourceId = "")
+        {
+            if (values == null)
+            {
+                throw new ArgumentNullException(nameof(values));
+            }
+
+            int rows = values.GetLength(0);
+            int columns = values.GetLength(1);
+            double[] rowMajorValues = new double[values.Length];
+            for (int row = 0; row < rows; row++)
+            {
+                for (int column = 0; column < columns; column++)
+                {
+                    rowMajorValues[(row * columns) + column] = values[row, column];
+                }
+            }
+
+            return new HeightMap3D(
+                rows,
+                columns,
+                originX,
+                originY,
+                columnPitch,
+                rowPitch,
+                rowMajorValues,
+                planarUnit,
+                heightUnit,
+                frameId,
+                sourceId);
+        }
+
         public int Rows { get; }
 
         public int Columns { get; }
