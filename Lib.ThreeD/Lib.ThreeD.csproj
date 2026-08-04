@@ -10,6 +10,7 @@
 
   <ItemGroup>
     <None Include="..\README.md" Pack="true" PackagePath="" Link="README.md" />
+    <None Include="..\docs\three-d-inspection.md" Pack="true" PackagePath="docs" Link="docs\three-d-inspection.md" />
   </ItemGroup>
 
 </Project>
