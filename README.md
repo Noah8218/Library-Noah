@@ -1,4 +1,10 @@
-# Library-Noah
+# OpenVisionLab Vision SDK
+
+> **3.0 이름 변경:** `Library-Noah`와 `Lib.* 2.9.1`은 기존 소비자용 호환
+> 기준으로 남고, 이 소스는 `OpenVisionLab.* 3.0.0` 패키지·DLL·네임스페이스를
+> 빌드합니다. 기존 프로젝트를 옮길 때는
+> [2.9.1 → 3.0.0 마이그레이션 가이드](docs/MIGRATING_LIB_2_9_1_TO_OPENVISIONLAB_3_0.md)를
+> 먼저 확인하세요.
 
 OpenCvSharp 기반 2D 검사와 UI 독립적인 height-map/full-XYZ 3D 계산을 제공하는 C# 비전 검사 라이브러리입니다.
 
@@ -6,11 +12,11 @@ OpenCvSharp 기반 2D 검사와 UI 독립적인 height-map/full-XYZ 3D 계산을
 
 ## 1분 요약
 
-- `Lib.Common`은 Bitmap/Mat 변환, 좌표/라인 계산, OpenCV native DLL 패키징을 담당합니다.
-- `Lib.OpenCV`는 Threshold, Filter, Edge, Contour, Matching, LineGauge 등 주요 검사 Tool을 제공합니다.
-- `Lib.OpenCV.Blob`은 Blob 라벨링과 면적 필터링 기능을 제공합니다.
-- `Lib.ThreeD`는 height map, full-XYZ geometry, affine/regrid, thickness, warpage, flatness, gap/flush, volume 등 순수 3D 계약과 알고리즘을 제공합니다.
-- `Lib.Inspection`은 기존 2D Tool과 `IThreeDInspectionTool`을 한 실행 결과로 보존합니다.
+- `OpenVisionLab.Core`는 Bitmap/Mat 변환, 좌표/라인 계산, OpenCV native DLL 패키징을 담당합니다.
+- `OpenVisionLab.Vision2D`는 Threshold, Filter, Edge, Contour, Matching, LineGauge 등 주요 검사 Tool을 제공합니다.
+- `OpenVisionLab.Vision2D.Blob`은 Blob 라벨링과 면적 필터링 기능을 제공합니다.
+- `OpenVisionLab.Vision3D`는 height map, full-XYZ geometry, affine/regrid, thickness, warpage, flatness, gap/flush, volume 등 순수 3D 계약과 알고리즘을 제공합니다.
+- `OpenVisionLab.Inspection`은 기존 2D Tool과 `IThreeDInspectionTool`을 한 실행 결과로 보존합니다.
 - 2D Tool은 `Execute(Mat source)`, height-map 검사 Tool은 `Execute(HeightMap3D source)`로 실행합니다.
 - UI 프레임워크에 직접 의존하지 않으며, 측정과 렌더링·ROI 편집·레시피 관리는 호스트 애플리케이션이 담당합니다.
 
@@ -20,21 +26,21 @@ OpenCvSharp 기반 2D 검사와 UI 독립적인 height-map/full-XYZ 3D 계산을
 
 ```xml
 <ItemGroup>
-  <ProjectReference Include="..\Library-Noah\Lib.OpenCV\Lib.OpenCV.csproj" />
-  <ProjectReference Include="..\Library-Noah\Lib.OpenCV.Blob\Lib.OpenCV.Blob.csproj" />
-  <ProjectReference Include="..\Library-Noah\Lib.ThreeD\Lib.ThreeD.csproj" />
-  <ProjectReference Include="..\Library-Noah\Lib.Inspection\Lib.Inspection.csproj" />
+  <ProjectReference Include="..\OpenVisionLab-Vision-SDK\src\OpenVisionLab.Vision2D\OpenVisionLab.Vision2D.csproj" />
+  <ProjectReference Include="..\OpenVisionLab-Vision-SDK\src\OpenVisionLab.Vision2D.Blob\OpenVisionLab.Vision2D.Blob.csproj" />
+  <ProjectReference Include="..\OpenVisionLab-Vision-SDK\src\OpenVisionLab.Vision3D\OpenVisionLab.Vision3D.csproj" />
+  <ProjectReference Include="..\OpenVisionLab-Vision-SDK\src\OpenVisionLab.Inspection\OpenVisionLab.Inspection.csproj" />
 </ItemGroup>
 ```
 
 로컬 NuGet 패키지로 사용하는 경우 먼저 패키지를 생성한 뒤 `artifacts/packages`를 패키지 소스로 추가합니다.
 
 ```powershell
-dotnet pack Lib.Common.sln -c Release
-dotnet add package Lib.OpenCV --source .\artifacts\packages
-dotnet add package Lib.OpenCV.Blob --source .\artifacts\packages
-dotnet add package Lib.ThreeD --source .\artifacts\packages
-dotnet add package Lib.Inspection --source .\artifacts\packages
+dotnet pack OpenVisionLab.VisionSdk.sln -c Release
+dotnet add package OpenVisionLab.Vision2D --source .\artifacts\packages
+dotnet add package OpenVisionLab.Vision2D.Blob --source .\artifacts\packages
+dotnet add package OpenVisionLab.Vision3D --source .\artifacts\packages
+dotnet add package OpenVisionLab.Inspection --source .\artifacts\packages
 ```
 
 ## 2D Quick Start
@@ -44,9 +50,9 @@ dotnet add package Lib.Inspection --source .\artifacts\packages
 ```csharp
 using System;
 using System.IO;
-using Lib.OpenCV;
-using Lib.OpenCV.Property;
-using Lib.OpenCV.Tool;
+using OpenVisionLab.Vision2D;
+using OpenVisionLab.Vision2D.Property;
+using OpenVisionLab.Vision2D.Tool;
 using OpenCvSharp;
 
 Directory.CreateDirectory("artifacts");
@@ -78,8 +84,8 @@ using (Mat source = Cv2.ImRead("docs/samples/vision_sample.png", ImreadModes.Gra
 
 ```csharp
 using System;
-using Lib.ThreeD.Geometry;
-using Lib.ThreeD.Inspection;
+using OpenVisionLab.Vision3D.Geometry;
+using OpenVisionLab.Vision3D.Inspection;
 
 HeightMap3D heightMap = HeightMap3D.FromArray(
     values: new[,]
@@ -124,14 +130,14 @@ Console.WriteLine($"{result.MeasurementOutcome}, Mean={mean} {meanUnit}");
 
 ## 동반 검증 애플리케이션
 
-Library-Noah는 UI를 포함하지 않습니다. 다음 공개 애플리케이션에서 실제 편집·실행·검토 흐름을 개발하고 검증합니다.
+OpenVisionLab Vision SDK는 UI를 포함하지 않습니다. 다음 공개 애플리케이션에서 실제 편집·실행·검토 흐름을 개발하고 검증합니다.
 
-| 애플리케이션 | Library-Noah 사용 경계 |
+| 애플리케이션 | OpenVisionLab Vision SDK 사용 경계 |
 | --- | --- |
-| [OpenVisionLab](https://github.com/Noah8218/OpenVisionLab) | OpenCvSharp 4 기반 2D rule-based 검사 워크벤치. `Lib.Common`, `Lib.OpenCV`, `Lib.OpenCV.Blob`의 Tool, 레이어, 파이프라인과 결과 표시 흐름을 검증합니다. |
-| [OpenVisionLab 3D Studio](https://github.com/Noah8218/OpenVisionLab-3D-Studio) | C3D/mesh/point-cloud/height-map용 3D 검사 워크벤치. 고정된 `Lib.ThreeD` NuGet 패키지와 명시적 어댑터를 통해 ROI, Preview/Run, 메트릭, 오버레이와 레시피 replay를 검증합니다. |
+| [OpenVisionLab](https://github.com/Noah8218/OpenVisionLab) | OpenCvSharp 4 기반 2D rule-based 검사 워크벤치. `OpenVisionLab.Core`, `OpenVisionLab.Vision2D`, `OpenVisionLab.Vision2D.Blob`의 Tool, 레이어, 파이프라인과 결과 표시 흐름을 검증합니다. |
+| [OpenVisionLab 3D Studio](https://github.com/Noah8218/OpenVisionLab-3D-Studio) | C3D/mesh/point-cloud/height-map용 3D 검사 워크벤치. 고정된 `OpenVisionLab.Vision3D` NuGet 패키지와 명시적 어댑터를 통해 ROI, Preview/Run, 메트릭, 오버레이와 레시피 replay를 검증합니다. |
 
-두 애플리케이션은 Library-Noah 소스 체크아웃에 암묵적으로 연결되지 않습니다. 특히 3D Studio는 검증된 패키지 버전을 고정하므로 새 API는 패키지·해시·어댑터를 명시적으로 갱신한 뒤 사용해야 합니다.
+두 애플리케이션은 OpenVisionLab Vision SDK 소스 체크아웃에 암묵적으로 연결되지 않습니다. 특히 3D Studio는 검증된 패키지 버전을 고정하므로 새 API는 패키지·해시·어댑터를 명시적으로 갱신한 뒤 사용해야 합니다.
 
 ## 3D 입력 계약
 
@@ -171,31 +177,31 @@ H = Values[Row * Columns + Column]
 빌드 확인:
 
 ```powershell
-dotnet restore Lib.Common.sln
-dotnet build Lib.Common.sln -c Debug
-dotnet run --project Lib.Inspection.Smoke\Lib.Inspection.Smoke.csproj -c Debug --no-build
+dotnet restore OpenVisionLab.VisionSdk.sln
+dotnet build OpenVisionLab.VisionSdk.sln -c Debug
+dotnet run --project tests\OpenVisionLab.Inspection.Smoke\OpenVisionLab.Inspection.Smoke.csproj -c Debug --no-build
 ```
 
 패키징까지 포함한 smoke check:
 
 ```powershell
-dotnet restore Lib.Common.sln
-dotnet build Lib.Common.sln -c Debug
-dotnet run --project Lib.Inspection.Smoke\Lib.Inspection.Smoke.csproj -c Debug --no-build
-dotnet pack Lib.Common.sln -c Debug --no-build
+dotnet restore OpenVisionLab.VisionSdk.sln
+dotnet build OpenVisionLab.VisionSdk.sln -c Debug
+dotnet run --project tests\OpenVisionLab.Inspection.Smoke\OpenVisionLab.Inspection.Smoke.csproj -c Debug --no-build
+dotnet pack OpenVisionLab.VisionSdk.sln -c Debug --no-build
 ```
 
-`Lib.Inspection.Smoke`는 합성 2D/3D 입력으로 결정론적 계약과 회귀를 검사합니다. 실제 센서 데이터, 교정, Gauge R&amp;R 또는 생산 승인 시험을 대체하지 않습니다.
+`OpenVisionLab.Inspection.Smoke`는 합성 2D/3D 입력으로 결정론적 계약과 회귀를 검사합니다. 실제 센서 데이터, 교정, Gauge R&amp;R 또는 생산 승인 시험을 대체하지 않습니다.
 
 ## CI
 
 GitHub Actions workflow는 `.github/workflows/build.yml`에 있습니다. `main` 브랜치 push와 pull request에서 다음 작업을 수행합니다.
 
 1. .NET SDK 설치
-2. `dotnet restore Lib.Common.sln`
-3. `dotnet build Lib.Common.sln -c Debug --no-restore`
-4. `dotnet run --project Lib.Inspection.Smoke/Lib.Inspection.Smoke.csproj -c Debug --no-build`
-5. `dotnet pack Lib.Common.sln -c Debug --no-build`
+2. `dotnet restore OpenVisionLab.VisionSdk.sln`
+3. `dotnet build OpenVisionLab.VisionSdk.sln -c Debug --no-restore`
+4. `dotnet run --project tests/OpenVisionLab.Inspection.Smoke/OpenVisionLab.Inspection.Smoke.csproj -c Debug --no-build`
+5. `dotnet pack OpenVisionLab.VisionSdk.sln -c Debug --no-build`
 
 ## 라이선스
 
@@ -213,61 +219,75 @@ Copyright (c) 2026 최노아(Noah-Choi)
 - Visual Studio 2022 또는 .NET SDK
 - C# / .NET Standard 2.0
 - Windows 런타임 권장
-- OpenCvSharp 관련 DLL은 `Lib.Common/DLL`에 포함되어 있습니다.
+- OpenCvSharp 관련 DLL은 `src/OpenVisionLab.Core/DLL`에 포함되어 있습니다.
 
 빌드:
 
 ```powershell
-dotnet restore Lib.Common.sln
-dotnet build Lib.Common.sln -c Release
+dotnet restore OpenVisionLab.VisionSdk.sln
+dotnet build OpenVisionLab.VisionSdk.sln -c Release
 ```
 
 ## 프로젝트 구조
 
 ```text
-Library-Noah
-|- Lib.Common
-|  |- Bitmap
-|  |- Converter
-|  |- Line
-|  |- DLL
-|  `- build
-|- Lib.OpenCV
-|  `- OpenCV
-|     |- Pipeline
-|     |- Property
-|     |- Result
-|     `- Tool
-|- Lib.OpenCV.Blob
-|- Lib.ThreeD
-|- Lib.Inspection
-`- Lib.Inspection.Smoke
+OpenVisionLab-Vision-SDK
+|- src
+|  |- OpenVisionLab.Core
+|  |  |- Bitmap
+|  |  |- Converter
+|  |  |- Line
+|  |  |- DLL
+|  |  `- build
+|  |- OpenVisionLab.Vision2D
+|  |  `- OpenCV
+|  |     |- Pipeline
+|  |     |- Property
+|  |     |- Result
+|  |     `- Tool
+|  |- OpenVisionLab.Vision2D.Blob
+|  |- OpenVisionLab.Vision3D
+|  |  |- Geometry
+|  |  |- FeatureExtraction
+|  |  |  |- Filtering
+|  |  |  |- GeometryConstruction
+|  |  |  |- GridAndStatistics
+|  |  |  |- Metrology
+|  |  |  |- Mesh
+|  |  |  |- Registration
+|  |  |  `- SurfaceMatching
+|  |  `- Inspection
+|  `- OpenVisionLab.Inspection
+`- tests
+   `- OpenVisionLab.Inspection.Smoke
+      |- Suites
+      `- Support
 ```
 
 | 프로젝트 | 역할 |
 | --- | --- |
-| `Lib.Common` | 공통 유틸리티, Bitmap/Mat 변환, 좌표/ROI 변환, 라인 계산, 디렉터리/COM 포트 보조 기능 |
-| `Lib.OpenCV` | 주요 OpenCV 검사 도구, 속성 인터페이스, 결과 모델, 파이프라인 실행 구조 |
-| `Lib.OpenCV.Blob` | Blob 라벨링/면적 필터링 도구 |
-| `Lib.ThreeD` | UI 독립적인 height-map/full-XYZ 계약, 특징 추출과 3D 검사 알고리즘 |
-| `Lib.Inspection` | 2D와 3D Tool을 순서대로 실행하고 각 원래 결과를 보존하는 실행 계약 |
-| `Lib.Inspection.Smoke` | 합성 입력을 사용하는 실행형 계약·회귀 검증 |
+| `OpenVisionLab.Core` | 공통 유틸리티, Bitmap/Mat 변환, 좌표/ROI 변환, 라인 계산, 디렉터리/COM 포트 보조 기능 |
+| `OpenVisionLab.Vision2D` | 주요 OpenCV 검사 도구, 속성 인터페이스, 결과 모델, 파이프라인 실행 구조 |
+| `OpenVisionLab.Vision2D.Blob` | Blob 라벨링/면적 필터링 도구 |
+| `OpenVisionLab.Vision3D` | UI 독립적인 height-map/full-XYZ 계약, 특징 추출과 3D 검사 알고리즘 |
+| `OpenVisionLab.Inspection` | 2D와 3D Tool을 순서대로 실행하고 각 원래 결과를 보존하는 실행 계약 |
+| `OpenVisionLab.Inspection.Smoke` | 합성 입력을 사용하는 실행형 계약·회귀 검증. entry point와 도메인별 suite, 공통 지원 코드가 분리됨 |
 
 참조 관계:
 
 ```text
-Lib.Common
-|- Lib.OpenCV
-|  `- Lib.OpenCV.Blob
-|- Lib.ThreeD
-`- Lib.Inspection
-   |- Lib.OpenCV
-   `- Lib.ThreeD
+OpenVisionLab.Core
+|- OpenVisionLab.Vision2D
+|  `- OpenVisionLab.Vision2D.Blob
+|- OpenVisionLab.Vision3D
+`- OpenVisionLab.Inspection
+   |- OpenVisionLab.Vision2D
+   `- OpenVisionLab.Vision3D
 ```
 
 ## 코드 구조
 
-### Lib.Common
+### OpenVisionLab.Core
 
 - `Converter`: `Bitmap`, `Mat`, `Point`, `Rect`, `Rectangle` 변환 유틸리티
 - `Bitmap`: `BitmapHelper`, `BitmapProcessing` 등 Bitmap 직접 처리 기능
@@ -275,7 +295,7 @@ Lib.Common
 - `CFormula`, `FormulaUtil`: 각도, 교차점, 원근 변환, 폴리곤 판정 등 수식 유틸리티
 - `AppUtil`, `CUtil`: 디렉터리 초기화, 폴더 동기화, 드라이브/COM 포트 조회 등 애플리케이션 보조 기능
 
-### Lib.OpenCV
+### OpenVisionLab.Vision2D
 
 - `OpenCV/Tool`: 실제 검사 도구 구현
 - `OpenCV/Property`: 각 도구가 사용하는 설정 인터페이스와 일부 기본 속성 클래스
@@ -283,19 +303,19 @@ Lib.Common
 - `OpenCV/Pipeline`: 여러 도구를 순차 실행하는 파이프라인 모델과 런타임
 - `OpenCvHelper`: Mat 유효성 검사와 채널 변환 유틸리티
 
-### Lib.OpenCV.Blob
+### OpenVisionLab.Vision2D.Blob
 
 - `BlobTool`: 새 실행 구조를 사용하는 Blob 도구
 - `BlobResult`: Blob 결과 모델
 - `CVBlob`, `CResultBlob`: 기존 코드 호환을 위한 레거시 API
 
-### Lib.ThreeD
+### OpenVisionLab.Vision3D
 
 - `Geometry`: immutable `HeightMap3D`, X/Y/H 격자와 ROI 계약
 - `FeatureExtraction`: source-neutral full-XYZ 선/평면/affine, reference-grid regrid, median/edge/line-fit 알고리즘
 - `Inspection`: thickness, warpage, datum deviation과 독립적인 3D 치수 검사
 
-### Lib.Inspection
+### OpenVisionLab.Inspection
 
 - `CombinedInspectionRunner`: 2D `IVisionTool`과 3D `IThreeDInspectionTool`을 독립적으로 실행
 - `CombinedInspectionRunResult`: 실패 이후 단계의 증거를 포함해 원래 결과 형식을 보존
@@ -389,9 +409,9 @@ Height-map 검사는 입력/ROI/커버리지 오류를 통제된 `NotMeasured` �
 
 ```csharp
 using System;
-using Lib.OpenCV;
-using Lib.OpenCV.Property;
-using Lib.OpenCV.Tool;
+using OpenVisionLab.Vision2D;
+using OpenVisionLab.Vision2D.Property;
+using OpenVisionLab.Vision2D.Tool;
 using OpenCvSharp;
 
 public static class ThresholdExample
@@ -427,9 +447,9 @@ public static class ThresholdExample
 Canny 기반 Edge 검출은 단일 채널 입력을 사용하는 것이 안전합니다.
 
 ```csharp
-using Lib.OpenCV;
-using Lib.OpenCV.Property;
-using Lib.OpenCV.Tool;
+using OpenVisionLab.Vision2D;
+using OpenVisionLab.Vision2D.Property;
+using OpenVisionLab.Vision2D.Tool;
 using OpenCvSharp;
 
 using (Mat source = Cv2.ImRead("docs/samples/vision_sample.png", ImreadModes.Grayscale))
@@ -476,7 +496,7 @@ using (Mat source = Cv2.ImRead("docs/samples/vision_sample.png", ImreadModes.Gra
 
 ```csharp
 using System.Collections.Generic;
-using Lib.OpenCV.Blob;
+using OpenVisionLab.Vision2D.Blob;
 using OpenCvSharp;
 
 public sealed class BlobProperty : IOpenCVPropertyBlob
@@ -507,8 +527,8 @@ public sealed class BlobProperty : IOpenCVPropertyBlob
 
 ```csharp
 using System;
-using Lib.OpenCV.Blob;
-using Lib.OpenCV.Tool;
+using OpenVisionLab.Vision2D.Blob;
+using OpenVisionLab.Vision2D.Tool;
 using OpenCvSharp;
 
 using (Mat source = Cv2.ImRead("docs/samples/vision_sample.png", ImreadModes.Grayscale))
@@ -555,8 +575,8 @@ using (Mat source = Cv2.ImRead("docs/samples/vision_sample.png", ImreadModes.Gra
 예제:
 
 ```csharp
-using Lib.OpenCV.Pipeline;
-using Lib.OpenCV.Property;
+using OpenVisionLab.Vision2D.Pipeline;
+using OpenVisionLab.Vision2D.Property;
 using OpenCvSharp;
 
 VisionPipeline pipeline = new VisionPipeline
@@ -669,8 +689,8 @@ using (VisionPipelineContext context = new VisionPipelineContext())
 ```csharp
 using System;
 using System.Drawing;
-using Lib.OpenCV;
-using Lib.OpenCV.Tool;
+using OpenVisionLab.Vision2D;
+using OpenVisionLab.Vision2D.Tool;
 using OpenCvSharp;
 using CvPoint = OpenCvSharp.Point;
 
@@ -786,7 +806,7 @@ using (Mat display = VisionDisplayHelper.DrawVisionResult(source, result))
     Cv2.ImWrite("display_result.png", display);
 
     // WinForms/WPF/기타 UI에서는 여기서 display Mat을 화면용 이미지 타입으로 변환해 표시합니다.
-    // 예: Bitmap bitmap = Lib.Common.BitmapImageConverter.ToBitmap(display);
+    // 예: Bitmap bitmap = OpenVisionLab.Core.BitmapImageConverter.ToBitmap(display);
 }
 ```
 
@@ -804,8 +824,8 @@ using (Mat display = VisionDisplayHelper.DrawVisionResult(source, result))
 ### Matching / EdgeBasedMatching 표시 예제
 
 ```csharp
-using Lib.OpenCV.Result;
-using Lib.OpenCV.Tool;
+using OpenVisionLab.Vision2D.Result;
+using OpenVisionLab.Vision2D.Tool;
 using OpenCvSharp;
 
 MatchingTool tool = new MatchingTool();
@@ -919,7 +939,7 @@ ROI의 폭 또는 높이가 0인 경우 Tool에 따라 전체 이미지로 대�
 - Windows x64 환경을 우선 지원합니다. `OpenCvSharpExtern.dll`은 `runtimes/win-x64/native` 경로로 패키징됩니다.
 - UI 프레임워크는 포함하지 않습니다. 화면 표시는 `VisionToolResult.ResultImage`와 `VisionToolResult.Overlays`를 애플리케이션에서 렌더링해야 합니다.
 - 일부 `CV*`, `C*` 계열 레거시 API가 호환성을 위해 남아 있습니다. 신규 코드는 `*Tool`과 `VisionToolResult` 기반 API를 권장합니다.
-- `Lib.Inspection.Smoke`는 합성 데이터 기반 계약 회귀이며 실제 센서·교정·생산 metrology를 증명하지 않습니다.
+- `OpenVisionLab.Inspection.Smoke`는 합성 데이터 기반 계약 회귀이며 실제 센서·교정·생산 metrology를 증명하지 않습니다.
 - `HeightMapInputRequirements`를 생략하면 2.x 호환 모드로 수치/ROI만 검사합니다. 생산 recipe는 기대 단위와 프레임을 명시해야 합니다.
 - OpenCvSharp DLL은 저장소에 포함된 버전을 기준으로 동작합니다. DLL 버전을 교체할 때는 native DLL 호환성과 패키징 결과를 함께 확인해야 합니다.
 
@@ -927,18 +947,33 @@ ROI의 폭 또는 높이가 0인 경우 Tool에 따라 전체 이미지로 대�
 
 공통 패키지 메타데이터는 `Directory.Build.props`에 정의되어 있습니다.
 
-- `Version`: `2.9.0`
+- `Version`: `3.0.0`
 - `PackageOutputPath`: `artifacts/packages`
 - `GeneratePackageOnBuild`: `false`
+
+각 NuGet 패키지는 역할과 첫 사용법이 다른 전용 README를 포함합니다.
+
+| 패키지 | 패키지 README |
+| --- | --- |
+| `OpenVisionLab.Core` | [native runtime과 공통 지원](src/OpenVisionLab.Core/README.md) |
+| `OpenVisionLab.Vision2D` | [2D Tool Quick Start](src/OpenVisionLab.Vision2D/README.md) |
+| `OpenVisionLab.Vision2D.Blob` | [Blob Tool 계약](src/OpenVisionLab.Vision2D.Blob/README.md) |
+| `OpenVisionLab.Vision3D` | [Surface Match와 Mesh Quick Start](src/OpenVisionLab.Vision3D/README.md) |
+| `OpenVisionLab.Inspection` | [2D/3D 통합 실행 Quick Start](src/OpenVisionLab.Inspection/README.md) |
 
 패키지를 생성하려면 필요한 프로젝트를 명시해서 pack을 실행합니다.
 
 ```powershell
-dotnet pack Lib.Common\Lib.Common.csproj -c Release
-dotnet pack Lib.OpenCV\Lib.OpenCV.csproj -c Release
-dotnet pack Lib.OpenCV.Blob\Lib.OpenCV.Blob.csproj -c Release
-dotnet pack Lib.ThreeD\Lib.ThreeD.csproj -c Release
-dotnet pack Lib.Inspection\Lib.Inspection.csproj -c Release
+dotnet pack src\OpenVisionLab.Core\OpenVisionLab.Core.csproj -c Release
+dotnet pack src\OpenVisionLab.Vision2D\OpenVisionLab.Vision2D.csproj -c Release
+dotnet pack src\OpenVisionLab.Vision2D.Blob\OpenVisionLab.Vision2D.Blob.csproj -c Release
+dotnet pack src\OpenVisionLab.Vision3D\OpenVisionLab.Vision3D.csproj -c Release
+dotnet pack src\OpenVisionLab.Inspection\OpenVisionLab.Inspection.csproj -c Release
 ```
 
-`Lib.Common`은 `OpenCvSharpExtern.dll`을 `runtimes/win-x64/native` 경로로 패키징하고, `buildTransitive/Lib.Common.targets`를 통해 출력 폴더로 복사합니다.
+`OpenVisionLab.Core`는 `OpenCvSharpExtern.dll`을 `runtimes/win-x64/native` 경로로 패키징하고, `buildTransitive/OpenVisionLab.Core.targets`를 통해 출력 폴더로 복사합니다.
+
+GitHub Actions는 pack 결과만 참조하는
+`tests/OpenVisionLab.PackageConsumer.Smoke`를 별도로 restore/run합니다. 이 검사는
+ProjectReference 없이 2D native 호출, height-map 검사, Surface Match와 Mesh Comparison이
+동작하는지 확인합니다.

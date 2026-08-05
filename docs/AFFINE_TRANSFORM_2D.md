@@ -1,6 +1,6 @@
 # AffineTransform 2D
 
-`Lib.OpenCV.Tool.AffineTransformTool` provides an additive, deterministic
+`OpenVisionLab.Vision2D.Tool.AffineTransformTool` provides an additive, deterministic
 three-point 2D affine transform.
 
 ## Contract
@@ -21,9 +21,9 @@ Compatibility aliases: `Affine`, `AffineMatrix`.
 
 ## Version and compatibility
 
-The package and file version is `2.9.0`. `Lib.Common` and `Lib.OpenCV` retain
-assembly identity `2.1.0.0` because the new API is additive and existing
-OpenVisionLab deployments load compatible `2.1` Noah dependencies.
+The package version is `3.0.0` and the assembly/file version is `3.0.0.0`.
+The `AffineTransformTool` type/member and numerical contract is preserved from
+`Lib.OpenCV 2.9.1`; only the package, assembly and namespace identity changes.
 
 Consumers should record the vendored DLL SHA-256 and file version. Do not replace
 the full dependency set unless the consumer has verified that its legacy APIs are
@@ -32,8 +32,8 @@ still present.
 ## Verification
 
 ```powershell
-dotnet build Lib.Common.sln -c Debug -p:Platform="Any CPU"
-dotnet run --project Lib.Inspection.Smoke\Lib.Inspection.Smoke.csproj -c Debug --no-build
+dotnet build OpenVisionLab.VisionSdk.sln -c Debug -p:Platform="Any CPU"
+dotnet run --project tests\OpenVisionLab.Inspection.Smoke\OpenVisionLab.Inspection.Smoke.csproj -c Debug --no-build
 ```
 
 The smoke suite includes a known six-coefficient matrix, zero-gate collinear-source

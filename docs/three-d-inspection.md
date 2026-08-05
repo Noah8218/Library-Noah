@@ -1,9 +1,9 @@
-# Library-Noah 3D inspection
+# OpenVisionLab Vision SDK 3D inspection
 
 ## Purpose
 
-`Lib.ThreeD` adds pure, UI-free height-map inspection and full-XYZ algorithms to Library-Noah.
-`Lib.Inspection` runs existing 2D `IVisionTool` instances and new
+`OpenVisionLab.Vision3D` adds pure, UI-free height-map inspection and full-XYZ algorithms to OpenVisionLab Vision SDK.
+`OpenVisionLab.Inspection` runs existing 2D `IVisionTool` instances and new
 `IThreeDInspectionTool` instances in one ordered run while preserving every result.
 
 The 3D libraries target `netstandard2.0`. They do not reference WPF, SharpGL, a
@@ -26,20 +26,20 @@ appropriate typed Tool call.
 ## Companion validation applications
 
 - [OpenVisionLab](https://github.com/Noah8218/OpenVisionLab) is the 2D rule-based
-  workbench that exercises the Library-Noah image Tool, Layer, Pipeline, and result
+  workbench that exercises the OpenVisionLab Vision SDK image Tool, Layer, Pipeline, and result
   display contracts.
 - [OpenVisionLab 3D Studio](https://github.com/Noah8218/OpenVisionLab-3D-Studio)
   exercises 3D source review, ROI teaching, explicit Preview/Run, metrics, overlays,
-  and recipe replay. It consumes a fixed `Lib.ThreeD` NuGet package through an
+  and recipe replay. It consumes a fixed `OpenVisionLab.Vision3D` NuGet package through an
   explicit adapter rather than an adjacent source checkout.
 
-A Library-Noah source change is not automatically present in either application.
+An OpenVisionLab Vision SDK source change is not automatically present in either application.
 The consuming application must intentionally update its binary or pinned package,
 and 3D Studio must update the package hash and adapter contract together.
 
 ## Source-neutral feature extraction
 
-`Lib.ThreeD.FeatureExtraction` contains pure full-XYZ geometry tools that do
+`OpenVisionLab.Vision3D.FeatureExtraction` contains pure full-XYZ geometry tools that do
 not know a camera, C3D file, recipe, UI, or calibration claim.
 
 `DualSurfaceThicknessInspectionTool` and `HeightDeviationInspectionTool`
@@ -116,7 +116,7 @@ one-sample occlusion, translation no-match, and candidate-budget rejection.
 
 ## Public Tool catalog
 
-The catalog below lists every public sealed `*Tool` in `Lib.ThreeD 2.9.0`. A name in
+The catalog below lists every public sealed `*Tool` in `OpenVisionLab.Vision3D 3.0.0`. A name in
 this table means the numerical Tool is public; it does not imply that the Tool owns
 source identity, units, calibration, recipes, overlays, or UI lifecycle.
 
@@ -317,9 +317,9 @@ all result inspection and rendering is complete.
 
 ## NuGet and IntelliSense
 
-The `Lib.ThreeD` package includes the repository `README.md` and generated
-`Lib.ThreeD.xml` API documentation next to the assembly. The package repository URL
-identifies the canonical Library-Noah repository. A package consumer should pin the
+The `OpenVisionLab.Vision3D` package includes the repository `README.md` and generated
+`OpenVisionLab.Vision3D.xml` API documentation next to the assembly. The package repository URL
+identifies the canonical OpenVisionLab Vision SDK repository. A package consumer should pin the
 package version and, for controlled application delivery, record the package SHA-256
 and source commit used for validation.
 
@@ -330,9 +330,9 @@ construct the source-neutral typed input used by the selected Tool.
 ## Verification commands
 
 ```powershell
-dotnet build Lib.Common.sln -c Debug
-dotnet run --project Lib.Inspection.Smoke/Lib.Inspection.Smoke.csproj -c Debug --no-build
-dotnet pack Lib.Common.sln -c Debug --no-build
+dotnet build OpenVisionLab.VisionSdk.sln -c Debug
+dotnet run --project tests/OpenVisionLab.Inspection.Smoke/OpenVisionLab.Inspection.Smoke.csproj -c Debug --no-build
+dotnet pack OpenVisionLab.VisionSdk.sln -c Debug --no-build
 ```
 
 The smoke executable uses only deterministic synthetic height maps. It verifies

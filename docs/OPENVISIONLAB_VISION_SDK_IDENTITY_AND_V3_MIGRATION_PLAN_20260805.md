@@ -1,0 +1,347 @@
+# OpenVisionLab Vision SDK 제품 정체성 및 3.0 마이그레이션 계획
+
+문서 상태: Complete  
+승인일: 2026-08-05  
+개발 상태: 체크포인트 E의 GitHub 저장소 이름 변경 완료, 3.0 main 반영과 NuGet 게시 전
+
+## 1. 승인된 결정
+
+`Library-Noah`와 `Lib.*`라는 기존 이름은 `2.9.1` 호환 기준까지만 사용한다.
+다음 메이저 버전의 공식 제품명은 **OpenVisionLab Vision SDK**이며, 공개 패키지,
+DLL, 프로젝트와 네임스페이스는 `OpenVisionLab.* 3.0.0`으로 전환한다.
+
+이 결정의 목적은 라이브러리 소유자 이름보다 사용자가 찾는 기능을 먼저 드러내고,
+[OpenVisionLab](https://github.com/Noah8218/OpenVisionLab)과
+[OpenVisionLab 3D Studio](https://github.com/Noah8218/OpenVisionLab-3D-Studio)가
+같은 2D/3D 알고리즘 SDK를 소비한다는 관계를 명확하게 만드는 것이다.
+
+## 2. 제품 계약
+
+OpenVisionLab Vision SDK는 OpenCvSharp 기반 2D Tool과 UI 독립적인 height-map,
+full-XYZ, mesh 및 surface-matching 3D 계산을 제공하는 C# 알고리즘 SDK다.
+
+SDK가 소유하는 범위:
+
+- 2D/3D 수치 알고리즘
+- source-neutral 입력, 옵션, 결과와 오류 계약
+- 단위, 좌표 프레임, 결측값, 유효 샘플 및 커버리지 검증
+- 2D/3D Tool 실행 계약과 합성 회귀 Smoke
+- NuGet 패키지, XML IntelliSense 문서와 독립 소비자 예제
+
+SDK가 소유하지 않는 범위:
+
+- 카메라와 센서 획득, 장치 SDK 파서 또는 통신
+- 교정 절차, source provenance와 생산 승인
+- ROI 편집기, Viewer, 레이어, 오버레이와 레시피 UI
+- Preview/Run lifecycle, PLC, I/O와 배포 플랫폼
+
+OpenVisionLab과 OpenVisionLab 3D Studio는 위 기능을 소유하지 않고, 고정된 SDK
+패키지를 명시적 어댑터로 소비하는 검증·사용 애플리케이션이다. SDK 변경이 두
+애플리케이션에 자동으로 반영되어서는 안 된다.
+
+## 3. 작업 계약
+
+### 사용자 목표
+
+외부 C# 사용자가 2D와 3D 알고리즘 DLL의 역할, 설치 패키지, 입력 계약과 결과
+해석 방법을 이름만으로도 찾기 쉽게 만들고, 현재의 과도하게 큰 Smoke 파일과 3D
+물리 폴더를 안정된 책임 단위로 정리한다.
+
+### 비협상 요구사항
+
+- 이름 변경과 물리 구조 정리는 기존 수치 알고리즘의 계산 결과를 변경하지 않는다.
+- `2.9.1`의 단위, 좌표계, `NaN`, Infinity, 커버리지와 fail-closed 계약을 보존한다.
+- 기존 Smoke 138건의 이름, 실행 순서, 입력, 기대값과 결과를 보존한다.
+- 2D native `Mat` 소유권과 결과 자원 해제 계약을 보존한다.
+- 공개 API 이름 변경은 `3.0.0`의 명시적인 breaking change로만 수행한다.
+- UI, 센서 파서, 레시피 또는 Studio 전용 어댑터를 SDK로 이동하지 않는다.
+- 새 테스트 프레임워크, 호환 래퍼 또는 추상화는 실제 필요가 확인되지 않으면
+  추가하지 않는다.
+
+### 범위
+
+포함:
+
+1. 제품명, 저장소, 솔루션, 프로젝트, 패키지, DLL과 네임스페이스 변경
+2. Smoke 실행기의 도메인별 suite 분리
+3. `Vision3D` 소스의 안정된 책임별 물리 폴더 정리
+4. 패키지별 README, Quick Start, XML 문서와 package-only 소비자 검증
+5. `2.9.1`에서 `3.0.0`으로 옮기는 마이그레이션 표와 체크리스트
+
+제외:
+
+- 알고리즘 수식, 공차 의미, 기본값 또는 오류 정책 변경
+- OpenVisionLab 및 OpenVisionLab 3D Studio 저장소의 실제 코드 변경
+- GitHub 저장소 이름 변경과 NuGet 공개 배포
+- 물리 센서, 교정 데이터, Gauge R&R 또는 생산 승인 시험
+
+제외 항목은 별도 사용자 승인과 해당 저장소의 독립 검증 없이 실행하지 않는다.
+
+## 4. 이름과 공개 식별자
+
+### 제품과 저장소
+
+| 항목 | 2.9.1 | 3.0.0 목표 |
+| --- | --- | --- |
+| 제품명 | Library-Noah | OpenVisionLab Vision SDK |
+| GitHub 저장소 | `Library-Noah` | `OpenVisionLab-Vision-SDK` |
+| 솔루션 | `Lib.Common.sln` | `OpenVisionLab.VisionSdk.sln` |
+| 패키지 접두사 | `Lib.*` | `OpenVisionLab.*` |
+| 패키지 버전 | `2.9.1` | `3.0.0` |
+| Assembly/File version | 프로젝트별 기존 값 | `3.0.0.0` |
+
+GitHub 저장소 이름 변경은 외부 상태를 바꾸는 작업이므로 코드와 패키지 검증이
+완료된 뒤 별도 체크포인트에서 수행한다.
+
+### 프로젝트, 패키지와 DLL
+
+| 2.9.1 프로젝트/패키지/DLL | 3.0.0 프로젝트/패키지/DLL | 책임 |
+| --- | --- | --- |
+| `Lib.Common` | `OpenVisionLab.Core` | 공통 변환, 2D 기하와 OpenCV runtime 자산 |
+| `Lib.OpenCV` | `OpenVisionLab.Vision2D` | 주요 OpenCV 2D 검사 Tool과 pipeline |
+| `Lib.OpenCV.Blob` | `OpenVisionLab.Vision2D.Blob` | Blob 라벨링과 면적 필터링 |
+| `Lib.ThreeD` | `OpenVisionLab.Vision3D` | height-map, full-XYZ, mesh와 3D 검사 알고리즘 |
+| `Lib.Inspection` | `OpenVisionLab.Inspection` | 2D/3D 결합 실행과 원래 결과 보존 |
+| `Lib.Inspection.Smoke` | `OpenVisionLab.Inspection.Smoke` | 합성 계약·회귀 실행기; 비배포 프로젝트 |
+
+패키지 ID, 어셈블리 이름과 프로젝트 이름은 같은 문자열을 사용한다. 사용자가
+NuGet 패키지명, 생성된 DLL과 문서에서 서로 다른 이름을 해석하게 만들지 않는다.
+
+### 네임스페이스
+
+| 2.9.1 | 3.0.0 목표 |
+| --- | --- |
+| `Lib.Common` | `OpenVisionLab.Core` |
+| `Lib.Line` | `OpenVisionLab.Core.Geometry2D` |
+| 저장소 소유 `OpenCvSharp.Extensions` 타입 | `OpenVisionLab.Core.Imaging` |
+| `Lib.OpenCV` | `OpenVisionLab.Vision2D` |
+| `Lib.OpenCV.Pipeline` | `OpenVisionLab.Vision2D.Pipeline` |
+| `Lib.OpenCV.Property` | `OpenVisionLab.Vision2D.Property` |
+| `Lib.OpenCV.Result` | `OpenVisionLab.Vision2D.Result` |
+| `Lib.OpenCV.Tool` | `OpenVisionLab.Vision2D.Tool` |
+| `Lib.OpenCV.Blob` | `OpenVisionLab.Vision2D.Blob` |
+| `Lib.ThreeD.Geometry` | `OpenVisionLab.Vision3D.Geometry` |
+| `Lib.ThreeD.FeatureExtraction` | `OpenVisionLab.Vision3D.FeatureExtraction` |
+| `Lib.ThreeD.Inspection` | `OpenVisionLab.Vision3D.Inspection` |
+| `Lib.Inspection` | `OpenVisionLab.Inspection` |
+
+이 표는 네임스페이스 소유권만 변경한다. 공개 type과 member 이름은 별도 결함이
+확인되지 않는 한 유지한다. 저장소가 소유한 타입을 제3자 네임스페이스에 계속 두지
+않으며, 해당 예외의 호출부는 공개 API inventory에서 별도로 검증한다.
+
+## 5. 버전 및 호환 정책
+
+- `2.9.1`은 `Lib.*` 이름을 사용하는 마지막 호환 기준이다.
+- `3.0.0`은 패키지, DLL과 네임스페이스가 바뀌므로 source/binary breaking release다.
+- `2.9.1` 산출물과 태그를 지우거나 같은 버전으로 덮어쓰지 않는다.
+- `3.0.0` 패키지가 `Lib.*` 패키지를 자동으로 교체한다고 가정하지 않는다.
+- 첫 3.0 배포에는 type-forwarder, 이중 네임스페이스 또는 legacy facade를 만들지
+  않는다. 실제 외부 소비자의 호환 요구가 확인될 때 별도 설계한다.
+- 이름 변경과 별개인 수치 API 변경은 같은 마이그레이션에 섞지 않는다.
+
+## 6. 목표 물리 구조
+
+```text
+OpenVisionLab-Vision-SDK
+|- OpenVisionLab.VisionSdk.sln
+|- Directory.Build.props
+|- src
+|  |- OpenVisionLab.Core
+|  |- OpenVisionLab.Vision2D
+|  |- OpenVisionLab.Vision2D.Blob
+|  |- OpenVisionLab.Vision3D
+|  |  |- Geometry
+|  |  |- FeatureExtraction
+|  |  |  |- Filtering
+|  |  |  |- GeometryConstruction
+|  |  |  |- GridAndStatistics
+|  |  |  |- Metrology
+|  |  |  |- Mesh
+|  |  |  |- Registration
+|  |  |  `- SurfaceMatching
+|  |  `- Inspection
+|  `- OpenVisionLab.Inspection
+|- tests
+|  `- OpenVisionLab.Inspection.Smoke
+`- docs
+   `- packages
+```
+
+`FeatureExtraction` 하위 폴더는 물리적 탐색 경계다. 3.0 네임스페이스 표에 없는
+추가 하위 네임스페이스를 파일 이동만을 이유로 만들지 않는다.
+
+Smoke 프로젝트는 새 테스트 프레임워크를 도입하지 않고 현재 실행형 검증 방식을
+유지한다. `Program.cs`는 suite 등록과 최종 종료 코드만 소유하고 테스트 본문은
+다음 책임으로 분리한다.
+
+- height-map 및 3D inspection
+- 3D geometry, transform 및 grid
+- surface matching 및 mesh
+- statistics 및 evidence
+- 2D Tool, matching 및 resource ownership
+- combined inspection runner
+
+분리 완료의 기준은 파일 수가 아니라 `Program.cs`가 테스트 구현 세부사항을 더는
+소유하지 않고, 각 suite가 독립된 도메인 테스트만 소유하는 것이다.
+
+## 7. 패키지 사용자 경험
+
+각 배포 패키지는 해당 패키지에 맞는 README와 생성된 XML IntelliSense 문서를
+포함한다. 저장소 전체 README 하나를 모든 패키지의 설명으로 재사용하지 않는다.
+
+필수 Quick Start:
+
+1. `Vision2D`: 이미지 로드 → Tool 설정 → `Execute` → 결과/자원 해제
+2. `Vision3D`: 단위·프레임이 선언된 `HeightMap3D` → 검사 → 측정 상태/metric 해석
+3. `Vision3D`: surface match → pose/score component export
+4. `Vision3D`: nominal/actual mesh comparison → 거리 결과 해석
+5. `Inspection`: 2D/3D 결합 실행 → 원래 결과와 실패 후 증거 보존
+
+문서의 예제는 소스 프로젝트 참조가 아니라 생성된 NuGet 패키지만 참조하는 독립
+소비 프로젝트에서 컴파일·실행되어야 한다.
+
+## 8. 구현 체크포인트
+
+### 체크포인트 A — 설계 고정
+
+- 이 문서와 GitHub README의 3.0 안내를 추가한다.
+- 현재 `2.9.1` 동작과 앞으로의 `3.0.0` 목표를 섞어 서술하지 않는다.
+
+### 체크포인트 B — 동작 비변경 구조 정리
+
+- Smoke 138건을 도메인 suite로 이동하고 이름과 순서를 보존한다.
+- `Lib.ThreeD/FeatureExtraction` 파일을 안정된 책임별 물리 폴더로 이동한다.
+- 이 단계에서는 기존 `Lib.*` 공개 식별자를 바꾸지 않는다.
+
+구현 결과(2026-08-05):
+
+- `Program.cs`를 4,704줄에서 suite 실행과 종료 코드만 소유하는 31줄 entry point로
+  축소했다.
+- 138개 테스트 본문을 5개 독립 도메인 suite로 이동했다.
+- assertion, 공통 fixture와 test double을 `Support` 소유자로 분리했다.
+- `FeatureExtraction` 소스 41개를 `Filtering` 4개, `GeometryConstruction` 6개,
+  `GridAndStatistics` 8개, `Metrology` 2개, `Mesh` 3개, `Registration` 5개,
+  `SurfaceMatching` 13개로 이동했다.
+- 모든 3D 파일의 `Lib.ThreeD.FeatureExtraction` 네임스페이스와 공개 API를 유지했다.
+
+### 체크포인트 C — 3.0 공개 식별자 전환
+
+- 프로젝트 디렉터리를 `src`와 `tests` 아래 목표 이름으로 이동한다.
+- solution/project/package/DLL/namespace/using을 표의 이름으로 변경한다.
+- `Directory.Build.props`, CI, package metadata와 repository URL을 함께 갱신한다.
+- 이전 소유자가 남아 있지 않은지 `Lib.*`와 `Library-Noah`를 검색한다.
+
+역사 기록, 마이그레이션 문서와 2.9.1 비교 명령은 검색 예외로 명시한다.
+
+구현 결과(2026-08-05):
+
+- 여섯 프로젝트를 `src`와 `tests` 아래 목표 경로로 이동하고 solution, csproj와
+  buildTransitive targets 이름을 `OpenVisionLab.*`으로 맞췄다.
+- 패키지, DLL, assembly/file version과 공개 namespace를 `3.0.0` 계약으로 전환했다.
+- 저장소 소유 `BitmapConverter`를 `OpenCvSharp.Extensions`에서
+  `OpenVisionLab.Core.Imaging`으로 이동하고 명시적인 OpenCvSharp 참조를 추가했다.
+- 현재 코드, solution, project와 CI의 `Lib.*`, `Library-Noah`, 이전 solution 참조를
+  0건으로 정리했다.
+- README, 현행 3D 가이드, affine 가이드와 독립 마이그레이션 가이드를 3.0 기준으로
+  갱신했다. 완료된 2.x 개발·릴리스 기록의 이전 이름은 역사 증거로 유지했다.
+
+### 체크포인트 D — 소비자 문서 및 패키지 검증
+
+- 5개 패키지에 각각의 역할과 설치/첫 사용 흐름을 설명하는 전용 README를 추가했다.
+- Vision3D 패키지 README에 bounded Surface Match pose와 Mesh Comparison Quick Start를
+  실제 공개 API로 작성하고, 기존 XML documentation file과 3D 상세 문서를 함께
+  패키징했다.
+- package-only 독립 소비자가 생성된 nupkg만으로 2D native, height-map 검사,
+  Surface Match와 Mesh Comparison을 실행하도록 CI에 추가했다.
+- OpenVisionLab과 3D Studio용 마이그레이션 체크리스트를 작성했다. 두 소비
+  저장소의 실제 코드는 변경하지 않았다.
+
+### 체크포인트 E — 외부 이름 및 배포
+
+- GitHub 저장소를 `Noah8218/Library-Noah`에서
+  `Noah8218/OpenVisionLab-Vision-SDK`로 변경했다. 저장소 ID, 공개 상태와 기본
+  브랜치는 유지했고 로컬 `origin`도 새 URL로 갱신했다.
+- NuGet 게시, 소비 애플리케이션의 package pin 갱신 및 릴리스 태그는 각각 외부
+  상태 변경으로 취급한다.
+
+## 9. 검증 및 완료 기준
+
+각 체크포인트는 관련 변경을 한 번에 적용한 뒤 다음 최소 검증을 수행한다.
+
+1. `dotnet build <현재 솔루션> -c Release`가 warning/error 없이 성공한다.
+2. Smoke가 기존 138개 이름과 순서로 `138/138 passed`를 출력한다.
+3. `dotnet pack <현재 솔루션> -c Release --no-build`가 성공한다.
+4. 패키지 안의 ID, 버전, DLL, XML, README, repository URL/commit을 검사한다.
+5. D 드라이브의 package-only 소비 프로젝트에서 2D/3D 예제를 빌드·실행한다.
+6. 이전 경로, 프로젝트 참조, 네임스페이스와 직접 호출이 허용된 역사 문서 외에
+   남지 않았음을 검색한다.
+7. 구조 정리 전후의 공개 API inventory와 Smoke 결과를 비교한다.
+
+합성 Smoke와 package-only 검증은 실제 센서 정확도, 교정, Gauge R&R 또는 생산
+승인을 증명하지 않는다.
+
+## 10. 위험과 중단 조건
+
+- 이름 전환은 모든 소비자에게 명시적인 소스 마이그레이션을 요구한다.
+- 저장소가 소유한 `OpenCvSharp.Extensions` 타입의 이동은 호출부 충돌 가능성을
+  별도로 검사해야 한다.
+- NuGet 이름의 현재 미등록 상태는 예약이나 상표 사용 권리를 보장하지 않는다.
+- 계산 결과, 기본값 또는 오류 의미가 바뀌면 이름 변경 작업을 중단하고 별도 수치
+  변경으로 검토한다.
+- OpenVisionLab 또는 3D Studio를 실제로 갱신해야 완료되는 단계에서는 해당
+  저장소 변경 승인을 다시 받는다.
+
+## 11. 설계 완료 기록 — 체크포인트 A 시점
+
+```text
+Status: Complete
+Scope: OpenVisionLab Vision SDK 제품명, 3.0 공개 식별자, 책임 경계, 물리 구조, 구현 체크포인트와 검증 계약
+Acceptance criteria: 공식 이름과 3.0 전환 명시 -> pass; 2.9.1 호환 기준과 breaking-change 경계 명시 -> pass; 2D/3D 패키지·namespace 대응표 -> pass; Smoke/FeatureExtraction 구조 목표와 검증 기준 -> pass; 소비 애플리케이션 경계 -> pass
+Verification: 현재 Directory.Build.props 2.9.1, 6개 프로젝트, namespace 목록, Lib.ThreeD 59개 소스와 4,704줄 Smoke/138개 등록 기준에 대조
+Evidence: docs/OPENVISIONLAB_VISION_SDK_IDENTITY_AND_V3_MIGRATION_PLAN_20260805.md
+Boundary / next dependency: 이 기록은 설계 문서 완료만 의미한다. 프로젝트, package, DLL, namespace, GitHub 저장소와 소비 애플리케이션은 아직 변경하지 않았다.
+```
+
+## 12. 체크포인트 B 완료 기록 — 체크포인트 B 시점
+
+```text
+Status: Complete
+Scope: Smoke 도메인 suite 분리와 Lib.ThreeD FeatureExtraction 책임별 물리 폴더 정리
+Acceptance criteria: Program이 test 구현을 소유하지 않음 -> pass; 5개 suite/138개 case 이름·순서 보존 -> pass; FeatureExtraction 41개 파일/7개 책임 폴더/기존 namespace 보존 -> pass; 공개 API 불변 -> pass
+Verification: Release build 0 warnings/0 errors; Smoke 138/138; baseline 대비 ordered case diff 0; Lib.ThreeD exported types 211, public API inventory 2,658 lines, diff 0; pack 5 packages 성공
+Evidence: D:\OpenVisionLab-TestData\Library-Noah\20260805-openvisionlab-v3-structure\baseline; D:\OpenVisionLab-TestData\Library-Noah\20260805-openvisionlab-v3-structure\final
+Boundary / next dependency: 현재 package, DLL, namespace와 solution 이름은 계속 Lib.* 2.9.1이다. 체크포인트 C에서만 OpenVisionLab.* 3.0.0으로 전환한다.
+```
+
+## 13. 체크포인트 C 완료 기록
+
+```text
+Status: Complete
+Scope: solution/project/package/DLL/namespace와 src/tests 소유 경로를 OpenVisionLab Vision SDK 3.0으로 전환
+Acceptance criteria: 여섯 프로젝트 새 경로와 참조 해결 -> pass; live code/config의 이전 식별자 0 -> pass; 패키지 5개 ID·DLL·version 일치 -> pass; type/member 계약 보존 -> pass; README·3D·affine·마이그레이션 문서 갱신 -> pass
+Verification: Release build 0 warnings/0 errors; Smoke 138/138, baseline ordered case diff 0; 5개 배포 assembly 전체 공개 API 5,295줄을 이전 namespace로 정규화한 diff 0; pack 5개 성공; assembly/file version 3.0.0.0; package metadata errors 0; package-only 2D native/3D consumer 실행 pass
+Evidence: D:\OpenVisionLab-TestData\Library-Noah\20260805-openvisionlab-v3-rename\final
+Boundary / next dependency: GitHub 저장소 이름, NuGet 게시와 OpenVisionLab/3D Studio 소비 코드는 변경하지 않았다. 현재 검증용 nupkg의 repository commit은 미커밋 worktree 때문에 이전 HEAD 2abfbf02b9c94a14a2c7f6a945762df60679b2fc이며 릴리스 산출물이 아니다. 커밋 후 다시 pack하고 소스 commit·hash를 고정해야 한다. 체크포인트 D는 패키지별 README, Quick Start와 package-only 소비자 CI다.
+```
+
+## 14. 체크포인트 D 완료 기록
+
+```text
+Status: Complete
+Scope: 5개 NuGet 패키지 전용 README, Vision3D Surface Match/Mesh Quick Start, package-only 2D/3D 소비자 CI, OpenVisionLab/3D Studio 전환 체크리스트
+Acceptance criteria: 모든 패키지 README 포함 -> pass; Surface Match/Mesh 예제 실행 -> pass; ProjectReference 없는 package-only 소비자 -> pass; 2D native와 3D 검사 동시 실행 -> pass; 소비 저장소별 체크리스트 -> pass
+Verification: Release build 0 warnings/0 errors; 기존 Smoke 138/138; pack 5개 성공; nupkg 5/5 README.md 포함; package-only 2D native/height-map/Surface Match/Mesh 실행 pass
+Evidence: D:\OpenVisionLab-TestData\Library-Noah\20260805-openvisionlab-v3-package-docs-ci
+Boundary / next dependency: 알고리즘과 공개 API 동작은 변경하지 않았다. 이 기록 시점에는 GitHub 저장소 rename, commit/push, NuGet 게시와 OpenVisionLab/3D Studio 실제 소비 코드 전환을 수행하지 않았다. 이후 GitHub rename 결과는 15절에 기록한다.
+```
+
+## 15. GitHub 저장소 이름 변경 완료 기록
+
+```text
+Status: Complete
+Scope: GitHub 저장소 이름을 Noah8218/OpenVisionLab-Vision-SDK로 변경하고 로컬 origin을 새 clone URL로 갱신
+Acceptance criteria: 목표 이름 사용 가능 및 admin 권한 -> pass; 동일 저장소 ID 유지 -> pass; public/main/archived=false 유지 -> pass; 새 origin fetch/push URL 일치 -> pass; 새 origin HEAD 조회 -> pass
+Verification: GitHub repository ID 619374280 유지; repository_full_name Noah8218/OpenVisionLab-Vision-SDK; default_branch main; visibility public; git ls-remote origin HEAD 성공
+Evidence: https://github.com/Noah8218/OpenVisionLab-Vision-SDK; local git remote -v
+Boundary / next dependency: 로컬 디렉터리 C:\Git\Library-Noah는 이동하지 않았다. 이 기록은 저장소 rename만 증명하며 3.0 소스의 branch/PR/main 반영 상태는 Git 기록으로 확인한다. NuGet 게시 및 OpenVisionLab/3D Studio 소비 코드는 변경하지 않았다.
+```

@@ -22,13 +22,19 @@ jobs:
           dotnet-version: 8.0.x
 
       - name: Restore
-        run: dotnet restore Lib.Common.sln
+        run: dotnet restore OpenVisionLab.VisionSdk.sln
 
       - name: Build
-        run: dotnet build Lib.Common.sln -c Debug --no-restore
+        run: dotnet build OpenVisionLab.VisionSdk.sln -c Release --no-restore
 
       - name: Smoke 2D and 3D combined inspection
-        run: dotnet run --project Lib.Inspection.Smoke/Lib.Inspection.Smoke.csproj -c Debug --no-build
+        run: dotnet run --project tests/OpenVisionLab.Inspection.Smoke/OpenVisionLab.Inspection.Smoke.csproj -c Release --no-build
 
-      - name: Smoke pack
-        run: dotnet pack Lib.Common.sln -c Debug --no-build
+      - name: Pack
+        run: dotnet pack OpenVisionLab.VisionSdk.sln -c Release --no-build -o artifacts/packages
+
+      - name: Restore package-only consumer
+        run: dotnet restore tests/OpenVisionLab.PackageConsumer.Smoke/OpenVisionLab.PackageConsumer.Smoke.csproj "-p:RestoreAdditionalProjectSources=$env:GITHUB_WORKSPACE\artifacts\packages"
+
+      - name: Run package-only 2D and 3D consumer
+        run: dotnet run --project tests/OpenVisionLab.PackageConsumer.Smoke/OpenVisionLab.PackageConsumer.Smoke.csproj -c Release --no-restore
