@@ -43,13 +43,15 @@ namespace OpenVisionLab.Vision2D.Pipeline
                 throw new ArgumentNullException(nameof(context));
             }
 
+            ValidatePipeline(pipeline);
+
             VisionPipelineRunResult runResult = new VisionPipelineRunResult();
 
             try
             {
                 foreach (VisionPipelineStep step in pipeline.Steps)
                 {
-                    if (step == null || !step.Enabled)
+                    if (!step.Enabled)
                     {
                         runResult.StepResults.Add(new VisionPipelineStepResult
                         {
@@ -74,20 +76,25 @@ namespace OpenVisionLab.Vision2D.Pipeline
                             VisionToolResult toolResult = tool.Execute(input);
                             VisionPipelineAcceptanceResult acceptance = VisionPipelineAcceptanceEvaluator.Evaluate(step, toolResult);
 
-                            runResult.StepResults.Add(new VisionPipelineStepResult
+                            VisionPipelineStepResult stepResult = new VisionPipelineStepResult
                             {
                                 Step = step,
                                 ToolResult = toolResult,
                                 AcceptancePassed = acceptance.Passed,
                                 AcceptanceMessage = acceptance.Message
-                            });
+                            };
+                            runResult.StepResults.Add(stepResult);
 
-                            if (!toolResult.Success || !acceptance.Passed)
+                            if (!stepResult.Success)
                             {
                                 break;
                             }
 
-                            context.SetLayer(step.OutputLayer, toolResult.ResultImage);
+                            if (toolResult.Success
+                                || (toolResult.ResultImage != null && !string.IsNullOrWhiteSpace(step.OutputLayer)))
+                            {
+                                context.SetLayer(step.OutputLayer, toolResult.ResultImage);
+                            }
                         }
                     }
                     finally
@@ -106,6 +113,31 @@ namespace OpenVisionLab.Vision2D.Pipeline
             }
 
             return runResult;
+        }
+
+        private static void ValidatePipeline(VisionPipeline pipeline)
+        {
+            bool expectedFailureMustBeTerminal = false;
+            foreach (VisionPipelineStep step in pipeline.Steps)
+            {
+                if (step == null)
+                {
+                    throw new InvalidOperationException("Vision pipeline steps cannot contain null.");
+                }
+
+                if (!step.Enabled)
+                {
+                    continue;
+                }
+
+                if (expectedFailureMustBeTerminal)
+                {
+                    throw new InvalidOperationException(
+                        "A step with ExpectedSuccess=false must be the final enabled pipeline step.");
+                }
+
+                expectedFailureMustBeTerminal = step.UseAcceptance && !step.ExpectedSuccess;
+            }
         }
     }
 }

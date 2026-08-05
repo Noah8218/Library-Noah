@@ -570,6 +570,13 @@ using (Mat source = Cv2.ImRead("docs/samples/vision_sample.png", ImreadModes.Gra
 - `rotatescale`
 - `affine`, `affinematrix` 또는 `affinetransform`
 
+Pipeline configuration fails closed:
+
+- Omitted built-in tool parameters use documented defaults. Supplied values must be finite and valid for their declared type.
+- Unknown, empty, or case-insensitive duplicate parameter names are rejected with `ArgumentException` before tool execution.
+- Empty and disabled-only pipelines return `Success == false`; a pipeline must execute at least one enabled step to pass.
+- `UseAcceptance = true` makes the acceptance contract authoritative. `ExpectedSuccess = false` is supported only on the final enabled step and never creates a synthetic output layer.
+
 예제:
 
 ```csharp

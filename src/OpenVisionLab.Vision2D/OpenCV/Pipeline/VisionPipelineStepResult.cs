@@ -9,5 +9,9 @@ namespace OpenVisionLab.Vision2D.Pipeline
         public bool Skipped { get; set; }
         public bool AcceptancePassed { get; set; } = true;
         public string AcceptanceMessage { get; set; } = string.Empty;
+        public bool Success => Skipped
+            || (ToolResult != null
+                && AcceptancePassed
+                && (Step?.UseAcceptance == true || ToolResult.Success));
     }
 }

@@ -37,6 +37,10 @@ namespace OpenVisionLab.Inspection.Smoke
             yield return new SmokeCase("Edge matcher global polarity is opt-in and reports the selected state", TestEdgeMatcherGlobalPolarity);
             yield return new SmokeCase("2D tool and result disposal release only owned images", TestVisionToolResourceOwnership);
             yield return new SmokeCase("Pipeline runtime honors tool, input, result, and layer ownership", TestVisionPipelineResourceOwnership);
+            yield return new SmokeCase("Pipeline factory creates every built-in tool from valid parameters", TestVisionPipelineFactoryBuiltIns);
+            yield return new SmokeCase("Pipeline factory rejects malformed, unknown, and duplicate parameters", TestVisionPipelineFactoryRejectsInvalidParameters);
+            yield return new SmokeCase("Pipeline rejects configurations without an executable step", TestVisionPipelineRejectsNoExecutableSteps);
+            yield return new SmokeCase("Pipeline acceptance supports only a terminal expected failure", TestVisionPipelineExpectedFailureAcceptance);
         }
 
         private static void TestAffineTransformKnownMatrix()
@@ -970,6 +974,219 @@ namespace OpenVisionLab.Inspection.Smoke
                 Require(firstTool.ResultSnapshot != null && firstTool.ResultSnapshot.IsDisposed, "The exception path did not dispose a completed step result.");
                 Require(throwingTool.LastSource != null && throwingTool.LastSource.IsDisposed, "The exception path did not dispose the active input layer clone.");
             }
+        }
+
+        private static void TestVisionPipelineFactoryBuiltIns()
+        {
+            VisionPipelineStep thresholdStep = CreatePipelineStep("threshold");
+            thresholdStep.Parameters[nameof(ThresholdToolProperty.Threshold)] = "123.5";
+            thresholdStep.Parameters[nameof(ThresholdToolProperty.Invert)] = "true";
+            thresholdStep.Parameters[nameof(ThresholdToolProperty.ThresholdType)] = "BinaryInv, Otsu";
+            using (ThresholdTool threshold = (ThresholdTool)VisionPipelineToolFactory.Create(thresholdStep))
+            {
+                Require(threshold.property.Threshold == 123.5
+                    && threshold.property.Invert
+                    && threshold.property.ThresholdType == (ThresholdTypes.BinaryInv | ThresholdTypes.Otsu),
+                    "Threshold factory parsing changed valid numeric, Boolean, or flags parameters.");
+            }
+
+            VisionPipelineStep morphologyStep = CreatePipelineStep("morphology");
+            morphologyStep.Parameters[nameof(MorphologyToolProperty.KernelWidth)] = "5";
+            using (MorphologyTool morphology = (MorphologyTool)VisionPipelineToolFactory.Create(morphologyStep))
+            {
+                Require(morphology.property.KernelWidth == 5, "Morphology factory did not retain KernelWidth.");
+            }
+
+            VisionPipelineStep filterStep = CreatePipelineStep("filter");
+            filterStep.Parameters[nameof(FilterToolProperty.FilterType)] = nameof(FilterToolType.GaussianBlur);
+            using (FilterTool filter = (FilterTool)VisionPipelineToolFactory.Create(filterStep))
+            {
+                Require(filter.property.FilterType == FilterToolType.GaussianBlur,
+                    "Filter factory did not retain FilterType.");
+            }
+
+            VisionPipelineStep edgeStep = CreatePipelineStep("edge");
+            edgeStep.Parameters[nameof(EdgeDetectionToolProperty.UseL2Gradient)] = "false";
+            using (EdgeDetectionTool edge = (EdgeDetectionTool)VisionPipelineToolFactory.Create(edgeStep))
+            {
+                Require(!edge.property.UseL2Gradient, "Edge factory did not retain UseL2Gradient.");
+            }
+
+            VisionPipelineStep rotateStep = CreatePipelineStep("rotatescale");
+            rotateStep.Parameters[nameof(RotateScaleToolProperty.Angle)] = "-12.5";
+            using (RotateScaleTool rotate = (RotateScaleTool)VisionPipelineToolFactory.Create(rotateStep))
+            {
+                Require(rotate.property.Angle == -12.5, "Rotate/scale factory did not retain Angle.");
+            }
+
+            VisionPipelineStep affineStep = CreatePipelineStep("affine");
+            affineStep.Parameters[nameof(AffineTransformToolProperty.OutputWidth)] = "64";
+            using (AffineTransformTool affine = (AffineTransformTool)VisionPipelineToolFactory.Create(affineStep))
+            {
+                Require(affine.property.OutputWidth == 64, "Affine factory did not retain OutputWidth.");
+            }
+        }
+
+        private static void TestVisionPipelineFactoryRejectsInvalidParameters()
+        {
+            RequireFactoryArgumentError(nameof(ThresholdToolProperty.Threshold), "not-a-number", "Threshold");
+            RequireFactoryArgumentError(nameof(ThresholdToolProperty.RangeMin), "1.5", "RangeMin");
+            RequireFactoryArgumentError(nameof(ThresholdToolProperty.Invert), "yes", "Invert");
+            RequireFactoryArgumentError(nameof(ThresholdToolProperty.Mode), "999", "Mode");
+            RequireFactoryArgumentError(nameof(ThresholdToolProperty.ThresholdType), "1024", "ThresholdType");
+            RequireFactoryArgumentError(nameof(ThresholdToolProperty.Threshold), "NaN", "Threshold");
+            RequireFactoryArgumentError("ThresholdTypo", "50", "ThresholdTypo");
+            RequireFactoryArgumentError(string.Empty, "50", "cannot be empty");
+
+            VisionPipelineStep duplicate = CreatePipelineStep("threshold");
+            duplicate.Parameters[nameof(ThresholdToolProperty.Threshold)] = "10";
+            duplicate.Parameters[nameof(ThresholdToolProperty.Threshold).ToLowerInvariant()] = "20";
+            RequireFactoryArgumentError(duplicate, "duplicated");
+
+            bool serializedDuplicateRejected = false;
+            try
+            {
+                new VisionPipelineStep
+                {
+                    XmlParameters = new[]
+                    {
+                        new VisionPipelineParameter("Threshold", "10"),
+                        new VisionPipelineParameter("threshold", "20")
+                    }
+                };
+            }
+            catch (ArgumentException exception)
+            {
+                serializedDuplicateRejected = exception.Message.IndexOf("duplicated", StringComparison.OrdinalIgnoreCase) >= 0;
+            }
+
+            Require(serializedDuplicateRejected,
+                "Serialized pipeline parameters must reject case-insensitive duplicate keys.");
+        }
+
+        private static void TestVisionPipelineRejectsNoExecutableSteps()
+        {
+            using (VisionPipelineContext context = new VisionPipelineContext())
+            {
+                VisionPipelineRuntime runtime = new VisionPipelineRuntime(_ => new PassThroughVisionTool());
+
+                using (VisionPipelineRunResult empty = runtime.Run(new VisionPipeline(), context))
+                {
+                    Require(!empty.Success && empty.StepResults.Count == 0,
+                        "An empty pipeline must fail without fabricating step results.");
+                }
+
+                VisionPipeline disabledPipeline = new VisionPipeline();
+                disabledPipeline.Steps.Add(new VisionPipelineStep { Name = "Disabled", Enabled = false });
+                using (VisionPipelineRunResult disabled = runtime.Run(disabledPipeline, context))
+                {
+                    Require(!disabled.Success && disabled.StepResults.Count == 1 && disabled.StepResults[0].Skipped,
+                        "A disabled-only pipeline must not pass.");
+                }
+
+                VisionPipeline nullStepPipeline = new VisionPipeline();
+                nullStepPipeline.Steps.Add(null);
+                bool nullRejected = false;
+                try
+                {
+                    runtime.Run(nullStepPipeline, context);
+                }
+                catch (InvalidOperationException exception)
+                {
+                    nullRejected = exception.Message.IndexOf("null", StringComparison.OrdinalIgnoreCase) >= 0;
+                }
+
+                Require(nullRejected, "A null pipeline step must be rejected before execution.");
+            }
+        }
+
+        private static void TestVisionPipelineExpectedFailureAcceptance()
+        {
+            VisionPipeline expectedFailure = new VisionPipeline();
+            expectedFailure.Steps.Add(new VisionPipelineStep
+            {
+                Name = "Expected failure",
+                ToolType = "failing",
+                InputLayer = "input",
+                UseAcceptance = true,
+                ExpectedSuccess = false,
+                RequiredMessageText = "Controlled"
+            });
+
+            using (Mat source = new Mat(2, 2, MatType.CV_8UC1, Scalar.All(1)))
+            using (VisionPipelineContext context = new VisionPipelineContext())
+            {
+                context.SetLayer("input", source);
+
+                using (VisionPipelineRunResult accepted =
+                    new VisionPipelineRuntime(_ => new FailingVisionTool()).Run(expectedFailure, context))
+                {
+                    Require(accepted.Success
+                        && accepted.StepResults.Count == 1
+                        && accepted.StepResults[0].AcceptancePassed
+                        && accepted.StepResults[0].Success,
+                        "A terminal failure matching ExpectedSuccess=false must pass acceptance.");
+                    Require(context.GetLayer("output") == null,
+                        "An accepted failed step must not fabricate an output image layer.");
+                }
+
+                using (VisionPipelineRunResult unexpectedSuccess =
+                    new VisionPipelineRuntime(_ => new PassThroughVisionTool()).Run(expectedFailure, context))
+                {
+                    Require(!unexpectedSuccess.Success && !unexpectedSuccess.StepResults[0].AcceptancePassed,
+                        "A successful tool must not satisfy ExpectedSuccess=false.");
+                }
+
+                VisionPipeline nonTerminal = new VisionPipeline();
+                nonTerminal.Steps.Add(expectedFailure.Steps[0]);
+                nonTerminal.Steps.Add(CreatePipelineStep("threshold"));
+                bool nonTerminalRejected = false;
+                try
+                {
+                    new VisionPipelineRuntime(_ => new FailingVisionTool()).Run(nonTerminal, context);
+                }
+                catch (InvalidOperationException exception)
+                {
+                    nonTerminalRejected = exception.Message.IndexOf("final", StringComparison.OrdinalIgnoreCase) >= 0;
+                }
+
+                Require(nonTerminalRejected,
+                    "ExpectedSuccess=false must be rejected when a later enabled step depends on its output.");
+            }
+        }
+
+        private static VisionPipelineStep CreatePipelineStep(string toolType)
+        {
+            return new VisionPipelineStep
+            {
+                Name = toolType,
+                ToolType = toolType,
+                InputLayer = "input",
+                OutputLayer = "output"
+            };
+        }
+
+        private static void RequireFactoryArgumentError(string key, string value, string expectedMessage)
+        {
+            VisionPipelineStep step = CreatePipelineStep("threshold");
+            step.Parameters[key] = value;
+            RequireFactoryArgumentError(step, expectedMessage);
+        }
+
+        private static void RequireFactoryArgumentError(VisionPipelineStep step, string expectedMessage)
+        {
+            bool rejected = false;
+            try
+            {
+                IVisionTool tool = VisionPipelineToolFactory.Create(step);
+                (tool as IDisposable)?.Dispose();
+            }
+            catch (ArgumentException exception)
+            {
+                rejected = exception.Message.IndexOf(expectedMessage, StringComparison.OrdinalIgnoreCase) >= 0;
+            }
+
+            Require(rejected, $"Invalid pipeline parameter '{expectedMessage}' was not rejected.");
         }
 
     }

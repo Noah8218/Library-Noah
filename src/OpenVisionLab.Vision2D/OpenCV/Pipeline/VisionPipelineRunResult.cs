@@ -10,10 +10,8 @@ namespace OpenVisionLab.Vision2D.Pipeline
     public class VisionPipelineRunResult : IDisposable
     {
         public List<VisionPipelineStepResult> StepResults { get; } = new List<VisionPipelineStepResult>();
-        public bool Success => StepResults.All(result =>
-            result != null
-            && (result.Skipped
-                || (result.ToolResult != null && result.ToolResult.Success && result.AcceptancePassed)));
+        public bool Success => StepResults.Any(result => result != null && !result.Skipped)
+            && StepResults.All(result => result != null && result.Success);
 
         public void Dispose()
         {

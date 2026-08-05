@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Xml.Serialization;
@@ -49,13 +50,35 @@ namespace OpenVisionLab.Vision2D.Pipeline
                 .ToArray();
             set
             {
-                Parameters.Clear();
-                if (value == null) { return; }
+                Dictionary<string, string> parsedParameters = new Dictionary<string, string>();
+                HashSet<string> seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                if (value == null)
+                {
+                    Parameters.Clear();
+                    return;
+                }
 
                 foreach (VisionPipelineParameter parameter in value)
                 {
-                    if (parameter == null || string.IsNullOrWhiteSpace(parameter.Key)) { continue; }
-                    Parameters[parameter.Key] = parameter.Value ?? string.Empty;
+                    if (parameter == null || string.IsNullOrWhiteSpace(parameter.Key))
+                    {
+                        throw new ArgumentException("Vision pipeline parameters cannot be null or have an empty key.", nameof(value));
+                    }
+
+                    if (!seen.Add(parameter.Key))
+                    {
+                        throw new ArgumentException(
+                            $"Vision pipeline parameter '{parameter.Key}' is duplicated.",
+                            nameof(value));
+                    }
+
+                    parsedParameters.Add(parameter.Key, parameter.Value ?? string.Empty);
+                }
+
+                Parameters.Clear();
+                foreach (KeyValuePair<string, string> parameter in parsedParameters)
+                {
+                    Parameters.Add(parameter.Key, parameter.Value);
                 }
             }
         }

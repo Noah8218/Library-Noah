@@ -43,6 +43,7 @@ namespace OpenVisionLab.Vision2D.Pipeline
 
         private static IVisionTool CreateThresholdTool(IDictionary<string, string> parameters)
         {
+            ValidateParameterKeys(parameters, typeof(ThresholdToolProperty));
             ThresholdToolProperty property = new ThresholdToolProperty
             {
                 Mode = GetEnum(parameters, nameof(ThresholdToolProperty.Mode), ThresholdToolMode.Threshold),
@@ -65,6 +66,7 @@ namespace OpenVisionLab.Vision2D.Pipeline
 
         private static IVisionTool CreateMorphologyTool(IDictionary<string, string> parameters)
         {
+            ValidateParameterKeys(parameters, typeof(MorphologyToolProperty));
             MorphologyToolProperty property = new MorphologyToolProperty
             {
                 Shape = GetEnum(parameters, nameof(MorphologyToolProperty.Shape), MorphShapes.Rect),
@@ -81,6 +83,7 @@ namespace OpenVisionLab.Vision2D.Pipeline
 
         private static IVisionTool CreateFilterTool(IDictionary<string, string> parameters)
         {
+            ValidateParameterKeys(parameters, typeof(FilterToolProperty));
             FilterToolProperty property = new FilterToolProperty
             {
                 FilterType = GetEnum(parameters, nameof(FilterToolProperty.FilterType), FilterToolType.Blur),
@@ -100,6 +103,7 @@ namespace OpenVisionLab.Vision2D.Pipeline
 
         private static IVisionTool CreateEdgeDetectionTool(IDictionary<string, string> parameters)
         {
+            ValidateParameterKeys(parameters, typeof(EdgeDetectionToolProperty));
             EdgeDetectionToolProperty property = new EdgeDetectionToolProperty
             {
                 EdgeType = GetEnum(parameters, nameof(EdgeDetectionToolProperty.EdgeType), EdgeDetectionToolType.Canny),
@@ -122,6 +126,7 @@ namespace OpenVisionLab.Vision2D.Pipeline
 
         private static IVisionTool CreateRotateScaleTool(IDictionary<string, string> parameters)
         {
+            ValidateParameterKeys(parameters, typeof(RotateScaleToolProperty));
             RotateScaleToolProperty property = new RotateScaleToolProperty
             {
                 Angle = GetDouble(parameters, nameof(RotateScaleToolProperty.Angle), 0d),
@@ -138,6 +143,7 @@ namespace OpenVisionLab.Vision2D.Pipeline
 
         private static IVisionTool CreateAffineTransformTool(IDictionary<string, string> parameters)
         {
+            ValidateParameterKeys(parameters, typeof(AffineTransformToolProperty));
             AffineTransformToolProperty property = new AffineTransformToolProperty
             {
                 SourcePoint1X = GetDouble(parameters, nameof(AffineTransformToolProperty.SourcePoint1X), 0d),
@@ -178,51 +184,164 @@ namespace OpenVisionLab.Vision2D.Pipeline
             return value.Replace(" ", string.Empty).Replace("_", string.Empty).ToLowerInvariant();
         }
 
-        private static string GetValue(IDictionary<string, string> parameters, string key)
+        private static void ValidateParameterKeys(IDictionary<string, string> parameters, Type propertyType)
         {
+            if (parameters == null)
+            {
+                return;
+            }
+
+            HashSet<string> seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (KeyValuePair<string, string> item in parameters)
+            {
+                if (string.IsNullOrWhiteSpace(item.Key))
+                {
+                    throw new ArgumentException("Vision pipeline parameter names cannot be empty.", nameof(parameters));
+                }
+
+                if (!seen.Add(item.Key))
+                {
+                    throw new ArgumentException($"Vision pipeline parameter '{item.Key}' is duplicated.", nameof(parameters));
+                }
+
+                bool known = false;
+                foreach (var property in propertyType.GetProperties())
+                {
+                    if (property.CanWrite && string.Equals(property.Name, item.Key, StringComparison.OrdinalIgnoreCase))
+                    {
+                        known = true;
+                        break;
+                    }
+                }
+
+                if (!known)
+                {
+                    throw new ArgumentException(
+                        $"Vision pipeline parameter '{item.Key}' is not supported by {propertyType.Name}.",
+                        nameof(parameters));
+                }
+            }
+        }
+
+        private static bool TryGetValue(IDictionary<string, string> parameters, string key, out string value)
+        {
+            value = null;
             if (parameters == null || string.IsNullOrWhiteSpace(key))
             {
-                return null;
+                return false;
             }
 
             foreach (KeyValuePair<string, string> item in parameters)
             {
                 if (string.Equals(item.Key, key, StringComparison.OrdinalIgnoreCase))
                 {
-                    return item.Value;
+                    value = item.Value;
+                    return true;
                 }
             }
 
-            return null;
+            return false;
         }
 
         private static int GetInt(IDictionary<string, string> parameters, string key, int defaultValue)
         {
-            string value = GetValue(parameters, key);
-            return int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int result)
-                ? result
-                : defaultValue;
+            if (!TryGetValue(parameters, key, out string value))
+            {
+                return defaultValue;
+            }
+
+            if (!int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int result))
+            {
+                throw InvalidParameter(key, value, "an integer");
+            }
+
+            return result;
         }
 
         private static double GetDouble(IDictionary<string, string> parameters, string key, double defaultValue)
         {
-            string value = GetValue(parameters, key);
-            return double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double result)
-                ? result
-                : defaultValue;
+            if (!TryGetValue(parameters, key, out string value))
+            {
+                return defaultValue;
+            }
+
+            if (!double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double result)
+                || double.IsNaN(result)
+                || double.IsInfinity(result))
+            {
+                throw InvalidParameter(key, value, "a finite number");
+            }
+
+            return result;
         }
 
         private static bool GetBool(IDictionary<string, string> parameters, string key, bool defaultValue)
         {
-            string value = GetValue(parameters, key);
-            return bool.TryParse(value, out bool result) ? result : defaultValue;
+            if (!TryGetValue(parameters, key, out string value))
+            {
+                return defaultValue;
+            }
+
+            if (!bool.TryParse(value, out bool result))
+            {
+                throw InvalidParameter(key, value, "true or false");
+            }
+
+            return result;
         }
 
         private static TEnum GetEnum<TEnum>(IDictionary<string, string> parameters, string key, TEnum defaultValue)
             where TEnum : struct
         {
-            string value = GetValue(parameters, key);
-            return Enum.TryParse(value, true, out TEnum result) ? result : defaultValue;
+            if (!TryGetValue(parameters, key, out string value))
+            {
+                return defaultValue;
+            }
+
+            if (!Enum.TryParse(value, true, out TEnum result) || !IsSupportedEnumValue(result))
+            {
+                throw InvalidParameter(key, value, typeof(TEnum).Name);
+            }
+
+            return result;
+        }
+
+        private static bool IsSupportedEnumValue<TEnum>(TEnum value)
+            where TEnum : struct
+        {
+            Type enumType = typeof(TEnum);
+            if (Enum.IsDefined(enumType, value))
+            {
+                return true;
+            }
+
+            if (!enumType.IsDefined(typeof(FlagsAttribute), false))
+            {
+                return false;
+            }
+
+            try
+            {
+                ulong allowedBits = 0;
+                foreach (object definedValue in Enum.GetValues(enumType))
+                {
+                    allowedBits |= Convert.ToUInt64(definedValue, CultureInfo.InvariantCulture);
+                }
+
+                ulong actualBits = Convert.ToUInt64(value, CultureInfo.InvariantCulture);
+                return (actualBits & ~allowedBits) == 0;
+            }
+            catch (OverflowException)
+            {
+                return false;
+            }
+        }
+
+        private static ArgumentException InvalidParameter(string key, string value, string expected)
+        {
+            return new ArgumentException(
+                $"Vision pipeline parameter '{key}' must be {expected}. Value='{value ?? "<null>"}'.",
+                "parameters");
         }
     }
 }
