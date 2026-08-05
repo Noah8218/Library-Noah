@@ -19,6 +19,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\OpenVisionLab.Inspection\OpenVisionLab.Inspection.csproj" />
+    <ProjectReference Include="..\..\src\OpenVisionLab.Vision2D.Blob\OpenVisionLab.Vision2D.Blob.csproj" />
   </ItemGroup>
 
 </Project>

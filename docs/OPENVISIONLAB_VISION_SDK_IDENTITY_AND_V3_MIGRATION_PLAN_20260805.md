@@ -427,8 +427,10 @@ Boundary / next dependency: C*/CV*/LineGuage 레거시 API 삭제, NuGet 게시,
 ## 20. C*·CV*·LineGuage 4.0 폐기 사전 조사
 
 현재 공개 API에서 대소문자를 구분해 `C*`, `CV*`, `LineGuage` 후보의 합집합을
-확인한 결과 top-level 공개 타입은 24개다. 이 중 13개에는 기존
-`[Obsolete(..., false)]`가 있고 11개에는 없다. 현대식 대체 타입은 모두 존재하지만,
+확인한 결과 top-level 공개 타입은 24개다. 이 중 15개에는 기존
+`[Obsolete(..., false)]`가 있고 9개에는 없다. 초기 13/11 집계는
+`[System.Obsolete(...)]` 형태의 `CResultCorner`와 `CResultMean`을 놓친 검색 오류였으며
+소스 재검사로 정정했다. 현대식 대체 타입은 모두 존재하지만,
 일부는 생성자, property 형식, 상속 계약 또는 오류 처리에 차이가 있어 이름만 바꾸는
 일괄 삭제 대상으로 볼 수 없다.
 
@@ -440,3 +442,15 @@ Boundary / next dependency: C*/CV*/LineGuage 레거시 API 삭제, NuGet 게시,
 
 전체 inventory, 타입별 대체 관계, 직렬화 위험, 제거 순서와 중단 게이트는
 [레거시 C/CV/LineGuage 실제 사용처와 4.0 폐기 설계](LEGACY_C_CV_LINEGUAGE_V4_REMOVAL_PLAN_20260805.md)를 따른다. 이번 단계에서는 소스 삭제, 새 `[Obsolete]` 표시, NuGet 게시와 소비 저장소 변경을 수행하지 않았다.
+
+## 21. 레거시 API 대표 parity 체크포인트
+
+Smoke에 `LegacyApiCompatibilitySmokeSuite` 12개 case를 추가해 후보 24개를 모두 직접
+참조했다. Core 계산, DTO 공유 필드, Blob/Contour/Mean/Matching/Line Gauge 대표 실행은
+현대식 API와 일치했다. 반면 helper의 null 처리, `CVCorner.results`, `CVSIFT` native 실패와
+현대식 fallback은 실제 비대칭으로 고정했다.
+
+Release build는 warning/error 0건, 전체 Smoke는 142개에서 154개로 늘어 154/154를
+통과했다. 이 결과는 대표 회귀 증거이며 4.0 제거, 소비 저장소 전환, 외부 recipe 호환,
+NuGet 게시 승인을 대신하지 않는다. 상세 범위와 남은 게이트는 20절의 연결 문서 10절을
+따른다.

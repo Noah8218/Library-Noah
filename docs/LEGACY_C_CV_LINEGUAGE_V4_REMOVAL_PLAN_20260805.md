@@ -14,9 +14,13 @@
 사용하고 있으며, 세 타입은 체크인된 `Lib.Common.dll`/`Lib.OpenCV.dll` 계약에 묶여 있다.
 따라서 소비 저장소의 별도 승인·전환·테스트 없이는 4.0 제거 조건이 충족되지 않는다.
 
-현재 13개 타입에는 이미 `[Obsolete(..., false)]`가 있고 11개에는 없다. 이 문서는
+현재 15개 타입에는 이미 `[Obsolete(..., false)]`가 있고 9개에는 없다. 이 문서는
 기존 상태를 기록할 뿐 새 경고를 추가하지 않는다. 4.0 제거는 8절의 모든 게이트와
 별도 구현 승인을 통과한 뒤 한 번의 major-version 변경으로 수행한다.
+
+초기 문서의 13/11 집계는 `[System.Obsolete(...)]` 형태로 선언된 `CResultCorner`와
+`CResultMean`을 검색식이 놓친 오류였다. 소스 재검사에서 두 타입을 포함해 15/9로
+정정했으며 API 소스 자체는 변경하지 않았다.
 
 ## 2. 조사 기준과 범위
 
@@ -68,9 +72,9 @@
 | `COpenCVAlgorithmBase` | `OpenCvAlgorithmBase` | 경고 없음 | 기존 16개 멤버 포함, 현대 타입 4개 추가; 상속 소비자 조사 필요 |
 | `CResultBlob` | `BlobResult` | 기존 경고 | 공개 멤버 20/20 대응; 4.0 후보 |
 | `CResultContour` | `ContourResult` | 기존 경고 | 공개 멤버 19/19 대응; 4.0 후보 |
-| `CResultCorner` | `CornerResult` | 경고 없음 | 공개 멤버 13/13 대응; 4.0 후보 |
+| `CResultCorner` | `CornerResult` | 기존 경고 | 공개 멤버 13/13 대응; 4.0 후보 |
 | `CResultMatching` | `MatchingResult` | 기존 경고 | 현대 결과가 확장됨; 생성자 metadata 차이 검증 필요 |
-| `CResultMean` | `MeanResult` | 경고 없음 | 공개 멤버 13/13 대응; 4.0 후보 |
+| `CResultMean` | `MeanResult` | 기존 경고 | 공개 멤버 13/13 대응; 4.0 후보 |
 | `CVBlob` | `BlobTool` | 기존 경고 | 공개 멤버 5/5 대응; 동작 parity 게이트 필요 |
 | `CVContour` | `ContourTool` | 기존 경고 | 공개 멤버 8/8 대응; 동작 parity 게이트 필요 |
 | `CVCorner` | `CornerTool` | 기존 경고 | 공개 멤버 5/5 대응; 동작 parity 게이트 필요 |
@@ -160,14 +164,14 @@ double distance = new LineSegment2D(start, end).Distance();
 ### 6.1 현재 3.0.x
 
 - 24개 공개 타입을 유지한다.
-- 기존 13개 `[Obsolete(..., false)]`를 유지한다.
-- 나머지 11개에 새 경고를 추가하지 않는다.
+- 기존 15개 `[Obsolete(..., false)]`를 유지한다.
+- 나머지 9개에 새 경고를 추가하지 않는다.
 - 문서와 새 예제는 현대식 타입만 사용한다.
 - 기존 동작을 정리 목적으로 바꾸지 않는다.
 
 ### 6.2 향후 승인된 3.x 준비 릴리스
 
-별도 승인이 있으면 남은 11개의 폐기 경고를 검토할 수 있다. 그 전에 모든 first-party
+별도 승인이 있으면 남은 9개의 폐기 경고를 검토할 수 있다. 그 전에 모든 first-party
 소비자의 현대식 타입 전환, 직렬화 조사, migration 문서, parity 테스트가 먼저 완료돼야
 한다. 경고 메시지는 정확한 대체 타입과 제거 예정 major인 4.0을 명시해야 한다.
 
@@ -222,4 +226,42 @@ Acceptance criteria: 24개 합집합과 대체 타입 식별 -> pass; SDK/4개 �
 Verification: 기준 HEAD 공개 API 332 exported type/후보 24개 재분류; 정확한 이름 검색; 공개 member 정규화 비교; tracked JSON/XML/config/XAML 검색; 저장소별 HEAD 기록; .NET SDK 8.0.423 Release build 0 warnings/0 errors; 격리 산출물 Smoke 142/142
 Evidence: docs/LEGACY_C_CV_LINEGUAGE_V4_REMOVAL_PLAN_20260805.md; D:\OpenVisionLab-TestData\OpenVisionLab-Vision-SDK\20260805-2d-property-models\final-public-api.txt
 Boundary / next dependency: 이번 완료는 조사와 설계만 뜻한다. 소스 삭제, 새 Obsolete 표시, NuGet 게시, 소비 저장소 변경은 하지 않았다. 4.0 구현은 8절 게이트와 별도 사용자 승인이 필요하다.
+```
+
+## 10. 대표 parity/characterization 테스트 체크포인트
+
+`OpenVisionLab.Inspection.Smoke`에 `LegacyApiCompatibilitySmokeSuite` 12개 case를
+추가했다. 후보 24개 이름을 테스트 코드에서 모두 직접 참조하고 동일 합성 입력으로
+공유 계약을 비교한다.
+
+확인된 parity는 다음과 같다.
+
+- Core 변환·수식·선 모델·피팅·수직선 계산
+- `COpenCVAlgorithmBase`와 `OpenCvAlgorithmBase`의 지원되는 source/result 상태
+- Blob, Contour, Corner, Matching, Mean, Line Gauge 결과 DTO의 공유 필드
+- Blob, Contour, Mean, Matching 회전·합성 template 검색, Line Gauge 합성 edge 실행
+- SIFT의 `Point2f`→`Point2d` 변환
+
+다음 세 항목은 parity가 아니라 제거 전에 결정해야 할 현재 비대칭으로 테스트에
+명시했다.
+
+- `COpenCVHelper.IsMatEmpty(null)`은 오류를 기록하고 `false`를 반환하지만
+  `OpenCvHelper.IsMatEmpty(null)`은 `NullReferenceException`을 던진다.
+- `CVCorner`는 합성 사각형을 결과 이미지에 그리지만 `results`를 채우지 않고,
+  `CornerTool`은 corner DTO를 게시한다.
+- 현재 포함된 native DLL에서 `CVSIFT`는 `features2d_SIFT_create` 진입점 실패를
+  내부 로그로만 남긴다. `SiftTool`은 ORB로 fallback한 뒤 빈 영상에
+  `FeatureNoKeypoints`를 반환한다.
+
+이 체크포인트는 대표 입력에 대한 회귀 증거다. 8절의 모든 성공·실패·경계 입력,
+외부 recipe, 상속/reflection, 소비 저장소와 4.0 package-only 게이트를 완료했다는 뜻은
+아니므로 제거 체크박스는 그대로 유지한다.
+
+```text
+Status: Complete
+Scope: 레거시 후보 24개를 직접 참조하는 대표 parity/characterization Smoke 12개와 Obsolete 집계 15/9 정정
+Acceptance criteria: 후보 24/24 직접 참조 -> pass; Core/DTO/7개 2D Tool family 대표 계약 실행 -> pass; 발견한 비대칭을 거짓 parity로 처리하지 않음 -> pass; 제품 src/API 변경 0 -> pass
+Verification: .NET SDK 8.0.423 full solution Release build 0 warnings/0 errors; OpenVisionLab.Inspection.Smoke 154/154; production src diff 0
+Evidence: tests/OpenVisionLab.Inspection.Smoke/Suites/LegacyApiCompatibilitySmokeSuite.cs; D:\OpenVisionLab-TestData\OpenVisionLab-Vision-SDK\20260805-legacy-api-parity
+Boundary / next dependency: 대표 회귀만 증명한다. API 삭제·새 Obsolete·NuGet 게시·소비 저장소 변경은 없으며 8절의 4.0 제거 게이트는 아직 완료되지 않았다.
 ```
