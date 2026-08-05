@@ -1,0 +1,73 @@
+{
+  "schema_version": 2,
+  "identity": {
+    "id": "PL-0001",
+    "aliases": [],
+    "type": "task",
+    "mode": "simple",
+    "title": "OpenVisionLab.Core에서 레거시 WinForms/UI 코드 제거",
+    "risk": "high"
+  },
+  "origin": {
+    "kind": "user request",
+    "summary": "2026-08-05 사용자가 후속 작업으로 OpenVisionLab.Core에서 예전 WinForms 관련 코드를 모두 정리하고 Core 책임에 맞는 코드만 유지하도록 요청했다.",
+    "refs": []
+  },
+  "state": {
+    "status": "open",
+    "current_summary": "후속 구조 정리 요구를 등록했다. 현재 문서 상태 정리 작업에서는 OpenVisionLab.Core 소스를 변경하지 않았고, WinForms/UI 의존성 inventory와 소비자 영향 조사가 남아 있다.",
+    "next_action": "src/OpenVisionLab.Core의 프로젝트 참조와 소스 사용처, System.Windows.Forms 및 기타 UI 결합, 공개 API와 저장소 내부 소비자를 inventory하고 Core 밖의 적절한 소유 경계를 제안한다."
+  },
+  "objective": {
+    "summary": "OpenVisionLab.Core가 UI 독립적인 SDK 기반 책임만 소유하도록 레거시 WinForms/UI 코드와 의존성을 제거하거나 적절한 비-Core 소유자로 이동한다.",
+    "constraints": [
+      "현재 문서 상태 정리 작업에서는 Core 소스를 변경하지 않는다.",
+      "공개 API 또는 동작 호환성에 영향이 있으면 구현 전에 별도 승인과 마이그레이션 결정을 받는다.",
+      "NuGet 게시와 OpenVisionLab/OpenVisionLab 3D Studio 소비 저장소 변경은 별도 승인 없이 수행하지 않는다."
+    ]
+  },
+  "criteria": [
+    {
+      "id": "C1",
+      "text": "OpenVisionLab.Core의 WinForms/UI 관련 프로젝트 의존성, 소스, 공개 API와 소비자가 inventory되어 책임별 처리 결정이 기록된다.",
+      "evidence_refs": []
+    },
+    {
+      "id": "C2",
+      "text": "승인된 범위의 레거시 WinForms/UI 코드가 제거 또는 비-Core 소유자로 이동되고 OpenVisionLab.Core에 UI 프레임워크 의존성이 남지 않는다.",
+      "evidence_refs": []
+    },
+    {
+      "id": "C3",
+      "text": "관련 Release build, Smoke 및 package-only 소비자 검증이 통과한다.",
+      "evidence_refs": []
+    },
+    {
+      "id": "C4",
+      "text": "별도 승인 전에는 NuGet 게시와 소비 저장소 변경이 발생하지 않는다.",
+      "evidence_refs": []
+    }
+  ],
+  "relations": [],
+  "context": [
+    {
+      "kind": "repository",
+      "location": "C:\\Git\\OpenVisionLab-Vision-SDK"
+    },
+    {
+      "kind": "product boundary",
+      "location": "UI 독립적인 2D/3D 비전 알고리즘 SDK"
+    }
+  ],
+  "artifacts": [
+    {
+      "kind": "design document",
+      "location": "docs/OPENVISIONLAB_VISION_SDK_IDENTITY_AND_V3_MIGRATION_PLAN_20260805.md",
+      "summary": "제품 경계와 후속 Core 구조 정리 우선순위를 기록한다."
+    }
+  ],
+  "evidence": [],
+  "events": [],
+  "created_at": "2026-08-05T16:13:29.1734756+09:00",
+  "updated_at": "2026-08-05T16:13:29.1734756+09:00"
+}

@@ -2,7 +2,7 @@
 
 문서 상태: Complete  
 승인일: 2026-08-05  
-개발 상태: 체크포인트 E의 GitHub 저장소 이름 변경 완료, 3.0 main 반영과 NuGet 게시 전
+개발 상태: GitHub 저장소 이름 변경 및 3.0 main 반영 완료, NuGet 게시 및 소비 저장소 전환 전
 
 ## 1. 승인된 결정
 
@@ -345,3 +345,22 @@ Verification: GitHub repository ID 619374280 유지; repository_full_name Noah82
 Evidence: https://github.com/Noah8218/OpenVisionLab-Vision-SDK; local git remote -v
 Boundary / next dependency: 로컬 디렉터리 C:\Git\Library-Noah는 이동하지 않았다. 이 기록은 저장소 rename만 증명하며 3.0 소스의 branch/PR/main 반영 상태는 Git 기록으로 확인한다. NuGet 게시 및 OpenVisionLab/3D Studio 소비 코드는 변경하지 않았다.
 ```
+
+## 16. 3.0 main 반영 완료 기록
+
+```text
+Status: Complete
+Scope: PR #1을 일반 merge commit 방식으로 main에 반영하고 로컬 기준 저장소를 병합 결과와 정렬
+Acceptance criteria: PR #1 merged -> pass; merge commit 6eebe0da48a60205b2b99826b6919f029ad0d00a 확인 -> pass; 병합 후 Build 성공 -> pass; 로컬 main과 origin/main 일치 -> pass; 작업 브랜치 유지 -> pass; 4개 worktree clean -> pass
+Verification: PR #1 metadata 및 merge parent 확인; GitHub Actions Build run 30982594294 success; git rev-parse main/origin/main 및 git worktree list/status 확인
+Evidence: https://github.com/Noah8218/OpenVisionLab-Vision-SDK/pull/1; https://github.com/Noah8218/OpenVisionLab-Vision-SDK/actions/runs/30982594294; D:\OpenVisionLab-TestData\OpenVisionLab-Vision-SDK\20260805-pr1-fixes-a32f36a\COMPLETION_RECORD.md; D:\OpenVisionLab-TestData\Library-Noah\20260805-openvisionlab-sdk-git-migration\COMPLETION_RECORD.md
+Boundary / next dependency: 이 기록은 3.0 소스의 main 반영과 로컬 정렬만 증명한다. NuGet 게시, OpenVisionLab 및 OpenVisionLab 3D Studio 소비 저장소 변경은 수행하지 않았으며 각각 별도 승인이 필요하다.
+```
+
+## 17. 승인된 후속 구조 정리 우선순위
+
+`OpenVisionLab.Core`는 UI 독립적인 SDK 기반 코드만 소유해야 한다. 기존 WinForms/UI
+관련 코드와 의존성을 먼저 inventory한 뒤 적절한 비-Core 소유자로 이동하거나
+제거한다. 공개 API와 기존 소비자 영향, 빌드·Smoke·package-only 검증 범위를 확인한
+후 별도 구조 변경으로 수행하며, 이번 문서 상태 정리에서는 Core 소스를 변경하지
+않는다. NuGet 게시와 소비 저장소 변경은 계속 별도 승인 범위다.
