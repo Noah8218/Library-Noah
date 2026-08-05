@@ -4,6 +4,7 @@ using System;
 
 namespace OpenVisionLab.Vision2D.Pipeline
 {
+    /// <summary>Executes an ordered, layer-based 2D vision pipeline.</summary>
     public class VisionPipelineRuntime
     {
         private readonly Func<VisionPipelineStep, IVisionTool> toolFactory;
@@ -31,6 +32,9 @@ namespace OpenVisionLab.Vision2D.Pipeline
             this.disposeCreatedTools = disposeCreatedTools;
         }
 
+        /// <summary>
+        /// Runs the configured steps and rejects invalid or non-terminal expected-failure contracts before execution.
+        /// </summary>
         public VisionPipelineRunResult Run(VisionPipeline pipeline, VisionPipelineContext context)
         {
             if (pipeline == null)

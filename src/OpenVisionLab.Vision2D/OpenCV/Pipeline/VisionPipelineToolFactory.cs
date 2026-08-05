@@ -7,8 +7,12 @@ using System.Globalization;
 
 namespace OpenVisionLab.Vision2D.Pipeline
 {
+    /// <summary>Creates the built-in 2D tools from validated pipeline parameters.</summary>
     public static class VisionPipelineToolFactory
     {
+        /// <summary>
+        /// Creates a built-in tool and rejects unknown parameter names or invalid supplied values.
+        /// </summary>
         public static IVisionTool Create(VisionPipelineStep step)
         {
             if (step == null)

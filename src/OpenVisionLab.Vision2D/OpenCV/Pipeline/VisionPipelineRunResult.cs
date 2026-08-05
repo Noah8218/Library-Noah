@@ -10,6 +10,10 @@ namespace OpenVisionLab.Vision2D.Pipeline
     public class VisionPipelineRunResult : IDisposable
     {
         public List<VisionPipelineStepResult> StepResults { get; } = new List<VisionPipelineStepResult>();
+
+        /// <summary>
+        /// Gets whether at least one enabled step ran and every recorded step satisfied its contract.
+        /// </summary>
         public bool Success => StepResults.Any(result => result != null && !result.Skipped)
             && StepResults.All(result => result != null && result.Success);
 

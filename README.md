@@ -371,7 +371,7 @@ else
 | `RotateScaleTool` | 이미지 회전/스케일 변환 | `RotateScaleToolProperty` |
 | `ContourTool` | Contour 검출과 면적 필터링 | `IOpenCVPropertyContour` 구현체 |
 | `CornerTool` | sub-pixel corner 검출과 전역 좌표 결과 | `IOpenCVPropertyContour` 구현체 |
-| `BlobTool` | Blob 라벨링과 면적 필터링 | `IOpenCVPropertyBlob` 구현체 |
+| `BlobTool` | Blob 라벨링과 면적 필터링 | `BlobToolProperty` 또는 `IOpenCVPropertyBlob` 구현체 |
 | `MatchingTool` | Template Matching, Scale/Angle 탐색 | `IOpenCVPropertyMatching` 구현체 |
 | `EdgeBasedTemplateMatchingTool` | 엣지 기반 템플릿 매칭 | `IOpenCVPropertyEdgeBasedTemplateMatching` 구현체 |
 | `AutoMPointTool` | 고정 크기 매칭 후보 자동 제안, 유일성/합성 변형/속도 검증 | `AutoMPointToolProperty` |
@@ -490,35 +490,12 @@ using (Mat source = Cv2.ImRead("docs/samples/vision_sample.png", ImreadModes.Gra
 
 ### BlobTool
 
-`BlobTool`은 `IOpenCVPropertyBlob` 구현체가 필요합니다. 애플리케이션의 설정 모델이 이 인터페이스를 구현해도 되고, 아래처럼 전용 클래스를 만들어도 됩니다.
+`BlobToolProperty`는 `IOpenCVPropertyBlob`의 모든 필수 값을 제공하므로 별도 설정 클래스를 작성하지 않고 바로 사용할 수 있습니다. 애플리케이션 전용 저장 모델이 필요하면 기존 인터페이스를 직접 구현할 수도 있습니다.
 
 ```csharp
-using System.Collections.Generic;
 using OpenVisionLab.Vision2D.Blob;
-using OpenCvSharp;
 
-public sealed class BlobProperty : IOpenCVPropertyBlob
-{
-    public string NAME { get; set; } = "Blob";
-    public double PIXELPERMM { get; set; } = 1;
-    public bool USE_THRESHOLD { get; set; } = true;
-    public bool USE_BITWISENOT { get; set; }
-    public ThresholdTypes THRESHOLD_TYPES { get; set; } = ThresholdTypes.Binary;
-    public double THRESHOLD { get; set; } = 120;
-    public bool USE_ADAPTIVE_THRESHOLD { get; set; }
-    public double ADAPTIVE_THRESHOLD { get; set; } = 255;
-    public ThresholdTypes ADAPTIVE_THRESHOLD_TYPES { get; set; } = ThresholdTypes.Binary;
-    public AdaptiveThresholdTypes ADAPTIVE_THRESHOLD_ALGORITHM { get; set; } = AdaptiveThresholdTypes.MeanC;
-    public int BlockSize { get; set; } = 25;
-    public int Weight { get; set; } = 5;
-    public bool USE_ROI { get; set; }
-    public bool USE_MULTI_ROI { get; set; }
-    public Rect CvROI { get; set; } = new Rect();
-    public List<Rect> CvROIS { get; set; } = new List<Rect>();
-    public List<Rect> CvMASKS { get; set; } = new List<Rect>();
-    public int MIN_AREA { get; set; } = 20;
-    public int MAX_AREA { get; set; } = 100000;
-}
+BlobToolProperty property = new BlobToolProperty();
 ```
 
 사용:
@@ -532,7 +509,7 @@ using OpenCvSharp;
 using (Mat source = Cv2.ImRead("docs/samples/vision_sample.png", ImreadModes.Grayscale))
 {
     BlobTool tool = new BlobTool();
-    tool.SetProperty(new BlobProperty
+    tool.SetProperty(new BlobToolProperty
     {
         USE_THRESHOLD = true,
         THRESHOLD = 120,

@@ -177,7 +177,7 @@ namespace OpenVisionLab.Core.Geometry2D
         /// <param name="ImageW">이미지의 Width(생성한 선이 Width만큼 길어짐)</param>
         /// <param name="ImageH">이미지의 Height(생성한 선이 Height만큼 길어짐)</param>
         /// <param name="POINT_RANGE">POINT_RANGE마다 각도를 산출</param>
-        /// <param name=""></param>
+        /// <param name="VER_PRJ_DIR">투영 방향</param>
         /// <returns></returns>
         public static List<CLine> GetVerticalLines(List<OpenCvSharp.Point> Edge, int ImageW, int ImageH, int POINT_RANGE, PROJECTION_DIR VER_PRJ_DIR)
         {
@@ -217,7 +217,7 @@ namespace OpenVisionLab.Core.Geometry2D
         /// <param name="ImageW">이미지의 Width(생성한 선이 Width만큼 길어짐)</param>
         /// <param name="ImageH">이미지의 Height(생성한 선이 Height만큼 길어짐)</param>
         /// <param name="MANUAL_ANGLE_VALUE">지정한 각도로 선을 생성</param>
-        /// <param name=""></param>
+        /// <param name="VER_PRJ_DIR">투영 방향</param>
         /// <returns></returns>
         public static List<CLine> GetVerticalLinesManual(List<OpenCvSharp.Point> Edge, int ImageW, int ImageH, double MANUAL_ANGLE_VALUE, PROJECTION_DIR VER_PRJ_DIR)
         {

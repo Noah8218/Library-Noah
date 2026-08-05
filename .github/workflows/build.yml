@@ -33,6 +33,27 @@ jobs:
       - name: Pack
         run: dotnet pack OpenVisionLab.VisionSdk.sln -c Release --no-build -o artifacts/packages
 
+      - name: Verify package documentation
+        shell: pwsh
+        run: |
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $packages = @(Get-ChildItem artifacts/packages/*.nupkg)
+          if ($packages.Count -ne 5) { throw "Expected 5 packages, found $($packages.Count)." }
+          foreach ($package in $packages) {
+            $archive = [System.IO.Compression.ZipFile]::OpenRead($package.FullName)
+            try {
+              $nuspec = $archive.Entries | Where-Object FullName -Like '*.nuspec' | Select-Object -First 1
+              $packageId = [System.IO.Path]::GetFileNameWithoutExtension($nuspec.FullName)
+              foreach ($required in @('README.md', "lib/netstandard2.0/$packageId.xml")) {
+                if (-not ($archive.Entries.FullName -contains $required)) {
+                  throw "$($package.Name) is missing $required."
+                }
+              }
+            } finally {
+              $archive.Dispose()
+            }
+          }
+
       - name: Restore package-only consumer
         run: dotnet restore tests/OpenVisionLab.PackageConsumer.Smoke/OpenVisionLab.PackageConsumer.Smoke.csproj "-p:RestoreAdditionalProjectSources=$env:GITHUB_WORKSPACE\artifacts\packages"
 

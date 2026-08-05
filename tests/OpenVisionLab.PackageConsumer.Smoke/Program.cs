@@ -47,12 +47,27 @@ using CombinedInspectionRunResult result = new CombinedInspectionRunner().Run(
     },
     new IVisionTool[] { threshold },
     new IThreeDInspectionTool[] { thickness });
-using BlobTool blobAssemblyProbe = new BlobTool();
 
 if (!result.Success || result.Steps.Count != 2)
 {
     throw new InvalidOperationException(
         $"Package-only consumer failed: {result.Message}");
+}
+
+using Mat blobImage = new Mat(8, 8, MatType.CV_8UC1, Scalar.All(0));
+Cv2.Rectangle(blobImage, new Rect(2, 2, 4, 4), Scalar.All(255), -1);
+using BlobTool blob = new BlobTool();
+blob.SetProperty(new BlobToolProperty
+{
+    THRESHOLD = 128,
+    MIN_AREA = 4,
+    MAX_AREA = 64
+});
+using VisionToolResult blobResult = blob.Execute(blobImage);
+if (!blobResult.Success || blob.results.Count != 1)
+{
+    throw new InvalidOperationException(
+        $"Blob package example failed: {blobResult.ErrorName}: {blobResult.Message}");
 }
 
 SurfaceMatchSample[] model =
@@ -127,4 +142,4 @@ if (!comparison.Success
 }
 
 Console.WriteLine(
-    "OpenVisionLab package-only 2D, 3D, surface-match, and mesh consumer passed.");
+    "OpenVisionLab package-only 2D, Blob, 3D, surface-match, and mesh consumer passed.");

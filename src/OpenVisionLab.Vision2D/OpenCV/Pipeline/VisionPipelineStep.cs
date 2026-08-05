@@ -28,7 +28,12 @@ namespace OpenVisionLab.Vision2D.Pipeline
         public bool Enabled { get; set; } = true;
         public string InputLayer { get; set; } = string.Empty;
         public string OutputLayer { get; set; } = string.Empty;
+        /// <summary>Gets or sets whether acceptance rules determine the step outcome.</summary>
         public bool UseAcceptance { get; set; }
+
+        /// <summary>
+        /// Gets or sets the required tool success state. A false value is valid only on the final enabled step.
+        /// </summary>
         public bool ExpectedSuccess { get; set; } = true;
         public double MaxElapsedMilliseconds { get; set; }
         public string RequiredMessageText { get; set; } = string.Empty;
@@ -38,6 +43,7 @@ namespace OpenVisionLab.Vision2D.Pipeline
         public bool UseAcceptanceMetricMaximum { get; set; }
         public double AcceptanceMetricMaximum { get; set; }
 
+        /// <summary>Gets the case-insensitive built-in tool parameter values.</summary>
         [XmlIgnore]
         public Dictionary<string, string> Parameters { get; } = new Dictionary<string, string>();
 

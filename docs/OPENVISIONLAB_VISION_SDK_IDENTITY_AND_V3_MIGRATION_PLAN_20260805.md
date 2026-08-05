@@ -375,3 +375,30 @@ Vision2D는 Bitmap 입력 overload 2개와 `System.Drawing.Common` 참조(총 3�
 
 NuGet 게시는 수행하지 않았고 OpenVisionLab 및 OpenVisionLab 3D Studio 소비 저장소도
 변경하지 않았다. 실제 소비자 전환은 계속 별도 승인 범위다.
+
+## 18. 3.0 공개 API 및 패키지 사용성 검수 결과
+
+이름 변경 직후 보존한 5개 어셈블리 공개 API 5,295줄과 현재 `main`을 다시 비교했다.
+승인된 Core UI·운영체제 유틸리티 및 Vision2D Bitmap overload 제거에 해당하는 127줄
+외의 누락은 0줄이었다. 추가된 공개 API는 pipeline step 성공 상태 2줄과 이번 검수에서
+도입한 `BlobToolProperty` 62줄뿐이며, 승인되지 않은 namespace/type/member 추가는 0줄이다.
+
+패키지 계약 검수에서는 기존 5개 nupkg 중 `OpenVisionLab.Vision3D`만 XML IntelliSense
+파일을 포함하고 나머지 4개 패키지는 누락한 사실을 확인했다. 모든 배포 프로젝트에서
+XML 문서를 생성하도록 고치고, CI가 5개 nupkg 각각의 `README.md`와 대응 XML 파일을
+검사하도록 했다. 기존 Core XML 주석의 잘못된 매개 변수 이름 4곳도 실제 signature와
+일치시켜 문서 빌드 경고를 제거했다.
+
+`OpenVisionLab.Vision2D.Blob`에는 20개 필수 설정을 바로 제공하는 `BlobToolProperty`를
+추가했다. 기존 `IOpenCVPropertyBlob` 확장 경로는 유지한다. 패키지 Quick Start의
+자리표시자를 실제 타입으로 교체하고 package-only 소비자가 합성 Blob을 실제 실행해
+결과 1개를 검증하도록 보강했다.
+
+```text
+Status: Complete
+Scope: 3.0 공개 API 호환 재대조, 5개 패키지 XML IntelliSense 보장, Blob 첫 사용 설정과 package-only 실행 검증
+Acceptance criteria: 2.9.1 기준 외 승인되지 않은 공개 API 누락 0 -> pass; namespace leak 0 -> pass; 신규 API가 BlobToolProperty에만 한정 -> pass; nupkg 5/5 README·XML 포함 -> pass; Blob package-only 실행 -> pass
+Verification: .NET SDK 8.0.423 Release build 0 warnings/0 errors; Smoke 142/142; 공개 API 5,232줄, 승인 제거 127줄/승인 추가 64줄/불일치 0; pack 5개; isolated package-only Threshold/Blob/3D/Surface Match/Mesh 실행 pass
+Evidence: D:\OpenVisionLab-TestData\OpenVisionLab-Vision-SDK\20260805-public-api-review
+Boundary / next dependency: 기존 C*/CV*/Guage 오탈자 API는 2.9.1 호환 표면이므로 제거하지 않았다. 해당 제거는 실제 소비자 조사와 별도 major-version 승인 없이는 수행하지 않는다. NuGet 게시와 소비 저장소 변경도 수행하지 않았다.
+```

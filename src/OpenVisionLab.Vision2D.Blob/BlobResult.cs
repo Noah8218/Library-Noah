@@ -6,6 +6,7 @@ using System.Text;
 
 namespace OpenVisionLab.Vision2D.Blob
 {
+    /// <summary>Describes one labeled blob in source-image coordinates.</summary>
     public class BlobResult
     {
         public int Index { get; set; } = 0;

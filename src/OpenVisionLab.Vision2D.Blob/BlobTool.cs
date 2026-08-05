@@ -9,9 +9,15 @@ using OpenCvSharp.Blob;
 
 namespace OpenVisionLab.Vision2D.Blob
 {
+    /// <summary>
+    /// Labels thresholded blobs and publishes deterministic, source-coordinate results.
+    /// </summary>
     public partial class BlobTool : OpenCvAlgorithmBase
     {
+        /// <summary>The active preprocessing, ROI, and area-filter configuration.</summary>
         public IOpenCVPropertyBlob property;
+
+        /// <summary>The detected blobs in stable one-based index order after a successful execution.</summary>
         public List<BlobResult> results = new List<BlobResult>();
 
         public BlobTool() { }
