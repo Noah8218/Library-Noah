@@ -341,15 +341,10 @@ namespace OpenVisionLab.Vision3D.FeatureExtraction
                     + ".");
             }
 
-            if (options.PoseSearchOptions.MinimumMatchedSampleCount < 3
-                || options.PoseSearchOptions.MinimumMatchedSampleCount
-                    > modelSampleCount
-                || options.PoseSearchOptions.MinimumMatchedSampleCount
-                    > sceneSampleCount)
-            {
-                throw new ArgumentException(
-                    "Multiple surface match minimum matched sample count must be at least three and cannot exceed available samples.");
-            }
+            DeterministicRigidSurfacePoseSearchTool.ValidateOptions(
+                options.PoseSearchOptions,
+                modelSampleCount,
+                sceneSampleCount);
         }
 
         private sealed class Candidate

@@ -44,10 +44,8 @@ namespace OpenVisionLab.Vision3D.FeatureExtraction
                 List<SurfaceCoverageMatch> matches =
                     new List<SurfaceCoverageMatch>(
                         Math.Min(modelSamples.Count, sceneSamples.Count));
-                double maximumDistanceSquared =
-                    maximumCorrespondenceDistance
-                    * maximumCorrespondenceDistance;
-                double squaredErrorSum = 0.0;
+                double rmseScale = 0.0;
+                double rmseScaledSquareSum = 0.0;
                 for (int modelIndex = 0;
                      modelIndex < modelSamples.Count;
                      modelIndex++)
@@ -56,7 +54,7 @@ namespace OpenVisionLab.Vision3D.FeatureExtraction
                     SurfaceMatchSample modelSample = modelSamples[modelIndex];
                     ThreeDPoint transformed = pose.Transform(modelSample.Position);
                     int bestSceneOrder = -1;
-                    double bestDistanceSquared = double.PositiveInfinity;
+                    double bestDistance = double.PositiveInfinity;
                     for (int sceneIndex = 0;
                          sceneIndex < sceneSamples.Count;
                          sceneIndex++)
@@ -67,40 +65,48 @@ namespace OpenVisionLab.Vision3D.FeatureExtraction
                             continue;
                         }
 
-                        double distanceSquared = DistanceSquared(
+                        double distance = Distance(
                             transformed,
                             sceneSample.Position);
-                        if (distanceSquared < bestDistanceSquared
-                            || distanceSquared == bestDistanceSquared
+                        if (distance < bestDistance
+                            || distance == bestDistance
                             && sceneSample.Order < bestSceneOrder)
                         {
-                            bestDistanceSquared = distanceSquared;
+                            bestDistance = distance;
                             bestSceneOrder = sceneSample.Order;
                         }
                     }
 
                     if (bestSceneOrder < 0
-                        || bestDistanceSquared > maximumDistanceSquared)
+                        || bestDistance > maximumCorrespondenceDistance)
                     {
                         continue;
                     }
 
                     claimedSceneSamples[bestSceneOrder] = true;
-                    squaredErrorSum += bestDistanceSquared;
+                    AccumulateScaledSquare(
+                        bestDistance,
+                        ref rmseScale,
+                        ref rmseScaledSquareSum);
                     matches.Add(
                         new SurfaceCoverageMatch(
                             modelSample.Order,
                             bestSceneOrder,
-                            Math.Sqrt(bestDistanceSquared)));
+                            bestDistance));
                 }
 
                 int matchedCount = matches.Count;
                 double coverageRatio =
                     matchedCount / (double)modelSamples.Count;
                 bool hasInlierRmse = matchedCount > 0;
-                double inlierRmse = hasInlierRmse
-                    ? Math.Sqrt(squaredErrorSum / matchedCount)
-                    : double.NaN;
+                double inlierRmse = !hasInlierRmse
+                    ? double.NaN
+                    : rmseScale == 0.0
+                        ? 0.0
+                        : rmseScale * Math.Min(
+                            1.0,
+                            Math.Sqrt(
+                                rmseScaledSquareSum / matchedCount));
                 return DeterministicSurfaceCoverageResult.Completed(
                     modelSamples.Count,
                     sceneSamples.Count,
@@ -123,14 +129,52 @@ namespace OpenVisionLab.Vision3D.FeatureExtraction
             }
         }
 
-        private static double DistanceSquared(
+        private static double Distance(
             ThreeDPoint first,
             ThreeDPoint second)
         {
-            double x = first.X - second.X;
-            double y = first.Y - second.Y;
-            double z = first.Z - second.Z;
-            return x * x + y * y + z * z;
+            double x = Math.Abs(first.X - second.X);
+            double y = Math.Abs(first.Y - second.Y);
+            double z = Math.Abs(first.Z - second.Z);
+            double scale = Math.Max(x, Math.Max(y, z));
+            if (!SurfaceMatchingContractValidation.IsFinite(scale))
+            {
+                return double.PositiveInfinity;
+            }
+
+            if (scale == 0.0)
+            {
+                return 0.0;
+            }
+
+            x /= scale;
+            y /= scale;
+            z /= scale;
+            return scale * Math.Sqrt(x * x + y * y + z * z);
+        }
+
+        private static void AccumulateScaledSquare(
+            double value,
+            ref double scale,
+            ref double scaledSquareSum)
+        {
+            if (value == 0.0)
+            {
+                return;
+            }
+
+            if (scale < value)
+            {
+                double ratio = scale / value;
+                scaledSquareSum = 1.0
+                    + scaledSquareSum * ratio * ratio;
+                scale = value;
+            }
+            else
+            {
+                double ratio = value / scale;
+                scaledSquareSum += ratio * ratio;
+            }
         }
     }
 }

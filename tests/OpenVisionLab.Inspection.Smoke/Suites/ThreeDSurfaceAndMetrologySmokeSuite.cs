@@ -28,7 +28,7 @@ namespace OpenVisionLab.Inspection.Smoke
             yield return new SmokeCase("Surface coverage preserves one-way unique occlusion evidence", TestDeterministicSurfaceCoverageOcclusion);
             yield return new SmokeCase("Rigid surface pose search fails closed on bounded domains", TestDeterministicRigidSurfacePoseSearchBounds);
             yield return new SmokeCase("Multiple surface match returns stable disjoint two-object results", TestDeterministicMultipleSurfaceMatch);
-            yield return new SmokeCase("Multiple surface match fails closed on expanded candidate budget", TestDeterministicMultipleSurfaceMatchBudget);
+            yield return new SmokeCase("Multiple surface match fails closed on invalid contracts and expanded candidate budget", TestDeterministicMultipleSurfaceMatchBudget);
             yield return new SmokeCase("Pose symmetry equivalence uses model-space post-multiplication", TestRigidPoseSymmetryEquivalencePostMultiply);
             yield return new SmokeCase("Pose symmetry equivalence preserves direct comparison for none", TestRigidPoseSymmetryEquivalenceNone);
             yield return new SmokeCase("Pose symmetry equivalence supports X and Y cyclic groups", TestRigidPoseSymmetryEquivalenceAxes);
@@ -265,6 +265,37 @@ namespace OpenVisionLab.Inspection.Smoke
             Require(result.Matches.Select(match => match.SceneSampleOrder).Distinct().Count()
                 == result.Matches.Count,
                 "A scene sample must never be claimed more than once.");
+
+            DeterministicSurfaceCoverageResult largeFiniteDistance =
+                new DeterministicSurfaceCoverageTool().Execute(
+                    new[]
+                    {
+                        new SurfaceMatchSample(
+                            0,
+                            new ThreeDPoint(0.0, 0.0, 0.0))
+                    },
+                    new[]
+                    {
+                        new SurfaceMatchSample(
+                            0,
+                            new ThreeDPoint(1e200, 0.0, 0.0))
+                    },
+                    new RigidSurfacePose(
+                        1.0, 0.0, 0.0,
+                        0.0, 1.0, 0.0,
+                        0.0, 0.0, 1.0,
+                        0.0, 0.0, 0.0),
+                    1.1e200);
+
+            Require(largeFiniteDistance.Success
+                && largeFiniteDistance.MatchedModelSampleCount == 1
+                && largeFiniteDistance.HasInlierRmse,
+                "A representable finite distance inside a large finite limit must remain matched.");
+            RequireApproximately(
+                largeFiniteDistance.InlierRmse / 1e200,
+                1.0,
+                1e-15,
+                "Large finite surface coverage must retain a finite RMSE.");
         }
 
         private static void TestDeterministicRigidSurfacePoseSearchBounds()
@@ -392,12 +423,25 @@ namespace OpenVisionLab.Inspection.Smoke
                     model,
                     scene,
                     options);
+            DeterministicMultipleSurfaceMatchOptions invalidBounds =
+                CreateMultipleSurfaceSearchOptions();
+            invalidBounds.PoseSearchOptions.MinimumTranslationX = double.NaN;
+            DeterministicMultipleSurfaceMatchResult invalidResult =
+                new DeterministicMultipleSurfaceMatchTool().Execute(
+                    model,
+                    scene,
+                    invalidBounds);
 
             Require(!result.Success
                 && result.Message.IndexOf(
                     "expanded candidate count",
                     StringComparison.OrdinalIgnoreCase) >= 0,
                 "Multiple-match search must reject an insufficient expanded candidate budget before execution.");
+            Require(!invalidResult.Success
+                && invalidResult.Message.IndexOf(
+                    "finite and ordered",
+                    StringComparison.OrdinalIgnoreCase) >= 0,
+                "Multiple-match search must fail closed on invalid nested pose bounds.");
         }
 
         private static void TestRigidPoseSymmetryEquivalencePostMultiply()
@@ -869,6 +913,42 @@ namespace OpenVisionLab.Inspection.Smoke
                 Math.Sqrt(2.0),
                 1e-12,
                 "Unexpected robust boundary sign distance.");
+
+            const double translatedOrigin = 1e8;
+            TriangleMeshDistanceTool translatedTool =
+                new TriangleMeshDistanceTool(
+                    new[]
+                    {
+                        new MeshTriangle(
+                            8,
+                            new ThreeDPoint(
+                                translatedOrigin,
+                                translatedOrigin,
+                                0.0),
+                            new ThreeDPoint(
+                                translatedOrigin + 1.0,
+                                translatedOrigin,
+                                0.0),
+                            new ThreeDPoint(
+                                translatedOrigin,
+                                translatedOrigin + 1.0,
+                                0.0))
+                    });
+            PointMeshDistance translatedFace = translatedTool.Execute(
+                new ThreeDPoint(
+                    translatedOrigin + 0.25,
+                    translatedOrigin + 0.25,
+                    1.0));
+
+            Require(translatedFace.ClosestFeature
+                    == MeshClosestFeature.FaceInterior
+                && translatedFace.SignResolved,
+                "A valid translated double-precision triangle must not collapse during indexing.");
+            RequireApproximately(
+                translatedFace.UnsignedDistance,
+                1.0,
+                1e-12,
+                "Translated mesh distance must preserve double precision.");
         }
 
         private static void TestNominalActualMeshComparison()

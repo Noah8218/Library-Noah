@@ -359,8 +359,8 @@ namespace OpenVisionLab.Vision3D.FeatureExtraction
 
         private Bounds CalculateBounds(int start, int count)
         {
-            Vector3 minimum = new Vector3(float.PositiveInfinity);
-            Vector3 maximum = new Vector3(float.NegativeInfinity);
+            Vector3 minimum = new Vector3(double.PositiveInfinity);
+            Vector3 maximum = new Vector3(double.NegativeInfinity);
             int end = start + count;
             for (int index = start; index < end; index++)
             {
@@ -373,8 +373,8 @@ namespace OpenVisionLab.Vision3D.FeatureExtraction
 
         private Bounds CalculateCentroidBounds(int start, int count)
         {
-            Vector3 minimum = new Vector3(float.PositiveInfinity);
-            Vector3 maximum = new Vector3(float.NegativeInfinity);
+            Vector3 minimum = new Vector3(double.PositiveInfinity);
+            Vector3 maximum = new Vector3(double.NegativeInfinity);
             int end = start + count;
             for (int index = start; index < end; index++)
             {
@@ -418,14 +418,13 @@ namespace OpenVisionLab.Vision3D.FeatureExtraction
                     nameof(triangle));
             }
 
-            Vector3 normal = cross
-                / (float)Math.Sqrt(crossLengthSquared);
+            Vector3 normal = cross / Math.Sqrt(crossLengthSquared);
             Vector3 minimum = Vector3.Min(a, Vector3.Min(b, c));
             Vector3 maximum = Vector3.Max(a, Vector3.Max(b, c));
             Vector3 centroid = new Vector3(
-                (float)(((double)a.X + b.X + c.X) / 3.0),
-                (float)(((double)a.Y + b.Y + c.Y) / 3.0),
-                (float)(((double)a.Z + b.Z + c.Z) / 3.0));
+                (a.X + b.X + c.X) / 3.0,
+                (a.Y + b.Y + c.Y) / 3.0,
+                (a.Z + b.Z + c.Z) / 3.0);
             return new TriangleEntry(
                 triangle,
                 a,
@@ -468,7 +467,7 @@ namespace OpenVisionLab.Vision3D.FeatureExtraction
             {
                 double scale = d1 / (d1 - d3);
                 return new ClosestPointResult(
-                    triangle.A + (float)scale * ab,
+                    triangle.A + scale * ab,
                     MeshClosestFeature.Edge);
             }
 
@@ -487,7 +486,7 @@ namespace OpenVisionLab.Vision3D.FeatureExtraction
             {
                 double scale = d2 / (d2 - d6);
                 return new ClosestPointResult(
-                    triangle.A + (float)scale * ac,
+                    triangle.A + scale * ac,
                     MeshClosestFeature.Edge);
             }
 
@@ -498,7 +497,7 @@ namespace OpenVisionLab.Vision3D.FeatureExtraction
                     / ((d4 - d3) + (d5 - d6));
                 return new ClosestPointResult(
                     triangle.B
-                        + (float)scale * (triangle.C - triangle.B),
+                        + scale * (triangle.C - triangle.B),
                     MeshClosestFeature.Edge);
             }
 
@@ -506,7 +505,7 @@ namespace OpenVisionLab.Vision3D.FeatureExtraction
             double v = vb * denominator;
             double w = vc * denominator;
             return new ClosestPointResult(
-                triangle.A + (float)v * ab + (float)w * ac,
+                triangle.A + v * ab + w * ac,
                 MeshClosestFeature.FaceInterior);
         }
 
@@ -532,9 +531,9 @@ namespace OpenVisionLab.Vision3D.FeatureExtraction
         }
 
         private static double AxisDistance(
-            float value,
-            float minimum,
-            float maximum)
+            double value,
+            double minimum,
+            double maximum)
         {
             return value < minimum
                 ? minimum - (double)value
@@ -545,14 +544,14 @@ namespace OpenVisionLab.Vision3D.FeatureExtraction
 
         private static double Dot(Vector3 first, Vector3 second)
         {
-            return (double)first.X * second.X
-                + (double)first.Y * second.Y
-                + (double)first.Z * second.Z;
+            return first.X * second.X
+                + first.Y * second.Y
+                + first.Z * second.Z;
         }
 
         private static Vector3 ToVector(ThreeDPoint point, string name)
         {
-            if (point == null || !point.IsFinite)
+            if (!IsFinite(point))
             {
                 throw new ArgumentException(
                     name == "point"
@@ -562,9 +561,9 @@ namespace OpenVisionLab.Vision3D.FeatureExtraction
             }
 
             Vector3 value = new Vector3(
-                (float)point.X,
-                (float)point.Y,
-                (float)point.Z);
+                point.X,
+                point.Y,
+                point.Z);
             if (!IsFinite(value))
             {
                 throw new ArgumentException(
@@ -615,9 +614,9 @@ namespace OpenVisionLab.Vision3D.FeatureExtraction
 
         private static bool IsFinite(Vector3 value)
         {
-            return !float.IsNaN(value.X) && !float.IsInfinity(value.X)
-                && !float.IsNaN(value.Y) && !float.IsInfinity(value.Y)
-                && !float.IsNaN(value.Z) && !float.IsInfinity(value.Z);
+            return !double.IsNaN(value.X) && !double.IsInfinity(value.X)
+                && !double.IsNaN(value.Y) && !double.IsInfinity(value.Y)
+                && !double.IsNaN(value.Z) && !double.IsInfinity(value.Z);
         }
 
         private sealed class Node
@@ -821,7 +820,7 @@ namespace OpenVisionLab.Vision3D.FeatureExtraction
                         second.Source.SourceTriangleIndex);
             }
 
-            private float GetAxis(Vector3 value)
+            private double GetAxis(Vector3 value)
             {
                 return axis == 0
                     ? value.X
@@ -846,21 +845,21 @@ namespace OpenVisionLab.Vision3D.FeatureExtraction
 
     internal struct Vector3
     {
-        public Vector3(float value)
+        public Vector3(double value)
             : this(value, value, value)
         {
         }
 
-        public Vector3(float x, float y, float z)
+        public Vector3(double x, double y, double z)
         {
             X = x;
             Y = y;
             Z = z;
         }
 
-        public float X { get; }
-        public float Y { get; }
-        public float Z { get; }
+        public double X { get; }
+        public double Y { get; }
+        public double Z { get; }
 
         public static Vector3 Min(Vector3 first, Vector3 second)
         {
@@ -902,7 +901,7 @@ namespace OpenVisionLab.Vision3D.FeatureExtraction
                 first.Z - second.Z);
         }
 
-        public static Vector3 operator *(float scale, Vector3 value)
+        public static Vector3 operator *(double scale, Vector3 value)
         {
             return new Vector3(
                 scale * value.X,
@@ -910,7 +909,7 @@ namespace OpenVisionLab.Vision3D.FeatureExtraction
                 scale * value.Z);
         }
 
-        public static Vector3 operator /(Vector3 value, float scale)
+        public static Vector3 operator /(Vector3 value, double scale)
         {
             return new Vector3(
                 value.X / scale,

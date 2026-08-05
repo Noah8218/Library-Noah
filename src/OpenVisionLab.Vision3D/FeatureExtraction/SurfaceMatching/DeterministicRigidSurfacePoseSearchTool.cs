@@ -193,7 +193,7 @@ namespace OpenVisionLab.Vision3D.FeatureExtraction
             }
         }
 
-        private static void ValidateOptions(
+        internal static void ValidateOptions(
             DeterministicRigidSurfacePoseSearchOptions options,
             int modelSampleCount,
             int sceneSampleCount)
