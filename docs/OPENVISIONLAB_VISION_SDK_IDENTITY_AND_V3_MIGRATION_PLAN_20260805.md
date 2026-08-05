@@ -402,3 +402,24 @@ Verification: .NET SDK 8.0.423 Release build 0 warnings/0 errors; Smoke 142/142;
 Evidence: D:\OpenVisionLab-TestData\OpenVisionLab-Vision-SDK\20260805-public-api-review
 Boundary / next dependency: 기존 C*/CV*/Guage 오탈자 API는 2.9.1 호환 표면이므로 제거하지 않았다. 해당 제거는 실제 소비자 조사와 별도 major-version 승인 없이는 수행하지 않는다. NuGet 게시와 소비 저장소 변경도 수행하지 않았다.
 ```
+
+## 19. 2D Tool 구체 Property 모델 완료 기록
+
+현재 비레거시 2D Tool 중 소비자가 직접 설정 인터페이스를 구현해야 했던 Contour/Corner,
+Matching, EdgeBasedTemplateMatching, SIFT, Mean, LineGauge에 구체 Property 모델을 추가했다.
+공통 전처리 계약은 `OpenCvToolPropertyBase` 한 곳에 두고 각 Tool 모델은 고유 설정과
+운영 기본값만 소유한다. 애플리케이션 전용 저장 모델을 위한 기존 인터페이스는 유지한다.
+
+AutoMPoint 내부 Edge matcher와 Smoke의 Mean/Contour/Edge matcher가 사용하던 임시
+Property 구현은 새 공개 모델로 교체했다. 이로써 중복 구현 3종을 제거하면서 실제 제품
+실행 경로와 테스트가 공개 모델을 직접 사용한다. `CV*` 및 `LineGuage` 오탈자 계약은
+2.9.1 레거시 호환 범위이므로 이번 변경에서 제외했다.
+
+```text
+Status: Complete
+Scope: 비레거시 2D Tool의 concrete Property 모델, 공통 기본 설정, 문서와 package-only 실행 검증
+Acceptance criteria: 현재 비레거시 Tool의 interface-only 설정 0 -> pass; 기존 공개 API 삭제 0 -> pass; 신규 공개 타입 7개만 추가 -> pass; 임시 Property 구현 3종 제거 -> pass; package-only Contour/Mean/Matching 실행과 Edge/SIFT/LineGauge 기본 계약 -> pass
+Verification: .NET SDK 8.0.423 Release build 0 warnings/0 errors; Smoke 142/142; 공개 API 5,232 -> 5,586줄, 제거 0/승인 추가 354/예상 밖 추가 0; pack 5개 및 README·XML 5/5; isolated package-only restore/build 0 warnings/0 errors와 실행 pass
+Evidence: D:\OpenVisionLab-TestData\OpenVisionLab-Vision-SDK\20260805-2d-property-models
+Boundary / next dependency: C*/CV*/LineGuage 레거시 API 삭제, NuGet 게시, OpenVisionLab 및 OpenVisionLab 3D Studio 소비 저장소 변경, UI·카메라·PLC 통합은 수행하지 않았다.
+```

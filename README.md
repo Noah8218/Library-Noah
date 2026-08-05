@@ -369,15 +369,15 @@ else
 | `FilterTool` | Blur, Gaussian, Median, Bilateral 등 필터 | `FilterToolProperty` |
 | `EdgeDetectionTool` | Canny, Sobel, Scharr, Laplacian 엣지 검출 | `EdgeDetectionToolProperty` |
 | `RotateScaleTool` | 이미지 회전/스케일 변환 | `RotateScaleToolProperty` |
-| `ContourTool` | Contour 검출과 면적 필터링 | `IOpenCVPropertyContour` 구현체 |
-| `CornerTool` | sub-pixel corner 검출과 전역 좌표 결과 | `IOpenCVPropertyContour` 구현체 |
+| `ContourTool` | Contour 검출과 면적 필터링 | `ContourToolProperty` 또는 `IOpenCVPropertyContour` 구현체 |
+| `CornerTool` | sub-pixel corner 검출과 전역 좌표 결과 | `ContourToolProperty` 또는 `IOpenCVPropertyContour` 구현체 |
 | `BlobTool` | Blob 라벨링과 면적 필터링 | `BlobToolProperty` 또는 `IOpenCVPropertyBlob` 구현체 |
-| `MatchingTool` | Template Matching, Scale/Angle 탐색 | `IOpenCVPropertyMatching` 구현체 |
-| `EdgeBasedTemplateMatchingTool` | 엣지 기반 템플릿 매칭 | `IOpenCVPropertyEdgeBasedTemplateMatching` 구현체 |
+| `MatchingTool` | Template Matching, Scale/Angle 탐색 | `MatchingToolProperty` 또는 `IOpenCVPropertyMatching` 구현체 |
+| `EdgeBasedTemplateMatchingTool` | 엣지 기반 템플릿 매칭 | `EdgeBasedTemplateMatchingToolProperty` 또는 `IOpenCVPropertyEdgeBasedTemplateMatching` 구현체 |
 | `AutoMPointTool` | 고정 크기 매칭 후보 자동 제안, 유일성/합성 변형/속도 검증 | `AutoMPointToolProperty` |
-| `SiftTool` | SIFT 특징점 기반 매칭 | `IOpenCVPropertyFeatureSIFT` 구현체 |
-| `LineGaugeTool` | ROI 내 엣지 검출 후 직선 피팅 | `IOpenCvPropertyLineGauge` 구현체 |
-| `MeanTool` | ROI 평균/표준편차 계산 | `IOpenCVPropertyMean` 구현체 |
+| `SiftTool` | SIFT 특징점 기반 매칭 | `SiftToolProperty` 또는 `IOpenCVPropertyFeatureSIFT` 구현체 |
+| `LineGaugeTool` | ROI 내 엣지 검출 후 직선 피팅 | `LineGaugeToolProperty` 또는 `IOpenCvPropertyLineGauge` 구현체 |
+| `MeanTool` | ROI 평균/표준편차 계산 | `MeanToolProperty` 또는 `IOpenCVPropertyMean` 구현체 |
 
 `MeanTool`의 multi-ROI 실행은 `CvROIS` 순서대로 각 영역을 측정하고 같은 순서의 `MeanResult.index`를 제공합니다. `CornerTool`은 sub-pixel 보정된 각 점을 전역 이미지 좌표의 `CornerResult`로 제공하며, 검출점이 없으면 `CornerNoResult`를 반환합니다.
 
@@ -806,11 +806,16 @@ using (Mat display = VisionDisplayHelper.DrawVisionResult(source, result))
 
 ```csharp
 using OpenVisionLab.Vision2D.Result;
+using OpenVisionLab.Vision2D.Property;
 using OpenVisionLab.Vision2D.Tool;
 using OpenCvSharp;
 
 MatchingTool tool = new MatchingTool();
-tool.SetProperty(matchingProperty);
+tool.SetProperty(new MatchingToolProperty
+{
+    USE_FIND_ANGLE = false,
+    NUM_MATCH = 1
+});
 tool.SetTemplateImage(template);
 
 VisionToolResult result = tool.Execute(source);
@@ -829,8 +834,11 @@ foreach (MatchingResult match in tool.results)
 엣지 기반 매칭도 표시 방식은 동일합니다.
 
 ```csharp
+using OpenVisionLab.Vision2D.Property;
+using OpenVisionLab.Vision2D.Tool;
+
 EdgeBasedTemplateMatchingTool tool = new EdgeBasedTemplateMatchingTool();
-tool.SetProperty(edgeBasedMatchingProperty);
+tool.SetProperty(new EdgeBasedTemplateMatchingToolProperty());
 tool.SetTemplateImage(template);
 
 VisionToolResult result = tool.Execute(source);
@@ -844,8 +852,15 @@ using (Mat display = VisionDisplayHelper.DrawVisionResult(source, result))
 ### Contour / Blob 표시 예제
 
 ```csharp
+using OpenVisionLab.Vision2D.Property;
+using OpenVisionLab.Vision2D.Tool;
+
 ContourTool contourTool = new ContourTool();
-contourTool.SetProperty(contourProperty);
+contourTool.SetProperty(new ContourToolProperty
+{
+    MIN_AREA = 50,
+    MAX_AREA = 5000
+});
 
 VisionToolResult contourResult = contourTool.Execute(source);
 
@@ -856,8 +871,14 @@ using (Mat contourDisplay = VisionDisplayHelper.DrawVisionResult(source, contour
 ```
 
 ```csharp
+using OpenVisionLab.Vision2D.Blob;
+
 BlobTool blobTool = new BlobTool();
-blobTool.SetProperty(blobProperty);
+blobTool.SetProperty(new BlobToolProperty
+{
+    MIN_AREA = 50,
+    MAX_AREA = 5000
+});
 
 VisionToolResult blobResult = blobTool.Execute(source);
 
@@ -870,8 +891,15 @@ using (Mat blobDisplay = VisionDisplayHelper.DrawVisionResult(source, blobResult
 ### LineGauge 표시 예제
 
 ```csharp
+using OpenCvSharp;
+using OpenVisionLab.Vision2D.Property;
+using OpenVisionLab.Vision2D.Tool;
+
 LineGaugeTool lineTool = new LineGaugeTool();
-lineTool.SetProperty(lineGaugeProperty);
+lineTool.SetProperty(new LineGaugeToolProperty
+{
+    CvROI = new Rect(100, 100, 300, 200)
+});
 
 VisionToolResult lineResult = lineTool.Execute(source);
 

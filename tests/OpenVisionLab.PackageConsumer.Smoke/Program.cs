@@ -70,6 +70,58 @@ if (!blobResult.Success || blob.results.Count != 1)
         $"Blob package example failed: {blobResult.ErrorName}: {blobResult.Message}");
 }
 
+using ContourTool contour = new ContourTool();
+contour.SetProperty(new ContourToolProperty
+{
+    MIN_AREA = 4,
+    MAX_AREA = 64
+});
+using VisionToolResult contourResult = contour.Execute(blobImage);
+if (!contourResult.Success || contour.results.Count != 1)
+{
+    throw new InvalidOperationException(
+        $"Contour package example failed: {contourResult.ErrorName}: {contourResult.Message}");
+}
+
+using MeanTool mean = new MeanTool();
+mean.SetProperty(new MeanToolProperty());
+using VisionToolResult meanResult = mean.Execute(blobImage);
+if (!meanResult.Success || mean.results.Count != 1)
+{
+    throw new InvalidOperationException(
+        $"Mean package example failed: {meanResult.ErrorName}: {meanResult.Message}");
+}
+
+using Mat matchingSource = new Mat(32, 32, MatType.CV_8UC1, Scalar.All(0));
+Cv2.Rectangle(matchingSource, new Rect(12, 10, 8, 8), Scalar.All(255), -1);
+Cv2.Line(matchingSource, new Point(12, 10), new Point(19, 17), Scalar.All(0), 1);
+using Mat matchingTemplate = new Mat(matchingSource, new Rect(12, 10, 8, 8)).Clone();
+using MatchingTool matching = new MatchingTool();
+matching.SetProperty(new MatchingToolProperty
+{
+    USE_FIND_ANGLE = false,
+    NUM_MATCH = 1,
+    SCORE_MIN = 0.9
+});
+matching.SetTemplateImage(matchingTemplate);
+using VisionToolResult matchingResult = matching.Execute(matchingSource);
+if (!matchingResult.Success || matching.results.Count != 1)
+{
+    throw new InvalidOperationException(
+        $"Matching package example failed: {matchingResult.ErrorName}: {matchingResult.Message}");
+}
+
+EdgeBasedTemplateMatchingToolProperty edgeMatchingProperty = new EdgeBasedTemplateMatchingToolProperty();
+SiftToolProperty siftProperty = new SiftToolProperty();
+LineGaugeToolProperty lineGaugeProperty = new LineGaugeToolProperty();
+if (edgeMatchingProperty.MAX_TEMPLATE_POINTS <= 0
+    || siftProperty.RANSAC_REPROJ_THRESHOLD <= 0
+    || lineGaugeProperty.SAMPLING_STEP < 1
+    || lineGaugeProperty.CvROIS == null)
+{
+    throw new InvalidOperationException("Ready-to-use 2D property defaults are invalid.");
+}
+
 SurfaceMatchSample[] model =
 {
     new SurfaceMatchSample(0, new ThreeDPoint(0, 0, 0)),
@@ -142,4 +194,4 @@ if (!comparison.Success
 }
 
 Console.WriteLine(
-    "OpenVisionLab package-only 2D, Blob, 3D, surface-match, and mesh consumer passed.");
+    "OpenVisionLab package-only 2D properties, tools, Blob, 3D, surface-match, and mesh consumer passed.");

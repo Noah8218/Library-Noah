@@ -732,10 +732,11 @@ namespace OpenVisionLab.Vision2D.Tool
             matcher?.Dispose();
         }
 
-        private EdgeMatcherProperty CreateMatcherProperty()
+        private EdgeBasedTemplateMatchingToolProperty CreateMatcherProperty()
         {
-            return new EdgeMatcherProperty
+            return new EdgeBasedTemplateMatchingToolProperty
             {
+                NAME = "Auto MPoint verifier",
                 SCORE_MIN = property.MatchingMinimumScore,
                 NUM_MATCH = 2,
                 CANNY_LOW = property.CannyLow,
@@ -747,14 +748,18 @@ namespace OpenVisionLab.Vision2D.Tool
                 USE_PYRAMID_POSITION_PROPOSAL = property.UsePyramidPositionProposal,
                 PYRAMID_POSITION_MIN_SCORE = Math.Min(0.7d, property.MatchingMinimumScore),
                 USE_HYBRID_VERIFY = property.UseHybridVerify,
+                USE_DRAW_IMAGE = false,
                 USE_FIND_ANGLE = property.UseAngleSearch,
                 FIND_ANGLE_MIN = property.AngleMinimum,
                 FIND_ANGLE_MAX = property.AngleMaximum,
                 FIND_ANGLE = property.AngleStep,
+                USE_COARSE_TO_FINE_ANGLE_SEARCH = true,
+                COARSE_ANGLE_STEP = 4d,
                 USE_FIND_SCALE = property.UseScaleSearch,
                 FIND_SCALE_MIN = property.ScaleMinimum,
                 FIND_SCALE_MAX = property.ScaleMaximum,
                 FIND_SCALE_STEP = property.ScaleStep,
+                HYBRID_VERIFY_TOP_N = 6,
                 USE_ROI = true,
                 CvROI = analysisRoi
             };
@@ -1164,63 +1169,6 @@ namespace OpenVisionLab.Vision2D.Tool
             public double Brightness { get; }
         }
 
-        private sealed class EdgeMatcherProperty : IOpenCVPropertyEdgeBasedTemplateMatching
-        {
-            public string NAME { get; set; } = "Auto MPoint verifier";
-            public double PIXELPERMM { get; set; }
-            public bool USE_THRESHOLD { get; set; }
-            public bool USE_BITWISENOT { get; set; }
-            public ThresholdTypes THRESHOLD_TYPES { get; set; } = ThresholdTypes.Binary;
-            public double THRESHOLD { get; set; }
-            public bool USE_ADAPTIVE_THRESHOLD { get; set; }
-            public double ADAPTIVE_THRESHOLD { get; set; } = 255d;
-            public ThresholdTypes ADAPTIVE_THRESHOLD_TYPES { get; set; } = ThresholdTypes.Binary;
-            public AdaptiveThresholdTypes ADAPTIVE_THRESHOLD_ALGORITHM { get; set; } = AdaptiveThresholdTypes.GaussianC;
-            public int BlockSize { get; set; } = 25;
-            public int Weight { get; set; } = 5;
-            public bool USE_ROI { get; set; }
-            public bool USE_MULTI_ROI { get; set; }
-            public Rect CvROI { get; set; }
-            public List<Rect> CvROIS { get; set; } = new List<Rect>();
-            public List<Rect> CvMASKS { get; set; } = new List<Rect>();
-
-            public double SCORE_MIN { get; set; } = 0.55d;
-            public int NUM_MATCH { get; set; } = 2;
-            public bool USE_UNIQUE_MATCH_VALIDATION { get; set; }
-            public double UNIQUE_MATCH_MIN_SCORE_MARGIN { get; set; } = 0.03d;
-            public bool ALLOW_GLOBAL_POLARITY_REVERSAL { get; set; }
-            public string PATTERN_PATH { get; set; } = string.Empty;
-            public int CANNY_LOW { get; set; } = 30;
-            public int CANNY_HIGH { get; set; } = 90;
-            public int CANNY_APERTURE_SIZE { get; set; } = 3;
-            public bool USE_L2_GRADIENT { get; set; } = true;
-            public RetrievalModes CONTOUR_RETRIEVAL_MODE { get; set; } = RetrievalModes.External;
-            public ContourApproximationModes CONTOUR_APPROXIMATION_MODE { get; set; } = ContourApproximationModes.ApproxNone;
-            public bool USE_FIND_ANGLE { get; set; }
-            public double FIND_ANGLE { get; set; } = 1d;
-            public int FIND_ANGLE_MAX { get; set; } = 8;
-            public int FIND_ANGLE_MIN { get; set; } = -8;
-            public bool USE_COARSE_TO_FINE_ANGLE_SEARCH { get; set; } = true;
-            public double COARSE_ANGLE_STEP { get; set; } = 4d;
-            public int COARSE_ANGLE_TOP_K { get; set; } = 3;
-            public bool USE_FIND_SCALE { get; set; }
-            public double FIND_SCALE_MIN { get; set; } = 0.9d;
-            public double FIND_SCALE_MAX { get; set; } = 1.1d;
-            public double FIND_SCALE_STEP { get; set; } = 0.05d;
-            public double GREEDINESS { get; set; } = 0.9d;
-            public int SEARCH_STEP { get; set; } = 2;
-            public bool USE_POSITION_REFINE { get; set; } = true;
-            public bool USE_SUBPIXEL_REFINE { get; set; } = true;
-            public bool USE_PYRAMID_POSITION_PROPOSAL { get; set; } = true;
-            public int PYRAMID_POSITION_TOP_N { get; set; } = 6;
-            public double PYRAMID_POSITION_MIN_SCORE { get; set; } = 0.55d;
-            public bool USE_HYBRID_VERIFY { get; set; } = true;
-            public int HYBRID_VERIFY_TOP_N { get; set; } = 6;
-            public double HYBRID_VERIFY_IMAGE_WEIGHT { get; set; } = 0.35d;
-            public int MAX_TEMPLATE_POINTS { get; set; } = 300;
-            public double MIN_GRADIENT_MAGNITUDE { get; set; } = 1d;
-            public bool USE_DRAW_IMAGE { get; set; }
-        }
     }
 
 }

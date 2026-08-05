@@ -652,10 +652,9 @@ namespace OpenVisionLab.Inspection.Smoke
         private static EdgeBasedTemplateMatchingTool CreateEdgeMatcher(Mat template, bool useUniqueMatchValidation)
         {
             EdgeBasedTemplateMatchingTool tool = new EdgeBasedTemplateMatchingTool();
-            tool.SetProperty(new SmokeEdgeMatcherProperty
-            {
-                USE_UNIQUE_MATCH_VALIDATION = useUniqueMatchValidation
-            });
+            EdgeBasedTemplateMatchingToolProperty property = CreateEdgeMatcherProperty();
+            property.USE_UNIQUE_MATCH_VALIDATION = useUniqueMatchValidation;
+            tool.SetProperty(property);
             tool.SetTemplateImage(template);
             return tool;
         }
@@ -708,13 +707,41 @@ namespace OpenVisionLab.Inspection.Smoke
             bool allowGlobalPolarityReversal)
         {
             EdgeBasedTemplateMatchingTool tool = new EdgeBasedTemplateMatchingTool();
-            tool.SetProperty(new SmokeEdgeMatcherProperty
-            {
-                USE_UNIQUE_MATCH_VALIDATION = useUniqueMatchValidation,
-                ALLOW_GLOBAL_POLARITY_REVERSAL = allowGlobalPolarityReversal
-            });
+            EdgeBasedTemplateMatchingToolProperty property = CreateEdgeMatcherProperty();
+            property.USE_UNIQUE_MATCH_VALIDATION = useUniqueMatchValidation;
+            property.ALLOW_GLOBAL_POLARITY_REVERSAL = allowGlobalPolarityReversal;
+            tool.SetProperty(property);
             tool.SetTemplateImage(template);
             return tool;
+        }
+
+        private static EdgeBasedTemplateMatchingToolProperty CreateEdgeMatcherProperty()
+        {
+            return new EdgeBasedTemplateMatchingToolProperty
+            {
+                NAME = "Unique match smoke",
+                ADAPTIVE_THRESHOLD = 5d,
+                ADAPTIVE_THRESHOLD_ALGORITHM = AdaptiveThresholdTypes.MeanC,
+                BlockSize = 11,
+                Weight = 2,
+                SCORE_MIN = 0.5d,
+                CANNY_HIGH = 100,
+                USE_L2_GRADIENT = false,
+                CONTOUR_APPROXIMATION_MODE = ContourApproximationModes.ApproxSimple,
+                FIND_ANGLE = 0.5d,
+                FIND_ANGLE_MAX = 5,
+                FIND_ANGLE_MIN = -5,
+                COARSE_ANGLE_STEP = 2d,
+                GREEDINESS = 0.8d,
+                SEARCH_STEP = 1,
+                USE_POSITION_REFINE = true,
+                USE_SUBPIXEL_REFINE = true,
+                PYRAMID_POSITION_TOP_N = 3,
+                PYRAMID_POSITION_MIN_SCORE = 0.35d,
+                HYBRID_VERIFY_TOP_N = 6,
+                MAX_TEMPLATE_POINTS = 500,
+                MIN_GRADIENT_MAGNITUDE = 5d
+            };
         }
 
         private static void SaveUniqueMatchEvidence(
@@ -804,7 +831,7 @@ namespace OpenVisionLab.Inspection.Smoke
                     right.SetTo(Scalar.All(100d));
                 }
 
-                SmokeMeanProperty multiProperty = new SmokeMeanProperty
+                MeanToolProperty multiProperty = new MeanToolProperty
                 {
                     USE_MULTI_ROI = true,
                     USE_ROI = false,
@@ -830,7 +857,7 @@ namespace OpenVisionLab.Inspection.Smoke
                     }
                 }
 
-                SmokeMeanProperty deviationProperty = new SmokeMeanProperty
+                MeanToolProperty deviationProperty = new MeanToolProperty
                 {
                     MEAN_TYPES = MeanType.MeanStdDev
                 };
@@ -849,7 +876,7 @@ namespace OpenVisionLab.Inspection.Smoke
 
         private static void TestCornerResultContract()
         {
-            SmokeCornerProperty property = new SmokeCornerProperty
+            ContourToolProperty property = new ContourToolProperty
             {
                 USE_MULTI_ROI = true,
                 USE_ROI = false,
