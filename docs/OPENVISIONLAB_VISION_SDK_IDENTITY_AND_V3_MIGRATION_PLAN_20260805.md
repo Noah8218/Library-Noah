@@ -423,3 +423,20 @@ Verification: .NET SDK 8.0.423 Release build 0 warnings/0 errors; Smoke 142/142;
 Evidence: D:\OpenVisionLab-TestData\OpenVisionLab-Vision-SDK\20260805-2d-property-models
 Boundary / next dependency: C*/CV*/LineGuage 레거시 API 삭제, NuGet 게시, OpenVisionLab 및 OpenVisionLab 3D Studio 소비 저장소 변경, UI·카메라·PLC 통합은 수행하지 않았다.
 ```
+
+## 20. C*·CV*·LineGuage 4.0 폐기 사전 조사
+
+현재 공개 API에서 대소문자를 구분해 `C*`, `CV*`, `LineGuage` 후보의 합집합을
+확인한 결과 top-level 공개 타입은 24개다. 이 중 13개에는 기존
+`[Obsolete(..., false)]`가 있고 11개에는 없다. 현대식 대체 타입은 모두 존재하지만,
+일부는 생성자, property 형식, 상속 계약 또는 오류 처리에 차이가 있어 이름만 바꾸는
+일괄 삭제 대상으로 볼 수 없다.
+
+읽기 전용 로컬 소비자 조사에서 `OpenVisionLab`, Dev, 3D Studio 현재 소스에는 정확한
+후보 이름이 없었다. 반면 `Labelling_Application`의 측정 계산은 체크인된 레거시 DLL을
+통해 `CLine`, `CFormula`, `CLineVertical`을 실제 사용하며 해당 동작 테스트도 존재한다.
+따라서 이 세 타입을 포함한 4.0 제거는 소비 저장소의 별도 승인·전환·검증 전에는
+진행할 수 없다.
+
+전체 inventory, 타입별 대체 관계, 직렬화 위험, 제거 순서와 중단 게이트는
+[레거시 C/CV/LineGuage 실제 사용처와 4.0 폐기 설계](LEGACY_C_CV_LINEGUAGE_V4_REMOVAL_PLAN_20260805.md)를 따른다. 이번 단계에서는 소스 삭제, 새 `[Obsolete]` 표시, NuGet 게시와 소비 저장소 변경을 수행하지 않았다.

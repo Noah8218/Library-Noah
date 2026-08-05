@@ -943,6 +943,9 @@ ROI의 폭 또는 높이가 0인 경우 Tool에 따라 전체 이미지로 대�
 
 새 코드에서는 가능하면 `BlobTool`, `MatchingTool`, `LineGaugeTool`, `OpenCvAlgorithmBase`, `VisionToolResult` 기반 API를 사용하는 것을 권장합니다. 레거시 API는 기존 애플리케이션 호환을 위해 유지됩니다.
 
+24개 레거시 공개 타입의 실제 로컬 사용처, 대체 타입, API 차이와 4.0 제거 전 필수
+게이트는 [레거시 C/CV/LineGuage 실제 사용처와 4.0 폐기 설계](docs/LEGACY_C_CV_LINEGUAGE_V4_REMOVAL_PLAN_20260805.md)에 기록되어 있습니다. 현재 3.x에서는 이 API를 유지합니다.
+
 ## Known Limitations
 
 - Windows x64 환경을 우선 지원합니다. `OpenCvSharpExtern.dll`은 `runtimes/win-x64/native` 경로로 패키징됩니다.
