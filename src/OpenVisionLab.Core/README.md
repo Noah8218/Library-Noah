@@ -10,11 +10,15 @@ dotnet add package OpenVisionLab.Core --version 3.0.0
 
 The package contains:
 
-- common bitmap/Mat conversion and 2D geometry utilities;
+- UI-independent numeric, coordinate, ROI, and 2D geometry utilities;
 - managed OpenCvSharp assemblies used by the SDK;
 - `runtimes/win-x64/native/OpenCvSharpExtern.dll`;
 - a `buildTransitive` target that copies the native DLL to the consumer output.
 
 `OpenCvSharpExtern.dll` currently makes Windows x64 the supported native runtime. Keep all OpenVisionLab packages on the same version.
+
+This package deliberately does not provide WinForms/WPF image conversion, serial-port,
+system-time, drive-management, or other application-platform helpers. Consumers that
+display a `Mat` should keep framework-specific conversion in their own UI adapter.
 
 [Repository and full documentation](https://github.com/Noah8218/OpenVisionLab-Vision-SDK)

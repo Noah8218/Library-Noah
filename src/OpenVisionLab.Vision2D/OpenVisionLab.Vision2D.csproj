@@ -8,10 +8,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="System.Drawing.Common" Version="8.0.27" />
-  </ItemGroup>
-
-  <ItemGroup>
     <Reference Include="OpenCvSharp">
       <HintPath>..\OpenVisionLab.Core\DLL\OpenCvSharp.dll</HintPath>
       <Private>True</Private>
@@ -19,9 +15,6 @@
     <Reference Include="OpenCvSharp.Blob">
       <HintPath>..\OpenVisionLab.Core\DLL\OpenCvSharp.Blob.dll</HintPath>
       <Private>True</Private>
-    </Reference>
-    <Reference Include="WindowsBase">
-      <HintPath>..\OpenVisionLab.Core\DLL\WindowsBase.dll</HintPath>
     </Reference>
   </ItemGroup>
 

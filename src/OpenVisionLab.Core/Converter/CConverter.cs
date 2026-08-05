@@ -3,8 +3,6 @@ using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using OpenCvSharp;
-using System.Drawing.Imaging;
-
 namespace OpenVisionLab.Core
 {
     public static class CConverter
@@ -149,55 +147,5 @@ namespace OpenVisionLab.Core
             return new OpenCvSharp.Rect();
         }
 
-        public static System.Drawing.Rectangle ScreenRectToLogicalRect(System.Drawing.Rectangle rt, float fScaleFactorX, float fScaleFactorY)
-        {
-            rt.X = (int)(rt.X / fScaleFactorX);
-            rt.Y = (int)(rt.Y / fScaleFactorY);
-            rt.Width = (int)(rt.Width / fScaleFactorX);
-            rt.Height = (int)(rt.Height / fScaleFactorY);
-
-            return rt;
-        }
-
-        public static System.Drawing.Rectangle LogicalRectToScreenRect(System.Drawing.Rectangle rt, float fScaleFactorX, float fScaleFactorY)
-        {
-            System.Drawing.Rectangle rtScreen = new System.Drawing.Rectangle();
-            rtScreen.X = (int)(rt.X * fScaleFactorX);
-            rtScreen.Y = (int)(rt.Y * fScaleFactorY);
-            rtScreen.Width = (int)(rt.Width * fScaleFactorX);
-            rtScreen.Height = (int)(rt.Height * fScaleFactorY);
-
-            return rtScreen;
-        }
-
-        public static OpenCvSharp.Rect ScreenCVRectToLogicalCVRect(OpenCvSharp.Rect rt, float fScaleFactorX, float fScaleFactorY)
-        {
-            rt.X = (int)(rt.X * fScaleFactorX);
-            rt.Y = (int)(rt.Y * fScaleFactorY);
-            rt.Width = (int)(rt.Width * fScaleFactorX);
-            rt.Height = (int)(rt.Height * fScaleFactorY);
-
-            return rt;
-        }
-
-        public static OpenCvSharp.Point ScreenCVPointToLogicalCVPoint(OpenCvSharp.Point pt, float fScaleFactorX, float fScaleFactorY)
-        {
-            OpenCvSharp.Point ptScreen = new OpenCvSharp.Point();
-
-            ptScreen.X = (int)(pt.X * fScaleFactorX);
-            ptScreen.Y = (int)(pt.Y * fScaleFactorY);
-
-            return ptScreen;
-        }
-
-        public static System.Drawing.Point ScreenPointToLogicalPoint(System.Drawing.Point pt, float fScaleFactorX, float fScaleFactorY)
-        {
-            System.Drawing.Point ptScreen = new System.Drawing.Point();
-
-            ptScreen.X = (int)(pt.X * fScaleFactorX);
-            ptScreen.Y = (int)(pt.Y * fScaleFactorY);
-
-            return ptScreen;
-        }
     }
 }

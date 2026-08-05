@@ -12,7 +12,7 @@ OpenCvSharp 기반 2D 검사와 UI 독립적인 height-map/full-XYZ 3D 계산을
 
 ## 1분 요약
 
-- `OpenVisionLab.Core`는 Bitmap/Mat 변환, 좌표/라인 계산, OpenCV native DLL 패키징을 담당합니다.
+- `OpenVisionLab.Core`는 UI 독립적인 좌표/라인 계산과 OpenCV native DLL 패키징을 담당합니다.
 - `OpenVisionLab.Vision2D`는 Threshold, Filter, Edge, Contour, Matching, LineGauge 등 주요 검사 Tool을 제공합니다.
 - `OpenVisionLab.Vision2D.Blob`은 Blob 라벨링과 면적 필터링 기능을 제공합니다.
 - `OpenVisionLab.Vision3D`는 height map, full-XYZ geometry, affine/regrid, thickness, warpage, flatness, gap/flush, volume 등 순수 3D 계약과 알고리즘을 제공합니다.
@@ -234,7 +234,6 @@ dotnet build OpenVisionLab.VisionSdk.sln -c Release
 OpenVisionLab-Vision-SDK
 |- src
 |  |- OpenVisionLab.Core
-|  |  |- Bitmap
 |  |  |- Converter
 |  |  |- Line
 |  |  |- DLL
@@ -266,7 +265,7 @@ OpenVisionLab-Vision-SDK
 
 | 프로젝트 | 역할 |
 | --- | --- |
-| `OpenVisionLab.Core` | 공통 유틸리티, Bitmap/Mat 변환, 좌표/ROI 변환, 라인 계산, 디렉터리/COM 포트 보조 기능 |
+| `OpenVisionLab.Core` | UI 독립적인 좌표/ROI 변환, 수치·기하 계산, 라인 계산, OpenCV 런타임 자산 |
 | `OpenVisionLab.Vision2D` | 주요 OpenCV 검사 도구, 속성 인터페이스, 결과 모델, 파이프라인 실행 구조 |
 | `OpenVisionLab.Vision2D.Blob` | Blob 라벨링/면적 필터링 도구 |
 | `OpenVisionLab.Vision3D` | UI 독립적인 height-map/full-XYZ 계약, 특징 추출과 3D 검사 알고리즘 |
@@ -289,11 +288,10 @@ OpenVisionLab.Core
 
 ### OpenVisionLab.Core
 
-- `Converter`: `Bitmap`, `Mat`, `Point`, `Rect`, `Rectangle` 변환 유틸리티
-- `Bitmap`: `BitmapHelper`, `BitmapProcessing` 등 Bitmap 직접 처리 기능
+- `Converter`: `Point`, `Rect`, `Rectangle` 등 UI 독립적인 좌표·기하 변환 유틸리티
 - `Line`: 직선 피팅, 수직선 계산, 교차점 계산용 모델과 계산기
 - `CFormula`, `FormulaUtil`: 각도, 교차점, 원근 변환, 폴리곤 판정 등 수식 유틸리티
-- `AppUtil`, `CUtil`: 디렉터리 초기화, 폴더 동기화, 드라이브/COM 포트 조회 등 애플리케이션 보조 기능
+- `DLL`, `build`: OpenCvSharp managed/native 런타임 자산과 소비자 출력 복사 계약
 
 ### OpenVisionLab.Vision2D
 
@@ -653,7 +651,7 @@ using (VisionPipelineContext context = new VisionPipelineContext())
 1. 원본 이미지 `Mat`을 Tool에 입력합니다.
 2. `VisionToolResult`를 받습니다.
 3. 표시용 이미지에는 원본 이미지를 복사한 뒤 `Overlays`를 그립니다.
-4. UI 프로젝트에서는 표시용 `Mat`을 `Bitmap`, `BitmapSource` 등 화면 컨트롤이 요구하는 타입으로 변환해서 표시합니다.
+4. UI 프로젝트에서는 자체 프레임워크 어댑터로 표시용 `Mat`을 화면 컨트롤이 요구하는 타입으로 변환합니다. SDK Core는 WinForms/WPF 이미지 타입이나 변환 API를 제공하지 않습니다.
 
 ### 실제 검출 예시 이미지
 
@@ -805,8 +803,7 @@ using (Mat display = VisionDisplayHelper.DrawVisionResult(source, result))
 {
     Cv2.ImWrite("display_result.png", display);
 
-    // WinForms/WPF/기타 UI에서는 여기서 display Mat을 화면용 이미지 타입으로 변환해 표시합니다.
-    // 예: Bitmap bitmap = OpenVisionLab.Core.BitmapImageConverter.ToBitmap(display);
+    // UI가 필요하면 소비자 프로젝트의 프레임워크별 어댑터에서 display Mat을 변환합니다.
 }
 ```
 

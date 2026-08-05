@@ -1,7 +1,5 @@
-using OpenVisionLab.Core;
 using OpenCvSharp;
 using System.Diagnostics;
-using System.Drawing;
 
 namespace OpenVisionLab.Vision2D.Property
 {
@@ -19,12 +17,6 @@ namespace OpenVisionLab.Vision2D.Property
         public virtual void SetSourceImage(Mat Image)
         {
             Image.CopyTo(imageSource);
-            size = imageSource.Size();
-        }
-
-        public virtual void SetSourceImage(Bitmap Image)
-        {
-            imageSource = CImageConverter.ToMat(Image);
             size = imageSource.Size();
         }
 

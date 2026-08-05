@@ -34,7 +34,7 @@ dotnet add package OpenVisionLab.Vision3D --version 3.0.0 --source .\artifacts\p
 | --- | --- |
 | `Lib.Common` | `OpenVisionLab.Core` |
 | `Lib.Line` | `OpenVisionLab.Core.Geometry2D` |
-| 저장소 소유 `OpenCvSharp.Extensions.BitmapConverter` | `OpenVisionLab.Core.Imaging.BitmapConverter` |
+| 저장소 소유 `OpenCvSharp.Extensions.BitmapConverter` | 소비자 UI 어댑터로 이동(SDK 대체 API 없음) |
 | `Lib.OpenCV` | `OpenVisionLab.Vision2D` |
 | `Lib.OpenCV.Pipeline` | `OpenVisionLab.Vision2D.Pipeline` |
 | `Lib.OpenCV.Property` | `OpenVisionLab.Vision2D.Property` |
@@ -58,11 +58,15 @@ using OpenVisionLab.Vision3D.Geometry;
 using OpenVisionLab.Vision3D.Inspection;
 ```
 
-`BitmapConverter`는 더 이상 제3자 소유처럼 보이는 `OpenCvSharp.Extensions`
-네임스페이스에 있지 않다. 해당 형식을 직접 사용했다면 다음처럼 변경한다.
+`BitmapConverter`는 UI 프레임워크 의존성을 Core에서 분리하기 위해 3.0 SDK에서
+제거되었다. 해당 형식을 직접 사용했다면 소비자 UI 프로젝트의 WinForms/WPF 등
+프레임워크별 어댑터로 변환 코드를 옮기고 SDK에는 `Mat`을 전달한다.
 
 ```csharp
-using OpenVisionLab.Core.Imaging;
+// SDK 경계
+tool.SetSourceImage(sourceMat);
+
+// 화면 표시 변환은 소비자 UI 어댑터가 담당한다.
 ```
 
 ## 3. 소스 프로젝트 참조 교체
@@ -93,7 +97,7 @@ using OpenVisionLab.Core.Imaging;
 ## 5. 소비자 검증 체크리스트
 
 1. 모든 `PackageReference`와 `ProjectReference`가 한 버전 계열만 가리키는지 확인한다.
-2. `Lib.` using과 `OpenCvSharp.Extensions.BitmapConverter` 참조가 남지 않았는지 검색한다.
+2. `Lib.` using이 남지 않았는지, 기존 `BitmapConverter` 사용이 소비자 UI 어댑터로 이동했는지 확인한다.
 3. Release 빌드와 기존 소비자 테스트를 실행한다.
 4. 3D 입력의 단위, frame ID, 결측값과 커버리지 기대값을 다시 확인한다.
 5. OpenVisionLab 또는 3D Studio에서는 패키지 버전·SHA-256·어댑터 계약을 함께 갱신한다.

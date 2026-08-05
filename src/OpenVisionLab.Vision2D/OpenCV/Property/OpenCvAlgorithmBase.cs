@@ -28,14 +28,6 @@ namespace OpenVisionLab.Vision2D.Property
             size = imageSource.Size();
         }
 
-        public virtual void SetSourceImage(Bitmap Image)
-        {
-            Mat converted = BitmapImageConverter.ToMat(Image);
-            imageSource?.Dispose();
-            imageSource = converted;
-            size = imageSource.Size();
-        }
-
         public void Dispose()
         {
             Dispose(true);

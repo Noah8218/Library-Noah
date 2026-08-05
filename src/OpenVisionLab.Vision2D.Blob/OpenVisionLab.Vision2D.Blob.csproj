@@ -15,9 +15,6 @@
       <HintPath>..\OpenVisionLab.Core\DLL\OpenCvSharp.Blob.dll</HintPath>
       <Private>True</Private>
     </Reference>
-    <Reference Include="WindowsBase">
-      <HintPath>..\OpenVisionLab.Core\DLL\WindowsBase.dll</HintPath>
-    </Reference>
   </ItemGroup>
 
   <ItemGroup>

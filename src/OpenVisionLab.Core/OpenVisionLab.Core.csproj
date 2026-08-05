@@ -10,11 +10,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="System.Drawing.Common" Version="8.0.27" />
-    <PackageReference Include="System.IO.Ports" Version="7.0.0" />
-  </ItemGroup>
-
-  <ItemGroup>
     <Folder Include="DLL\" />
   </ItemGroup>
 
@@ -23,16 +18,12 @@
       <HintPath>DLL\OpenCvSharp.dll</HintPath>
       <Private>True</Private>
     </Reference>
-    <Reference Include="WindowsBase">
-      <HintPath>DLL\WindowsBase.dll</HintPath>
-    </Reference>
   </ItemGroup>
 
   <ItemGroup>
     <None Update="README.md" Pack="true" PackagePath="" />
     <None Include="DLL\OpenCvSharp.dll" Pack="true" PackagePath="lib\netstandard2.0\" />
     <None Include="DLL\OpenCvSharp.Blob.dll" Pack="true" PackagePath="lib\netstandard2.0\" />
-    <None Include="DLL\OpenCvSharp.Extensions.dll" Pack="true" PackagePath="lib\netstandard2.0\" />
     <None Include="DLL\OpenCvSharpExtern.dll" Pack="true" PackagePath="runtimes\win-x64\native\" />
     <None Include="build\OpenVisionLab.Core.targets" Pack="true" PackagePath="buildTransitive\" />
   </ItemGroup>

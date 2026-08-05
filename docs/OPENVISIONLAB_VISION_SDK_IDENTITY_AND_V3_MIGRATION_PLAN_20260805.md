@@ -113,7 +113,7 @@ NuGet 패키지명, 생성된 DLL과 문서에서 서로 다른 이름을 해석
 | --- | --- |
 | `Lib.Common` | `OpenVisionLab.Core` |
 | `Lib.Line` | `OpenVisionLab.Core.Geometry2D` |
-| 저장소 소유 `OpenCvSharp.Extensions` 타입 | `OpenVisionLab.Core.Imaging` |
+| 저장소 소유 `OpenCvSharp.Extensions` 이미지 변환 타입 | 소비자 UI 어댑터로 이동(SDK 대체 API 없음) |
 | `Lib.OpenCV` | `OpenVisionLab.Vision2D` |
 | `Lib.OpenCV.Pipeline` | `OpenVisionLab.Vision2D.Pipeline` |
 | `Lib.OpenCV.Property` | `OpenVisionLab.Vision2D.Property` |
@@ -125,8 +125,9 @@ NuGet 패키지명, 생성된 DLL과 문서에서 서로 다른 이름을 해석
 | `Lib.ThreeD.Inspection` | `OpenVisionLab.Vision3D.Inspection` |
 | `Lib.Inspection` | `OpenVisionLab.Inspection` |
 
-이 표는 네임스페이스 소유권만 변경한다. 공개 type과 member 이름은 별도 결함이
-확인되지 않는 한 유지한다. 저장소가 소유한 타입을 제3자 네임스페이스에 계속 두지
+이 표는 네임스페이스 소유권을 기본으로 설명한다. 공개 type과 member 이름은 별도 결함이
+확인되지 않는 한 유지한다. 다만 UI 이미지 변환 타입은 승인된 Core 경계 정리에서 제거하고
+소비자 UI 어댑터 책임으로 전환했다. 저장소가 소유한 타입을 제3자 네임스페이스에 계속 두지
 않으며, 해당 예외의 호출부는 공개 API inventory에서 별도로 검증한다.
 
 ## 5. 버전 및 호환 정책
@@ -240,6 +241,9 @@ Smoke 프로젝트는 새 테스트 프레임워크를 도입하지 않고 현�
 - 패키지, DLL, assembly/file version과 공개 namespace를 `3.0.0` 계약으로 전환했다.
 - 저장소 소유 `BitmapConverter`를 `OpenCvSharp.Extensions`에서
   `OpenVisionLab.Core.Imaging`으로 이동하고 명시적인 OpenCvSharp 참조를 추가했다.
+- 후속 Core 경계 정리에서 해당 임시 변환 API와 `System.Drawing.Common`, `WindowsBase`,
+  `OpenCvSharp.Extensions`, COM 포트·시스템 시간·드라이브 관리 유틸리티를 제거했다.
+  Vision2D 입력은 `Mat` 계약만 유지하고 화면 이미지 변환은 소비자 UI 어댑터 책임으로 확정했다.
 - 현재 코드, solution, project와 CI의 `Lib.*`, `Library-Noah`, 이전 solution 참조를
   0건으로 정리했다.
 - README, 현행 3D 가이드, affine 가이드와 독립 마이그레이션 가이드를 3.0 기준으로
@@ -283,8 +287,8 @@ Smoke 프로젝트는 새 테스트 프레임워크를 도입하지 않고 현�
 ## 10. 위험과 중단 조건
 
 - 이름 전환은 모든 소비자에게 명시적인 소스 마이그레이션을 요구한다.
-- 저장소가 소유한 `OpenCvSharp.Extensions` 타입의 이동은 호출부 충돌 가능성을
-  별도로 검사해야 한다.
+- 저장소가 소유했던 `OpenCvSharp.Extensions` 이미지 변환 타입의 제거는 소비자 UI
+  어댑터로 명시적으로 마이그레이션해야 한다.
 - NuGet 이름의 현재 미등록 상태는 예약이나 상표 사용 권리를 보장하지 않는다.
 - 계산 결과, 기본값 또는 오류 의미가 바뀌면 이름 변경 작업을 중단하고 별도 수치
   변경으로 검토한다.
@@ -357,10 +361,17 @@ Evidence: https://github.com/Noah8218/OpenVisionLab-Vision-SDK/pull/1; https://g
 Boundary / next dependency: 이 기록은 3.0 소스의 main 반영과 로컬 정렬만 증명한다. NuGet 게시, OpenVisionLab 및 OpenVisionLab 3D Studio 소비 저장소 변경은 수행하지 않았으며 각각 별도 승인이 필요하다.
 ```
 
-## 17. 승인된 후속 구조 정리 우선순위
+## 17. 승인된 후속 Core 구조 정리 결과
 
-`OpenVisionLab.Core`는 UI 독립적인 SDK 기반 코드만 소유해야 한다. 기존 WinForms/UI
-관련 코드와 의존성을 먼저 inventory한 뒤 적절한 비-Core 소유자로 이동하거나
-제거한다. 공개 API와 기존 소비자 영향, 빌드·Smoke·package-only 검증 범위를 확인한
-후 별도 구조 변경으로 수행하며, 이번 문서 상태 정리에서는 Core 소스를 변경하지
-않는다. NuGet 게시와 소비 저장소 변경은 계속 별도 승인 범위다.
+`OpenVisionLab.Core`가 UI 독립적인 SDK 기반 코드만 소유하도록 기존 Bitmap 처리·변환,
+화면 좌표 변환, COM 포트·시스템 시간·드라이브 관리 코드와 관련 패키지·바이너리
+의존성을 제거했다. `OpenVisionLab.Vision2D`는 `SetSourceImage(Mat)` 계약만 유지한다.
+
+공개 assembly metadata 비교에서 Core는 승인 목록에 해당하는 공개 항목 110개와
+`System.Drawing.Common`, `System.IO.Ports` 참조(총 112개)가 제거되고 추가 항목은 0개였다.
+Vision2D는 Bitmap 입력 overload 2개와 `System.Drawing.Common` 참조(총 3개)가 제거되고
+추가 항목은 0개였다. Release build는 warning/error 0건, 합성 Smoke는 138/138,
+5개 패키지 pack과 package-only 소비자 실행은 모두 통과했다.
+
+NuGet 게시는 수행하지 않았고 OpenVisionLab 및 OpenVisionLab 3D Studio 소비 저장소도
+변경하지 않았다. 실제 소비자 전환은 계속 별도 승인 범위다.
