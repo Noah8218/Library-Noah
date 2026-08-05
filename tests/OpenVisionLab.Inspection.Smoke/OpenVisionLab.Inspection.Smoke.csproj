@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="OpenCvSharp">
+      <HintPath>..\..\src\OpenVisionLab.Core\DLL\OpenCvSharp.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <None Include="..\..\src\OpenVisionLab.Core\DLL\OpenCvSharpExtern.dll">
+      <Link>OpenCvSharpExtern.dll</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\OpenVisionLab.Inspection\OpenVisionLab.Inspection.csproj" />
+  </ItemGroup>
+
+</Project>

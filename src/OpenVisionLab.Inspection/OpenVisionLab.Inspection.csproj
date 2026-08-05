@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <PackageDescription>Combined 2D and 3D inspection execution contracts for OpenVisionLab.</PackageDescription>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="OpenCvSharp">
+      <HintPath>..\OpenVisionLab.Core\DLL\OpenCvSharp.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="README.md" Pack="true" PackagePath="" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\OpenVisionLab.Vision2D\OpenVisionLab.Vision2D.csproj" />
+    <ProjectReference Include="..\OpenVisionLab.Vision3D\OpenVisionLab.Vision3D.csproj" />
+  </ItemGroup>
+
+</Project>
